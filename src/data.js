@@ -32,6 +32,13 @@ export const MODES = {
   },
 }
 
+// Daily Portfolio Journal — the three portfolio groups a trade can belong to.
+export const JOURNAL_PORTFOLIOS = {
+  shay: { key: 'shay', name: "Shay's Portfolio", hex: '#34e07a' },
+  channel: { key: 'channel', name: "Channel's Portfolio", hex: '#2dd4ff' },
+  insider: { key: 'insider', name: 'Insider', hex: '#f7c948' },
+}
+
 // Mock holdings (mid-2026-ish illustrative prices)
 export const INITIAL_HOLDINGS = [
   // Core

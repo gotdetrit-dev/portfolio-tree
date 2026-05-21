@@ -10,6 +10,7 @@ import HoldingsTable from './components/HoldingsTable.jsx'
 import RebalancePanel from './components/RebalancePanel.jsx'
 import CashManagement from './components/CashManagement.jsx'
 import TransactionHistory from './components/TransactionHistory.jsx'
+import TradeJournal from './components/TradeJournal.jsx'
 import { HoldingModal, PricePlanModal, TargetsModal, TransactionModal } from './components/Modals.jsx'
 
 function defaultTargets() {
@@ -26,6 +27,7 @@ export default function App({ user, onSignOut }) {
   const [cash, setCash] = useState(0)
   const [transactions, setTransactions] = useState([])
   const [cashActivity, setCashActivity] = useState([])
+  const [tradeJournal, setTradeJournal] = useState([])
 
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
@@ -45,6 +47,7 @@ export default function App({ user, onSignOut }) {
     setHoldings(data.holdings)
     setTransactions(data.transactions)
     setCashActivity(data.cashActivity)
+    setTradeJournal(data.tradeJournal || [])
     setCash(data.settings.cash)
     setMode(data.settings.mode)
     setAllTargets(data.settings.targets)
@@ -197,6 +200,25 @@ export default function App({ user, onSignOut }) {
     try {
       await db.insertCashActivity(user.id, c)
       await db.updateSettings(user.id, { cash: newCash })
+    } catch (e) {
+      reportError(e)
+    }
+  }
+
+  async function commitTradeRecord(record) {
+    setTradeJournal((arr) => [record, ...arr])
+    try {
+      await db.insertTradeRecord(user.id, record)
+    } catch (e) {
+      reportError(e)
+    }
+  }
+
+  async function deleteTradeRecord(id) {
+    if (!confirm('ลบบันทึกนี้?')) return
+    setTradeJournal((arr) => arr.filter((r) => r.id !== id))
+    try {
+      await db.deleteTradeRecord(id)
     } catch (e) {
       reportError(e)
     }
@@ -464,6 +486,9 @@ export default function App({ user, onSignOut }) {
         </div>
         <div className="lg:col-span-5" id="water-section">
           <CashManagement cash={cash} activity={cashActivity} onAdd={commitCash} />
+          <div className="mt-6">
+            <TradeJournal records={tradeJournal} onAdd={commitTradeRecord} onDelete={deleteTradeRecord} />
+          </div>
         </div>
       </section>
 

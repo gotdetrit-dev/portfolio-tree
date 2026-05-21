@@ -55,6 +55,18 @@ const fromCashRow = (r) => ({
   id: r.id, date: r.date, type: r.type, amount: num(r.amount), note: r.note ?? '',
 })
 
+const toJournalRow = (r, userId) => ({
+  id: r.id, user_id: userId, date: r.date, portfolio: r.portfolio, action: r.action,
+  ticker: r.ticker, quantity: num(r.quantity), price: num(r.price),
+  reason: r.reason ?? '', note: r.note ?? '',
+})
+
+const fromJournalRow = (r) => ({
+  id: r.id, date: r.date, portfolio: r.portfolio, action: r.action,
+  ticker: r.ticker, quantity: num(r.quantity), price: num(r.price),
+  reason: r.reason ?? '', note: r.note ?? '', createdAt: r.created_at,
+})
+
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
 // Insert a default settings row if the user has none, then return the settings.
@@ -91,19 +103,28 @@ export async function updateSettings(userId, patch) {
 
 export async function loadAll(userId) {
   const settings = await ensureSettings(userId)
-  const [h, t, c] = await Promise.all([
+  const [h, t, c, j] = await Promise.all([
     supabase.from('holdings').select('*').eq('user_id', userId).order('created_at'),
     supabase.from('transactions').select('*').eq('user_id', userId).order('date').order('created_at'),
     supabase.from('cash_activity').select('*').eq('user_id', userId).order('date').order('created_at'),
+    supabase
+      .from('trade_journal')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false }),
   ])
   if (h.error) throw h.error
   if (t.error) throw t.error
   if (c.error) throw c.error
+  // trade_journal may not exist yet (its migration not run) — degrade to empty
+  // instead of breaking the whole app.
   return {
     settings,
     holdings: h.data.map(fromHoldingRow),
     transactions: t.data.map(fromTxnRow),
     cashActivity: c.data.map(fromCashRow),
+    tradeJournal: j.error ? [] : j.data.map(fromJournalRow),
   }
 }
 
@@ -137,6 +158,18 @@ export async function insertTransaction(userId, txn) {
 
 export async function insertCashActivity(userId, activity) {
   const { error } = await supabase.from('cash_activity').insert(toCashRow(activity, userId))
+  if (error) throw error
+}
+
+// ─── Trade journal ────────────────────────────────────────────────────────────
+
+export async function insertTradeRecord(userId, record) {
+  const { error } = await supabase.from('trade_journal').insert(toJournalRow(record, userId))
+  if (error) throw error
+}
+
+export async function deleteTradeRecord(id) {
+  const { error } = await supabase.from('trade_journal').delete().eq('id', id)
   if (error) throw error
 }
 
