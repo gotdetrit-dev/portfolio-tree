@@ -186,10 +186,10 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
           <colgroup>
             <col style={{ width: '80px' }} />
             <col style={{ width: 'auto', minWidth: '180px' }} />
+            <col style={{ width: '140px' }} />
             <col style={{ width: '60px' }} />
             <col style={{ width: '104px' }} />
             <col style={{ width: '92px' }} />
-            <col style={{ width: '122px' }} />
             <col style={{ width: '100px' }} />
             <col style={{ width: '116px' }} />
             <col style={{ width: '96px' }} />
@@ -198,10 +198,10 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
             <tr>
               <th>หมวด</th>
               <SortHead k="symbol">สินทรัพย์</SortHead>
+              <SortHead k="curPct">สัดส่วน</SortHead>
               <SortHead k="qty" align="right">จำนวน</SortHead>
               <SortHead k="price" align="right">ราคา</SortHead>
               <SortHead k="mv" align="right">มูลค่า</SortHead>
-              <SortHead k="curPct" align="right">สัดส่วน</SortHead>
               <SortHead k="pl" align="right">กำไร/ขาดทุน</SortHead>
               <th>แผน</th>
               <th style={{ textAlign: 'right' }}>คำสั่ง</th>
@@ -216,6 +216,8 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
               let allocTone = '#cfd6e3'
               if (r.diffPct > 1.0) { allocStatus = 'เกินเป้า'; allocTone = '#ff8aa0' }
               if (r.diffPct < -1.0) { allocStatus = 'ต่ำกว่าเป้า'; allocTone = '#9bffae' }
+              // Gauge fill = progress toward this stock's own target weight.
+              const gaugeFill = r.tgtPct > 0 ? Math.min(100, Math.max(0, (r.curPct / r.tgtPct) * 100)) : 0
               return (
                 <tr key={r.id}>
                   {/* หมวด */}
@@ -240,6 +242,27 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
                     </div>
                   </td>
 
+                  {/* สัดส่วน — เกจเทียบเป้าหมายรายตัว */}
+                  <td className="mono">
+                    <div className="flex items-baseline gap-1 leading-none whitespace-nowrap mb-1">
+                      <span className="text-[12.5px] font-semibold">{fmtPctPlain(r.curPct, 1)}</span>
+                      <span className="text-[10px] text-[var(--txt-faint)]">/ {fmtPctPlain(r.tgtPct, 1)}</span>
+                    </div>
+                    <div
+                      className="relative h-2 rounded-full overflow-hidden"
+                      style={{ background: 'rgba(255,255,255,0.07)' }}
+                      title={`ปัจจุบัน ${fmtPctPlain(r.curPct, 1)} · เป้าหมาย ${fmtPctPlain(r.tgtPct, 1)}`}
+                    >
+                      <div
+                        className="absolute inset-y-0 left-0 rounded-full"
+                        style={{ width: `${gaugeFill}%`, background: allocTone, boxShadow: `0 0 6px ${allocTone}99` }}
+                      />
+                    </div>
+                    <div className="text-[10px] mt-0.5 whitespace-nowrap" style={{ color: allocTone }}>
+                      {fmtPct(r.diffPct, 1)} <span className="text-[var(--txt-faint)]">· {allocStatus}</span>
+                    </div>
+                  </td>
+
                   {/* จำนวน */}
                   <td className="mono" style={{ textAlign: 'right' }}>{fmtQty(r.qty)}</td>
 
@@ -252,17 +275,6 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
                   {/* มูลค่า */}
                   <td className="mono font-semibold whitespace-nowrap" style={{ textAlign: 'right' }}>
                     {fmtUsd(r.mv, 0)}
-                  </td>
-
-                  {/* สัดส่วน — ปัจจุบัน / เป้า / สถานะ */}
-                  <td className="mono" style={{ textAlign: 'right' }}>
-                    <div className="flex items-baseline justify-end gap-1.5 leading-none whitespace-nowrap">
-                      <span className="text-[14px] font-semibold">{fmtPctPlain(r.curPct, 1)}</span>
-                      <span className="text-[10.5px] text-[var(--txt-faint)]">/ {fmtPctPlain(r.tgtPct, 1)}</span>
-                    </div>
-                    <div className="text-[10.5px] mt-0.5 whitespace-nowrap" style={{ color: allocTone }}>
-                      {fmtPct(r.diffPct, 1)} <span className="text-[var(--txt-faint)]">· {allocStatus}</span>
-                    </div>
                   </td>
 
                   {/* กำไร/ขาดทุน — เงิน + เปอร์เซ็นต์ */}
