@@ -22,6 +22,9 @@ export default function Login() {
   const [notice, setNotice] = useState('')
 
   const isSignup = mode === 'signup'
+  // New-account sign-up is closed by default. Re-open it by setting
+  // VITE_ALLOW_SIGNUP=true (and re-enabling sign-ups in Supabase).
+  const allowSignup = import.meta.env.VITE_ALLOW_SIGNUP === 'true'
 
   async function submit(e) {
     e.preventDefault()
@@ -113,16 +116,22 @@ export default function Login() {
           </button>
         </form>
 
-        <div className="mt-4 text-center text-[12px] text-[var(--txt-dim)]">
-          {isSignup ? 'มีบัญชีอยู่แล้ว?' : 'ยังไม่มีบัญชี?'}{' '}
-          <button
-            type="button"
-            className="underline hover:text-white transition-colors"
-            onClick={() => { setMode(isSignup ? 'signin' : 'signup'); setError(''); setNotice('') }}
-          >
-            {isSignup ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก'}
-          </button>
-        </div>
+        {allowSignup ? (
+          <div className="mt-4 text-center text-[12px] text-[var(--txt-dim)]">
+            {isSignup ? 'มีบัญชีอยู่แล้ว?' : 'ยังไม่มีบัญชี?'}{' '}
+            <button
+              type="button"
+              className="underline hover:text-white transition-colors"
+              onClick={() => { setMode(isSignup ? 'signin' : 'signup'); setError(''); setNotice('') }}
+            >
+              {isSignup ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก'}
+            </button>
+          </div>
+        ) : (
+          <div className="mt-4 text-center text-[11px] text-[var(--txt-faint)]">
+            ระบบปิดรับสมัครสมาชิกใหม่ · ติดต่อผู้ดูแลเพื่อขอบัญชี
+          </div>
+        )}
       </div>
     </div>
   )
