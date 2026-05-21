@@ -1,0 +1,263 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { CATS, fmtPct, fmtPctPlain, fmtQty, fmtUsd, holdingCost, holdingMV, nextPlan } from '../data.js'
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HoldingsTable — full table with all required columns, filterable by category
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ZoneBadge({ zone }) {
+  const tone = zone === 'Add Zone' ? '#9bffae' : zone === 'Trim Zone' ? '#ff8aa0' : '#cfd6e3'
+  const labelMap = { 'Add Zone': 'โซนเพิ่ม', 'Trim Zone': 'โซนลด', Hold: 'ถือรอ' }
+  return <span className="chip" style={{ color: tone, fontSize: 9.5, padding: '1px 6px' }}>{labelMap[zone] || zone}</span>
+}
+
+function RowActions({ row, onAddTxn, onPlan, onEdit, onDelete }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    function onDoc(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    function onEsc(e) { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onEsc)
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onEsc) }
+  }, [open])
+
+  const items = [
+    { key: 'buy', label: 'ซื้อ', tone: '#9bffae', onClick: () => { onAddTxn({ ...row, type: 'buy' }); setOpen(false) } },
+    { key: 'sell', label: 'ขาย', tone: '#ff8aa0', onClick: () => { onAddTxn({ ...row, type: 'sell' }); setOpen(false) } },
+    { key: 'plan', label: 'ตั้งแผนเพิ่ม/ลด', tone: '#cfd6e3', onClick: () => { onPlan(row); setOpen(false) } },
+    { key: 'edit', label: 'แก้ไข', tone: '#cfd6e3', onClick: () => { onEdit(row); setOpen(false) } },
+    { key: 'del', label: 'ลบ', tone: '#ff8aa0', onClick: () => { onDelete(row); setOpen(false) } },
+  ]
+
+  return (
+    <div className="relative inline-block" ref={ref}>
+      <button
+        className="btn px-3 py-1 text-[11.5px] inline-flex items-center gap-1 whitespace-nowrap"
+        onClick={() => setOpen((o) => !o)}
+        title="จัดการรายการ"
+      >
+        จัดการ
+        <span
+          className="text-[9px] opacity-70"
+          style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 120ms' }}
+        >
+          ▾
+        </span>
+      </button>
+      {open && (
+        <div
+          className="absolute right-0 mt-1.5 z-30 panel rounded-lg p-1 fade-in"
+          style={{ minWidth: 168, boxShadow: '0 18px 40px rgba(0,0,0,0.55)' }}
+        >
+          {items.map((it) => (
+            <button
+              key={it.key}
+              onClick={it.onClick}
+              className="w-full text-left px-3 py-1.5 rounded-md text-[12px] hover:bg-white/5 transition-colors"
+              style={{ color: it.tone }}
+            >
+              {it.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FilterChip({ active, onClick, label, color }) {
+  return (
+    <button
+      onClick={onClick}
+      className="px-3 py-1 rounded-full text-[11.5px] transition-all whitespace-nowrap"
+      style={{
+        border: `1px solid ${active ? color + '88' : 'var(--line-strong)'}`,
+        background: active ? color + '14' : 'transparent',
+        color: active ? color : 'var(--txt)',
+        boxShadow: active ? `0 0 12px ${color}33` : 'none',
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
+export default function HoldingsTable({ holdings, agg, targets, onAddTxn, onEdit, onDelete, onPlan, onAddHolding }) {
+  const [filter, setFilter] = useState('all')
+  const [sort, setSort] = useState({ key: 'mv', dir: 'desc' })
+
+  const rows = useMemo(() => {
+    const filtered = filter === 'all' ? holdings : holdings.filter((h) => h.cat === filter)
+    const enriched = filtered.map((h) => {
+      const mv = holdingMV(h)
+      const cost = holdingCost(h)
+      const pl = mv - cost
+      const plPct = cost ? (pl / cost) * 100 : 0
+      const curPct = agg.total ? (mv / agg.total) * 100 : 0
+      // Target % within category, allocate proportional to current weight
+      const catHoldings = holdings.filter((x) => x.cat === h.cat)
+      const catMv = catHoldings.reduce((s, x) => s + holdingMV(x), 0)
+      const intraShare = catMv ? mv / catMv : 0
+      const tgtPct = (targets[h.cat] || 0) * intraShare
+      const diffPct = curPct - tgtPct
+      const diffUsd = (diffPct / 100) * agg.total
+      const np = nextPlan(h)
+      return { ...h, mv, cost, pl, plPct, curPct, tgtPct, diffPct, diffUsd, ...np }
+    })
+    enriched.sort((a, b) => {
+      const dir = sort.dir === 'asc' ? 1 : -1
+      const av = a[sort.key]
+      const bv = b[sort.key]
+      if (typeof av === 'string') return av.localeCompare(bv) * dir
+      return ((av || 0) - (bv || 0)) * dir
+    })
+    return enriched
+  }, [holdings, filter, sort, agg, targets])
+
+  function toggleSort(k) {
+    setSort((s) => (s.key === k ? { key: k, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key: k, dir: 'desc' }))
+  }
+
+  const SortHead = ({ k, children, align = 'left' }) => (
+    <th onClick={() => toggleSort(k)} className="cursor-pointer select-none hover:text-white" style={{ textAlign: align }}>
+      <span className="inline-flex items-center gap-1">
+        {children}
+        {sort.key === k && <span className="text-[var(--txt-faint)] text-[10px]">{sort.dir === 'asc' ? '▲' : '▼'}</span>}
+      </span>
+    </th>
+  )
+
+  return (
+    <div className="panel rounded-2xl overflow-hidden">
+      <div className="flex items-center justify-between gap-3 p-4 border-b border-white/5 flex-wrap">
+        <div className="flex items-center gap-2">
+          <div className="text-[14px] font-semibold tracking-wide">สินทรัพย์ในพอร์ต</div>
+          <span className="text-[11px] text-[var(--txt-dim)]">{rows.length} รายการ</span>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <FilterChip active={filter === 'all'} onClick={() => setFilter('all')} label="ทั้งหมด" color="#fff" />
+          {['cash', 'core', 'stab', 'boost'].map((k) => (
+            <FilterChip key={k} active={filter === k} onClick={() => setFilter(k)} label={CATS[k].name} color={CATS[k].hex} />
+          ))}
+          <div className="w-px h-5 bg-white/10 mx-1" />
+          <button className="btn whitespace-nowrap" onClick={onAddHolding}>＋ เพิ่มสินทรัพย์</button>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="holdings w-full">
+          <colgroup>
+            <col style={{ width: '80px' }} />
+            <col style={{ width: 'auto', minWidth: '180px' }} />
+            <col style={{ width: '60px' }} />
+            <col style={{ width: '104px' }} />
+            <col style={{ width: '92px' }} />
+            <col style={{ width: '122px' }} />
+            <col style={{ width: '100px' }} />
+            <col style={{ width: '116px' }} />
+            <col style={{ width: '96px' }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>หมวด</th>
+              <SortHead k="symbol">สินทรัพย์</SortHead>
+              <SortHead k="qty" align="right">จำนวน</SortHead>
+              <SortHead k="price" align="right">ราคา</SortHead>
+              <SortHead k="mv" align="right">มูลค่า</SortHead>
+              <SortHead k="curPct" align="right">สัดส่วน</SortHead>
+              <SortHead k="pl" align="right">กำไร/ขาดทุน</SortHead>
+              <th>แผน</th>
+              <th style={{ textAlign: 'right' }}>คำสั่ง</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const c = CATS[r.cat]
+              const plPos = r.pl >= 0
+              // Status text for allocation
+              let allocStatus = 'สมดุล'
+              let allocTone = '#cfd6e3'
+              if (r.diffPct > 1.0) { allocStatus = 'เกินเป้า'; allocTone = '#ff8aa0' }
+              if (r.diffPct < -1.0) { allocStatus = 'ต่ำกว่าเป้า'; allocTone = '#9bffae' }
+              return (
+                <tr key={r.id}>
+                  {/* หมวด */}
+                  <td>
+                    <span className="pill" style={{ color: c.hex, borderColor: c.hex + '66' }}>
+                      <span className="pill-dot" style={{ background: c.hex, boxShadow: `0 0 6px ${c.hex}` }} />
+                      {c.name}
+                    </span>
+                  </td>
+
+                  {/* สินทรัพย์ — ชื่อย่อ + ชื่อเต็ม + หมายเหตุ */}
+                  <td>
+                    <div className="leading-tight">
+                      <div className="flex items-center gap-2 whitespace-nowrap">
+                        <span className="mono font-semibold text-[13.5px]">{r.symbol}</span>
+                        <ZoneBadge zone={r.zone} />
+                      </div>
+                      <div className="text-[var(--txt-dim)] text-[11.5px] truncate" style={{ maxWidth: 240 }} title={r.name}>{r.name}</div>
+                      {r.note && (
+                        <div className="text-[var(--txt-faint)] text-[10.5px] truncate italic" style={{ maxWidth: 240 }} title={r.note}>{r.note}</div>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* จำนวน */}
+                  <td className="mono" style={{ textAlign: 'right' }}>{fmtQty(r.qty)}</td>
+
+                  {/* ราคา — ต้นทุน → ปัจจุบัน */}
+                  <td className="mono" style={{ textAlign: 'right' }}>
+                    <div className="text-[10.5px] text-[var(--txt-faint)] whitespace-nowrap">ต้นทุน {fmtUsd(r.avg)}</div>
+                    <div className="font-semibold text-[13px] whitespace-nowrap">{fmtUsd(r.price)}</div>
+                  </td>
+
+                  {/* มูลค่า */}
+                  <td className="mono font-semibold whitespace-nowrap" style={{ textAlign: 'right' }}>
+                    {fmtUsd(r.mv, 0)}
+                  </td>
+
+                  {/* สัดส่วน — ปัจจุบัน / เป้า / สถานะ */}
+                  <td className="mono" style={{ textAlign: 'right' }}>
+                    <div className="flex items-baseline justify-end gap-1.5 leading-none whitespace-nowrap">
+                      <span className="text-[14px] font-semibold">{fmtPctPlain(r.curPct, 1)}</span>
+                      <span className="text-[10.5px] text-[var(--txt-faint)]">/ {fmtPctPlain(r.tgtPct, 1)}</span>
+                    </div>
+                    <div className="text-[10.5px] mt-0.5 whitespace-nowrap" style={{ color: allocTone }}>
+                      {fmtPct(r.diffPct, 1)} <span className="text-[var(--txt-faint)]">· {allocStatus}</span>
+                    </div>
+                  </td>
+
+                  {/* กำไร/ขาดทุน — เงิน + เปอร์เซ็นต์ */}
+                  <td className="mono" style={{ textAlign: 'right' }}>
+                    <div className="text-[13.5px] font-semibold leading-tight whitespace-nowrap" style={{ color: plPos ? '#9bffae' : '#ff8aa0' }}>{fmtUsd(r.pl, 0)}</div>
+                    <div className="text-[11px] whitespace-nowrap" style={{ color: plPos ? '#9bffae' : '#ff8aa0', opacity: 0.85 }}>{fmtPct(r.plPct, 1)}</div>
+                  </td>
+
+                  {/* แผน — ระดับถัดไป */}
+                  <td className="mono text-[11.5px]">
+                    <div className="flex items-center gap-1 whitespace-nowrap" style={{ color: '#9bffae' }}>
+                      <span className="opacity-60">เพิ่ม</span>
+                      <span className="font-semibold">{r.nextAdd ? fmtUsd(r.nextAdd) : '—'}</span>
+                    </div>
+                    <div className="flex items-center gap-1 whitespace-nowrap" style={{ color: '#ff8aa0' }}>
+                      <span className="opacity-60">ลด</span>
+                      <span className="font-semibold">{r.nextTrim ? fmtUsd(r.nextTrim) : '—'}</span>
+                    </div>
+                  </td>
+
+                  {/* คำสั่ง */}
+                  <td style={{ textAlign: 'right' }}>
+                    <RowActions row={r} onAddTxn={onAddTxn} onPlan={onPlan} onEdit={onEdit} onDelete={onDelete} />
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}

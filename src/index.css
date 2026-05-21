@@ -1,0 +1,253 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-0: #050608;
+  --bg-1: #0a0c12;
+  --bg-2: #11141c;
+  --line: rgba(255,255,255,0.08);
+  --line-strong: rgba(255,255,255,0.15);
+  --txt: #e8ecf2;
+  --txt-dim: #8a92a3;
+  --txt-faint: #565d6d;
+
+  --cash:       #2dd4ff;      /* cyan-blue */
+  --core:       #34e07a;      /* neon green */
+  --stab:       #f7c948;      /* gold */
+  --boost:      #ff4d6d;      /* red-pink */
+
+  --cash-glow:  rgba(45,212,255,0.55);
+  --core-glow:  rgba(52,224,122,0.55);
+  --stab-glow:  rgba(247,201,72,0.55);
+  --boost-glow: rgba(255,77,109,0.55);
+}
+html, body { background: #000; color: var(--txt); }
+body {
+  font-family: 'Noto Sans Thai', 'Prompt', system-ui, sans-serif;
+  background:
+    radial-gradient(900px 600px at 50% 38%, rgba(52,224,122,0.045), transparent 65%),
+    radial-gradient(900px 600px at 50% 78%, rgba(45,212,255,0.035), transparent 65%),
+    radial-gradient(1200px 800px at 50% 50%, rgba(20,10,30,0.6), transparent 70%),
+    #000;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  word-break: keep-all;
+  word-wrap: break-word;
+}
+.font-thai { font-family: 'Noto Sans Thai', 'Prompt', system-ui, sans-serif; }
+.font-mono { font-family: 'Apple Color Emoji', 'apple color emoji', system-ui, sans-serif; }
+
+/* Glow utilities */
+.glow-cash  { box-shadow: 0 0 0 1px var(--cash),  0 0 24px var(--cash-glow),  inset 0 0 32px rgba(45,212,255,0.10); }
+.glow-core  { box-shadow: 0 0 0 1px var(--core),  0 0 24px var(--core-glow),  inset 0 0 32px rgba(52,224,122,0.10); }
+.glow-stab  { box-shadow: 0 0 0 1px var(--stab),  0 0 24px var(--stab-glow),  inset 0 0 32px rgba(247,201,72,0.10); }
+.glow-boost { box-shadow: 0 0 0 1px var(--boost), 0 0 24px var(--boost-glow), inset 0 0 32px rgba(255,77,109,0.10); }
+
+.text-cash  { color: var(--cash); }
+.text-core  { color: var(--core); }
+.text-stab  { color: var(--stab); }
+.text-boost { color: var(--boost); }
+
+.panel {
+  background: linear-gradient(180deg, rgba(14,16,22,0.75), rgba(6,7,11,0.75));
+  border: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+}
+.panel-tree {
+  background:
+    radial-gradient(70% 70% at 30% 50%, rgba(52,224,122,0.035), transparent 70%),
+    radial-gradient(60% 60% at 30% 85%, rgba(45,212,255,0.035), transparent 70%),
+    radial-gradient(70% 70% at 30% 20%, rgba(255,77,109,0.025), transparent 70%),
+    transparent;
+  border: 1px solid rgba(255,255,255,0.04);
+}
+/* Tree image blending: pure-black background of source PNG
+   is removed via mix-blend-mode: lighten so the tree dissolves
+   seamlessly into the page background. */
+.tree-img {
+  mix-blend-mode: lighten;
+  filter: drop-shadow(0 24px 60px rgba(0,0,0,0.7));
+}
+.hairline { border: 1px solid var(--line); }
+.hairline-strong { border: 1px solid var(--line-strong); }
+
+/* Custom scrollbar */
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+
+/* Seasonal weather animations */
+@keyframes rainFall {
+  0%   { top: -5%;  opacity: 0; }
+  10%  { opacity: 0.7; }
+  90%  { opacity: 0.7; }
+  100% { top: 105%; opacity: 0; }
+}
+@keyframes snowFall {
+  0%   { top: -5%;  transform: translateX(0)   rotate(0deg);   opacity: 0; }
+  10%  { opacity: 0.85; }
+  50%  {            transform: translateX(10px) rotate(180deg); }
+  90%  { opacity: 0.85; }
+  100% { top: 105%; transform: translateX(-8px) rotate(360deg); opacity: 0; }
+}
+@keyframes sunPulse {
+  0%, 100% { transform: scale(1);   opacity: 0.55; filter: blur(0px); }
+  50%      { transform: scale(1.06); opacity: 0.85; filter: blur(0.5px); }
+}
+@keyframes sunRay {
+  0%, 100% { opacity: 0.20; }
+  50%      { opacity: 0.55; }
+}
+@keyframes heatWave {
+  0%   { transform: translateY(0)   scaleX(1);    opacity: 0.0; }
+  20%  { opacity: 0.35; }
+  80%  { opacity: 0.35; }
+  100% { transform: translateY(-40px) scaleX(1.4); opacity: 0; }
+}
+.weather-drop {
+  position: absolute; top: 0; width: 1.5px;
+  background: linear-gradient(to bottom, transparent, #7bd1ff 30%, #2dd4ff);
+  border-radius: 999px;
+  animation: rainFall linear infinite;
+  box-shadow: 0 0 6px rgba(45,212,255,0.6);
+}
+.weather-flake {
+  position: absolute; top: 0;
+  color: rgba(207,227,255,0.9);
+  animation: snowFall linear infinite;
+  filter: drop-shadow(0 0 4px rgba(207,227,255,0.6));
+}
+.weather-sun {
+  position: absolute;
+  border-radius: 999px;
+  background: radial-gradient(circle at 40% 40%, #ffd47a, #ff9d3d 50%, transparent 70%);
+  animation: sunPulse 4s ease-in-out infinite;
+}
+.weather-ray {
+  position: absolute; left: 50%; top: 50%;
+  height: 2px; transform-origin: 0 50%;
+  background: linear-gradient(to right, rgba(255,179,122,0.85), transparent);
+  border-radius: 999px;
+  animation: sunRay 3.2s ease-in-out infinite;
+}
+.weather-wave {
+  position: absolute; bottom: 0;
+  width: 60%; height: 2px;
+  background: linear-gradient(to right, transparent, rgba(255,179,122,0.65), transparent);
+  border-radius: 999px;
+  animation: heatWave linear infinite;
+}
+@keyframes neonPulse {
+  0%, 100% { filter: drop-shadow(0 0 4px currentColor) drop-shadow(0 0 12px currentColor); }
+  50%      { filter: drop-shadow(0 0 6px currentColor) drop-shadow(0 0 20px currentColor); }
+}
+.neon-pulse { animation: neonPulse 3.6s ease-in-out infinite; }
+
+@keyframes dashFlow {
+  to { stroke-dashoffset: -32; }
+}
+.dash-flow { stroke-dasharray: 2 6; animation: dashFlow 6s linear infinite; }
+
+@keyframes sapFlow {
+  to { stroke-dashoffset: -200; }
+}
+.sap-flow { animation: sapFlow 8s linear infinite; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.fade-in { animation: fadeIn 220ms ease-out both; }
+
+.num-tabular { font-variant-numeric: tabular-nums; }
+
+/* Inputs */
+.field {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--line-strong);
+  color: var(--txt);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  width: 100%;
+  outline: none;
+  transition: border-color 120ms;
+  font-family: 'Apple Color Emoji', 'apple color emoji', system-ui, sans-serif;
+}
+.field:focus { border-color: rgba(255,255,255,0.4); }
+.field-label { font-size: 11px; color: var(--txt-dim); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; display: block; }
+
+.btn {
+  border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 500;
+  transition: all 140ms; border: 1px solid var(--line-strong);
+  background: rgba(255,255,255,0.04); color: var(--txt);
+}
+.btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.25); }
+.btn-primary {
+  background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04));
+  border-color: rgba(255,255,255,0.35);
+}
+.btn-primary:hover { background: rgba(255,255,255,0.16); }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--txt-dim); }
+.btn-ghost:hover { background: rgba(255,255,255,0.05); color: var(--txt); }
+.btn-danger { color: #ff8aa0; }
+.btn-danger:hover { background: rgba(255,77,109,0.10); border-color: rgba(255,77,109,0.4); }
+
+/* Tab pill */
+.pill {
+  display:inline-flex; align-items:center; gap:6px;
+  padding: 4px 10px; border-radius: 999px; font-size: 11px;
+  border: 1px solid var(--line-strong); background: rgba(255,255,255,0.03);
+}
+.pill-dot { width:6px; height:6px; border-radius:999px; }
+
+table.holdings { width:100%; border-collapse: separate; border-spacing: 0; }
+table.holdings th {
+  text-align: left; padding: 10px 10px; font-size: 10.5px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--txt-dim); font-weight: 500;
+  border-bottom: 1px solid var(--line);
+  background: rgba(0,0,0,0.25); position: sticky; top: 0;
+  white-space: nowrap;
+}
+table.holdings td {
+  padding: 10px 10px; font-size: 13px;
+  border-bottom: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+}
+table.holdings tr:hover td { background: rgba(255,255,255,0.025); }
+table.holdings td.mono { font-family: 'Apple Color Emoji', 'apple color emoji', system-ui, sans-serif; }
+
+/* Modal backdrop */
+.backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(6px); z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+
+/* Status chip */
+.chip {
+  display:inline-flex; align-items:center; gap:6px;
+  padding: 3px 8px; border-radius: 6px; font-size: 11px;
+  border:1px solid currentColor; background: rgba(255,255,255,0.02);
+  font-weight: 500;
+}
+
+/* Mode tab */
+.mode-tab {
+  position: relative; padding: 10px 18px; border-radius: 10px;
+  border: 1px solid var(--line); background: rgba(255,255,255,0.02);
+  transition: all 140ms; cursor: pointer; min-width: 0;
+}
+.mode-tab:hover { border-color: var(--line-strong); }
+.mode-tab.active { background: rgba(255,255,255,0.05); }
+
+/* Subtle bg grid for the tree area */
+.tree-bg {
+  background:
+    radial-gradient(800px 500px at 50% 60%, rgba(0,0,0,0.0), rgba(0,0,0,0.6) 80%),
+    radial-gradient(circle at 50% 55%, rgba(52,224,122,0.04), transparent 50%),
+    #06070a;
+  background-attachment: local;
+}
