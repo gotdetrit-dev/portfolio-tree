@@ -82,23 +82,46 @@ export const INITIAL_CASH_ACTIVITY = [
 export function holdingMV(h) { return h.qty * h.price }
 export function holdingCost(h) { return h.qty * h.avg }
 
-// Returns aggregated market values and totals by category
-export function aggregate(holdings, cash, transactions = []) {
+// Returns aggregated market values and totals by category.
+//
+// Profit model:
+//   costBasis    = deposits − withdrawals (the net capital put in)
+//   realizedPL   = sell P/L  +  cash income (dividends, interest, other)
+//   unrealizedPL = current holdings' (price − avg) × qty
+//   totalPL      = realizedPL + unrealizedPL
+//   totalReturnPct = totalPL ÷ costBasis
+export function aggregate(holdings, cash, transactions = [], cashActivity = []) {
   const invested = holdings.reduce((s, h) => s + holdingMV(h), 0)
   const total = invested + cash
   const byCat = { cash, core: 0, stab: 0, boost: 0 }
   for (const h of holdings) byCat[h.cat] += holdingMV(h)
   const pct = {}
   for (const k of Object.keys(byCat)) pct[k] = total === 0 ? 0 : (byCat[k] / total) * 100
+
   const cost = holdings.reduce((s, h) => s + holdingCost(h), 0)
   const unrealizedPL = invested - cost
-  const realizedPL = transactions.reduce((s, t) => s + (t.type === 'sell' ? t.realizedPL || 0 : 0), 0)
+
+  // Net capital contributed, and realized cash income from non-capital sources.
+  let costBasis = 0
+  let cashIncome = 0
+  for (const a of cashActivity) {
+    const amt = Number(a.amount) || 0
+    if (a.type === 'deposit') costBasis += amt
+    else if (a.type === 'withdraw') costBasis -= amt
+    else cashIncome += amt // dividend / interest / other → realized income
+  }
+
+  const sellRealized = transactions.reduce((s, t) => s + (t.type === 'sell' ? t.realizedPL || 0 : 0), 0)
+  const realizedPL = sellRealized + cashIncome
   const totalPL = unrealizedPL + realizedPL
   // Backwards-compat alias `pl` (still used in CategoryCard / row sort)
   const pl = unrealizedPL
   const plPct = cost === 0 ? 0 : (pl / cost) * 100
-  const totalReturnPct = cost === 0 ? 0 : (totalPL / cost) * 100
-  return { total, invested, cash, byCat, pct, pl, plPct, cost, unrealizedPL, realizedPL, totalPL, totalReturnPct }
+  const totalReturnPct = costBasis === 0 ? 0 : (totalPL / costBasis) * 100
+  return {
+    total, invested, cash, byCat, pct, pl, plPct, cost, costBasis,
+    cashIncome, unrealizedPL, realizedPL, totalPL, totalReturnPct,
+  }
 }
 
 // Returns next "add" and next "trim" plan levels based on current price

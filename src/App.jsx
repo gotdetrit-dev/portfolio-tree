@@ -92,7 +92,7 @@ export default function App({ user, onSignOut }) {
   // ─── Derived ───────────────────────────────────────────────────────────────
   const targets = allTargets[mode] || allTargets.cool
   const agg = useMemo(() => {
-    const a = aggregate(holdings, cash, transactions)
+    const a = aggregate(holdings, cash, transactions, cashActivity)
     a.plByCat = { cash: { pl: 0, pct: 0 }, core: {}, stab: {}, boost: {} }
     for (const k of ['core', 'stab', 'boost']) {
       const hs = holdings.filter((h) => h.cat === k)
@@ -101,7 +101,7 @@ export default function App({ user, onSignOut }) {
       a.plByCat[k] = { pl: mv - cost, pct: cost ? ((mv - cost) / cost) * 100 : 0 }
     }
     return a
-  }, [holdings, cash, transactions])
+  }, [holdings, cash, transactions, cashActivity])
 
   const rebalancing = useMemo(() => {
     let offCount = 0

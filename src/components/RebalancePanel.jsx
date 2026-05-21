@@ -1,4 +1,4 @@
-import { CATS, fmtPctPlain, fmtUsdK } from '../data.js'
+import { CATS, fmtPctPlain, fmtUsd, fmtUsdK } from '../data.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RebalancePanel — actionable list with 25/50/100% staged rebalance
@@ -17,12 +17,19 @@ export default function RebalancePanel({ targets, agg, onAct }) {
 
   return (
     <div className="panel rounded-2xl p-5">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div>
           <div className="text-[14px] font-semibold tracking-wide">สถานะปรับสมดุล</div>
           <div className="text-[11px] text-[var(--txt-dim)]">ปรับเป็นขั้น 25 / 50 / 100% ของส่วนต่าง</div>
         </div>
-        <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)]">เทียบเป้าหมายโหมด</div>
+        <div
+          className="rounded-lg px-3 py-1.5 text-[12px] whitespace-nowrap"
+          style={{ background: 'rgba(45,212,255,0.08)', border: '1px solid rgba(45,212,255,0.28)' }}
+          title="มูลค่า 1% ของพอร์ตทั้งหมด — ใช้คำนวณว่าจะซื้อกี่ % ต้องใช้เงินเท่าไร"
+        >
+          <span className="text-[var(--txt-dim)]">1% ของพอร์ต = </span>
+          <span className="font-mono font-semibold text-cash">{fmtUsd(agg.total / 100)}</span>
+        </div>
       </div>
       <div className="space-y-2.5">
         {rows.map((r) => {
