@@ -170,6 +170,11 @@ export async function insertTransaction(userId, txn) {
   if (error) throw error
 }
 
+export async function deleteTransactionRow(id) {
+  const { error } = await supabase.from('transactions').delete().eq('id', id)
+  if (error) throw error
+}
+
 // ─── Cash activity ────────────────────────────────────────────────────────────
 
 export async function insertCashActivity(userId, activity) {

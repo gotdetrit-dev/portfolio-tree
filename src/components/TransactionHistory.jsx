@@ -7,7 +7,7 @@ import { CATS, fmtQty, fmtUsd } from '../data.js'
 
 const TYPE_LABEL = { buy: 'ซื้อ', sell: 'ขาย', div: 'ปันผล' }
 
-export default function TransactionHistory({ transactions }) {
+export default function TransactionHistory({ transactions, onDelete }) {
   return (
     <div className="panel rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
@@ -51,6 +51,15 @@ export default function TransactionHistory({ transactions }) {
               <span className="font-mono num-tabular w-[100px] text-right whitespace-nowrap" style={{ color: tone }}>
                 {isBuy ? '−' : '+'}{fmtUsd(t.total || t.amount || 0)}
               </span>
+              {onDelete && (
+                <button
+                  onClick={() => onDelete(t.id)}
+                  className="text-[var(--txt-faint)] hover:text-[#ff8aa0] transition-colors text-[12px] shrink-0"
+                  title="ลบรายการนี้ออกจากประวัติ"
+                >
+                  ✕
+                </button>
+              )}
             </div>
           )
         })}

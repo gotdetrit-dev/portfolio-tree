@@ -182,6 +182,16 @@ export default function App({ user, onSignOut }) {
     }
   }
 
+  async function deleteTransaction(id) {
+    if (!confirm('ลบรายการนี้ออกจากประวัติ? (ไม่กระทบจำนวนหุ้นหรือยอดน้ำ — ปรับเองหากต้องการ)')) return
+    setTransactions((ts) => ts.filter((t) => t.id !== id))
+    try {
+      await db.deleteTransactionRow(id)
+    } catch (e) {
+      reportError(e)
+    }
+  }
+
   async function commitHolding(h) {
     const exists = holdings.some((x) => x.id === h.id)
     setHoldModal(null)
@@ -613,7 +623,7 @@ export default function App({ user, onSignOut }) {
         <div className="lg:col-span-7">
           <RebalancePanel targets={targets} agg={agg} onAct={doRebalance} />
           <div className="mt-6">
-            <TransactionHistory transactions={transactions} />
+            <TransactionHistory transactions={transactions} onDelete={deleteTransaction} />
           </div>
         </div>
         <div className="lg:col-span-5" id="water-section">
