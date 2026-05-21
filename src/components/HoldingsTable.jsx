@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { CATS, fmtPct, fmtPctPlain, fmtQty, fmtUsd, holdingCost, holdingMV, nextPlan } from '../data.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -14,12 +15,15 @@ function ZoneBadge({ zone }) {
 function RowActions({ row, onAddTxn, onPlan, onEdit, onDelete }) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState(null)
-  const ref = useRef(null)
   const btnRef = useRef(null)
+  const menuRef = useRef(null)
 
   useEffect(() => {
     if (!open) return
-    function onDoc(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    function onDoc(e) {
+      if (btnRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) return
+      setOpen(false)
+    }
     function onEsc(e) { if (e.key === 'Escape') setOpen(false) }
     function onScroll() { setOpen(false) }
     document.addEventListener('mousedown', onDoc)
@@ -58,7 +62,7 @@ function RowActions({ row, onAddTxn, onPlan, onEdit, onDelete }) {
   ]
 
   return (
-    <div className="relative inline-block" ref={ref}>
+    <div className="inline-block">
       <button
         ref={btnRef}
         className="btn px-3 py-1 text-[11.5px] inline-flex items-center gap-1 whitespace-nowrap"
@@ -73,8 +77,9 @@ function RowActions({ row, onAddTxn, onPlan, onEdit, onDelete }) {
           ▾
         </span>
       </button>
-      {open && pos && (
+      {open && pos && createPortal(
         <div
+          ref={menuRef}
           className="fixed z-[120] panel rounded-lg p-1 fade-in"
           style={{ minWidth: 168, top: pos.top, bottom: pos.bottom, right: pos.right, boxShadow: '0 18px 40px rgba(0,0,0,0.55)' }}
         >
@@ -88,7 +93,8 @@ function RowActions({ row, onAddTxn, onPlan, onEdit, onDelete }) {
               {it.label}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
