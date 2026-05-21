@@ -355,6 +355,15 @@ export default function App({ user, onSignOut }) {
             {new Date().toLocaleDateString('th-TH', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
           </span>
           <span className="text-[11px] text-[var(--txt-dim)] hidden md:inline">{user.email}</span>
+          <a
+            href="https://wethaiinvest.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn whitespace-nowrap inline-flex items-center gap-1"
+            title="เปิดเว็บแหล่งข่าวการลงทุน (แท็บใหม่)"
+          >
+            📰 แหล่งข่าว
+          </a>
           <button className="btn btn-ghost whitespace-nowrap" onClick={onSignOut}>ออกจากระบบ</button>
         </div>
       </header>
