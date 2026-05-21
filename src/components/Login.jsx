@@ -64,6 +64,7 @@ export default function Login() {
           <div>
             <div className="text-[18px] font-semibold tracking-tight" style={{ color: '#fff' }}>
               พอร์ต<span style={{ color: '#34e07a', textShadow: '0 0 10px rgba(52,224,122,0.55)' }}>ต้นไม้</span>
+              <span className="text-[12px] font-normal text-[var(--txt-dim)]"> by หมอก๊อต</span>
             </div>
             <div className="text-[11px] text-[var(--txt-dim)]">{isSignup ? 'สร้างบัญชีใหม่' : 'เข้าสู่ระบบ'}</div>
           </div>
