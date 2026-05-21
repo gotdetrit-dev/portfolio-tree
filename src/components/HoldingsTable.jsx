@@ -84,7 +84,7 @@ function FilterChip({ active, onClick, label, color }) {
   )
 }
 
-export default function HoldingsTable({ holdings, agg, targets, onAddTxn, onEdit, onDelete, onPlan, onAddHolding }) {
+export default function HoldingsTable({ holdings, agg, targets, onAddTxn, onEdit, onDelete, onPlan, onAddHolding, onRefreshPrices, refreshing }) {
   const [filter, setFilter] = useState('all')
   const [sort, setSort] = useState({ key: 'mv', dir: 'desc' })
 
@@ -142,6 +142,11 @@ export default function HoldingsTable({ holdings, agg, targets, onAddTxn, onEdit
             <FilterChip key={k} active={filter === k} onClick={() => setFilter(k)} label={CATS[k].name} color={CATS[k].hex} />
           ))}
           <div className="w-px h-5 bg-white/10 mx-1" />
+          {onRefreshPrices && (
+            <button className="btn whitespace-nowrap" onClick={onRefreshPrices} disabled={refreshing}>
+              {refreshing ? 'กำลังอัปเดต…' : '↻ อัปเดตราคา'}
+            </button>
+          )}
           <button className="btn whitespace-nowrap" onClick={onAddHolding}>＋ เพิ่มสินทรัพย์</button>
         </div>
       </div>

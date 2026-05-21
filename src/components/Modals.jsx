@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { CATS, MODES, fmtUsd, uid } from '../data.js'
+import { isStockApiConfigured, lookupSymbol } from '../stockApi.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Modals: Transaction, Holding edit, Price plan, Target edit
@@ -158,6 +159,33 @@ export function HoldingModal({ initial, onClose, onSubmit }) {
     initial || { id: uid('h'), cat: 'core', symbol: '', name: '', qty: 0, avg: 0, price: 0, addPlan: [0, 0, 0], trimPlan: [0, 0, 0], note: '' },
   )
   const upd = (k, v) => setH((s) => ({ ...s, [k]: v }))
+
+  // Live lookup: on symbol blur, fetch company name + current price from Finnhub.
+  const [looking, setLooking] = useState(false)
+  const [lookMsg, setLookMsg] = useState(null) // { ok: boolean, text: string }
+
+  async function lookupAndFill(rawSymbol) {
+    const sym = (rawSymbol || '').trim().toUpperCase()
+    if (!sym || !isStockApiConfigured) return
+    setLooking(true)
+    setLookMsg(null)
+    try {
+      const r = await lookupSymbol(sym)
+      setH((s) => ({ ...s, symbol: sym, name: r.name || s.name, price: r.price || s.price }))
+      setLookMsg({ ok: true, text: r.price ? `ราคาล่าสุด ${fmtUsd(r.price)}` : 'อัปเดตชื่อแล้ว' })
+    } catch (e) {
+      setLookMsg({ ok: false, text: e.message || 'ดึงข้อมูลไม่สำเร็จ' })
+    } finally {
+      setLooking(false)
+    }
+  }
+
+  const lookStatus = looking
+    ? { color: 'var(--txt-dim)', text: 'กำลังดึงข้อมูล…' }
+    : lookMsg
+      ? { color: lookMsg.ok ? '#9bffae' : '#ff8aa0', text: lookMsg.text }
+      : { color: 'var(--txt-faint)', text: 'พิมพ์ชื่อย่อแล้วคลิกออกจากช่อง ระบบจะดึงชื่อ + ราคาให้' }
+
   return (
     <Modal
       title={isNew ? 'เพิ่มสินทรัพย์' : `แก้ไข ${h.symbol}`}
@@ -167,7 +195,18 @@ export function HoldingModal({ initial, onClose, onSubmit }) {
     >
       <div className="grid grid-cols-2 gap-3">
         <Field label="ชื่อย่อ">
-          <input className="field" value={h.symbol} onChange={(e) => upd('symbol', e.target.value.toUpperCase())} />
+          <input
+            className="field"
+            value={h.symbol}
+            onChange={(e) => upd('symbol', e.target.value.toUpperCase())}
+            onBlur={(e) => lookupAndFill(e.target.value)}
+            placeholder="NVDA"
+          />
+          {isStockApiConfigured && (
+            <div className="text-[10.5px] mt-1 leading-tight" style={{ color: lookStatus.color }}>
+              {lookStatus.text}
+            </div>
+          )}
         </Field>
         <Field label="หมวด">
           <select className="field" value={h.cat} onChange={(e) => upd('cat', e.target.value)}>

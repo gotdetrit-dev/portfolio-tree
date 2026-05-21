@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CAT_ORDER_TOP, MODES, aggregate, holdingCost, holdingMV, uid } from './data.js'
 import * as db from './db.js'
+import { getQuote, isStockApiConfigured } from './stockApi.js'
 import WeatherOverlay from './components/WeatherOverlay.jsx'
 import PortfolioTree from './components/PortfolioTree.jsx'
 import CategoryCard from './components/CategoryCard.jsx'
@@ -29,6 +30,8 @@ export default function App({ user, onSignOut }) {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
   const [seeding, setSeeding] = useState(false)
+  const [refreshingPrices, setRefreshingPrices] = useState(false)
+  const autoRefreshedRef = useRef(false)
 
   // Modal state
   const [txnModal, setTxnModal] = useState(null)
@@ -56,6 +59,13 @@ export default function App({ user, onSignOut }) {
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [refresh])
+
+  // Auto-refresh live prices once, right after the initial data load.
+  useEffect(() => {
+    if (loading || autoRefreshedRef.current || !isStockApiConfigured) return
+    autoRefreshedRef.current = true
+    refreshPrices()
+  }, [loading])
 
   function reportError(e) {
     alert('บันทึกข้อมูลไม่สำเร็จ: ' + (e?.message || e))
@@ -233,6 +243,31 @@ export default function App({ user, onSignOut }) {
     }
   }
 
+  // Refresh the current price of every holding from the live stock API.
+  async function refreshPrices() {
+    if (!isStockApiConfigured || holdings.length === 0 || refreshingPrices) return
+    setRefreshingPrices(true)
+    try {
+      const results = await Promise.all(
+        holdings.map(async (h) => {
+          try {
+            const price = await getQuote(h.symbol)
+            return price > 0 ? { ...h, price } : h
+          } catch {
+            return h
+          }
+        }),
+      )
+      const changed = results.filter((h, i) => h.price !== holdings[i].price)
+      setHoldings(results)
+      await Promise.all(changed.map((h) => db.updateHolding(h)))
+    } catch (e) {
+      reportError(e)
+    } finally {
+      setRefreshingPrices(false)
+    }
+  }
+
   function doRebalance(row, pct) {
     const usd = Math.abs(row.diffUsd) * (pct / 100)
     if (row.action === 'สมดุล') return
@@ -405,6 +440,8 @@ export default function App({ user, onSignOut }) {
           onDelete={(h) => deleteHolding(h)}
           onPlan={(h) => setPlanModal(h)}
           onAddHolding={() => setHoldModal({})}
+          onRefreshPrices={isStockApiConfigured ? refreshPrices : undefined}
+          refreshing={refreshingPrices}
         />
       </section>
 
