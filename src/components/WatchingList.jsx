@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { checkWatchingAlert } from '../watchingList.js'
 import { fmtPct, fmtUsd } from '../data.js'
+import { isStockApiConfigured, lookupSymbol } from '../stockApi.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WatchingList — stocks to watch, with support-price alerts.
@@ -31,7 +32,27 @@ function WatchingForm({ initial, submitLabel, onSubmit, onCancel }) {
   const [supportPrice, setSupportPrice] = useState(initial?.supportPrice ?? '')
   const [currentPrice, setCurrentPrice] = useState(initial?.currentPrice ?? '')
   const [note, setNote] = useState(initial?.note || '')
+  const [looking, setLooking] = useState(false)
+  const [lookMsg, setLookMsg] = useState(null)
   const canSave = ticker.trim() && Number(supportPrice) > 0 && Number(currentPrice) > 0
+
+  // On ticker blur, pull the company name + current price from Finnhub.
+  async function lookupAndFill(rawSymbol) {
+    const sym = (rawSymbol || '').trim().toUpperCase()
+    if (!sym || !isStockApiConfigured) return
+    setLooking(true)
+    setLookMsg(null)
+    try {
+      const r = await lookupSymbol(sym)
+      if (r.name) setAssetName(r.name)
+      if (r.price) setCurrentPrice(r.price)
+      setLookMsg({ ok: true, text: r.price ? `ราคาล่าสุด ${fmtUsd(r.price)}` : 'อัปเดตชื่อแล้ว' })
+    } catch (e) {
+      setLookMsg({ ok: false, text: e.message || 'ดึงข้อมูลไม่สำเร็จ' })
+    } finally {
+      setLooking(false)
+    }
+  }
 
   function submit() {
     if (!canSave) return
@@ -58,7 +79,21 @@ function WatchingForm({ initial, submitLabel, onSubmit, onCancel }) {
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <label className="block">
           <span className="field-label">Ticker / ชื่อย่อหุ้น</span>
-          <input className="field" value={ticker} onChange={(e) => setTicker(e.target.value.toUpperCase())} placeholder="NVDA" />
+          <input
+            className="field"
+            value={ticker}
+            onChange={(e) => setTicker(e.target.value.toUpperCase())}
+            onBlur={(e) => lookupAndFill(e.target.value)}
+            placeholder="NVDA"
+          />
+          {isStockApiConfigured && (
+            <div
+              className="text-[10.5px] mt-1 leading-tight"
+              style={{ color: looking ? 'var(--txt-dim)' : lookMsg ? (lookMsg.ok ? '#9bffae' : '#ff8aa0') : 'var(--txt-faint)' }}
+            >
+              {looking ? 'กำลังดึงข้อมูล…' : lookMsg ? lookMsg.text : 'พิมพ์ชื่อย่อแล้วคลิกออก ระบบจะดึงชื่อ + ราคาให้'}
+            </div>
+          )}
         </label>
         <label className="block">
           <span className="field-label">Asset Name / ชื่อสินทรัพย์</span>
