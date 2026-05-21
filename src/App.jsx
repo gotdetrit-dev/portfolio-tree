@@ -184,15 +184,47 @@ export default function App({ user, onSignOut }) {
 
   async function commitHolding(h) {
     const exists = holdings.some((x) => x.id === h.id)
-    setHoldings((hs) => (exists ? hs.map((x) => (x.id === h.id ? h : x)) : [...hs, h]))
     setHoldModal(null)
-    try {
-      if (exists) {
+
+    // Editing an existing holding — update only, no transaction / cash change.
+    if (exists) {
+      setHoldings((hs) => hs.map((x) => (x.id === h.id ? h : x)))
+      try {
         await db.updateHolding(h)
-      } else {
-        await db.insertHolding(user.id, h)
-        autoRemoveFromWatching(h.symbol)
+      } catch (e) {
+        reportError(e)
       }
+      return
+    }
+
+    // New holding — treat it as a buy: log a transaction and deduct the cost
+    // (qty × average price) from น้ำ (cash).
+    const qty = Number(h.qty) || 0
+    const buyPrice = Number(h.avg) || 0
+    const cost = qty * buyPrice
+    const txnRow =
+      qty > 0
+        ? {
+            id: uid('t'), date: new Date().toISOString().slice(0, 10), type: 'buy',
+            symbol: h.symbol, cat: h.cat, qty, price: buyPrice, fee: 0,
+            note: 'เพิ่มเข้าพอร์ต', total: cost,
+            realizedPL: 0, averageCostAtSellTime: 0, grossProceeds: cost, netProceeds: cost,
+          }
+        : null
+    const newCash = cash - cost
+
+    setHoldings((hs) => [...hs, h])
+    if (txnRow) {
+      setTransactions((ts) => [...ts, txnRow])
+      setCash(newCash)
+    }
+    try {
+      await db.insertHolding(user.id, h)
+      if (txnRow) {
+        await db.insertTransaction(user.id, txnRow)
+        await db.updateSettings(user.id, { cash: newCash })
+      }
+      autoRemoveFromWatching(h.symbol)
     } catch (e) {
       reportError(e)
     }
