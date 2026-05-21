@@ -67,6 +67,20 @@ const fromJournalRow = (r) => ({
   reason: r.reason ?? '', note: r.note ?? '', createdAt: r.created_at,
 })
 
+const toWatchingRow = (it, userId) => ({
+  id: it.id, user_id: userId, ticker: it.ticker, asset_name: it.assetName ?? '',
+  category: it.category ?? 'Core', support_price: num(it.supportPrice), current_price: num(it.currentPrice),
+  alert_status: it.alertStatus ?? null, note: it.note ?? '',
+  created_at: it.createdAt, updated_at: it.updatedAt,
+})
+
+const fromWatchingRow = (r) => ({
+  id: r.id, ticker: r.ticker, assetName: r.asset_name ?? '', category: r.category ?? 'Core',
+  supportPrice: num(r.support_price), currentPrice: num(r.current_price),
+  alertStatus: r.alert_status ?? 'Normal', note: r.note ?? '',
+  createdAt: r.created_at, updatedAt: r.updated_at,
+})
+
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
 // Insert a default settings row if the user has none, then return the settings.
@@ -103,7 +117,7 @@ export async function updateSettings(userId, patch) {
 
 export async function loadAll(userId) {
   const settings = await ensureSettings(userId)
-  const [h, t, c, j] = await Promise.all([
+  const [h, t, c, j, w] = await Promise.all([
     supabase.from('holdings').select('*').eq('user_id', userId).order('created_at'),
     supabase.from('transactions').select('*').eq('user_id', userId).order('date').order('created_at'),
     supabase.from('cash_activity').select('*').eq('user_id', userId).order('date').order('created_at'),
@@ -113,18 +127,20 @@ export async function loadAll(userId) {
       .eq('user_id', userId)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false }),
+    supabase.from('watching_list').select('*').eq('user_id', userId).order('created_at'),
   ])
   if (h.error) throw h.error
   if (t.error) throw t.error
   if (c.error) throw c.error
-  // trade_journal may not exist yet (its migration not run) — degrade to empty
-  // instead of breaking the whole app.
+  // trade_journal / watching_list may not exist yet (their migrations not run)
+  // — degrade to empty instead of breaking the whole app.
   return {
     settings,
     holdings: h.data.map(fromHoldingRow),
     transactions: t.data.map(fromTxnRow),
     cashActivity: c.data.map(fromCashRow),
     tradeJournal: j.error ? [] : j.data.map(fromJournalRow),
+    watchingList: w.error ? [] : w.data.map(fromWatchingRow),
   }
 }
 
@@ -170,6 +186,44 @@ export async function insertTradeRecord(userId, record) {
 
 export async function deleteTradeRecord(id) {
   const { error } = await supabase.from('trade_journal').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ─── Watching list ────────────────────────────────────────────────────────────
+
+export async function insertWatchingItem(userId, item) {
+  const { error } = await supabase.from('watching_list').insert(toWatchingRow(item, userId))
+  if (error) throw error
+}
+
+export async function updateWatchingRow(item) {
+  const { error } = await supabase
+    .from('watching_list')
+    .update({
+      ticker: item.ticker,
+      asset_name: item.assetName ?? '',
+      category: item.category ?? 'Core',
+      support_price: num(item.supportPrice),
+      current_price: num(item.currentPrice),
+      alert_status: item.alertStatus ?? null,
+      note: item.note ?? '',
+      updated_at: item.updatedAt || new Date().toISOString(),
+    })
+    .eq('id', item.id)
+  if (error) throw error
+}
+
+export async function deleteWatchingRow(id) {
+  const { error } = await supabase.from('watching_list').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteWatchingByTicker(userId, ticker) {
+  const { error } = await supabase
+    .from('watching_list')
+    .delete()
+    .eq('user_id', userId)
+    .eq('ticker', (ticker || '').toUpperCase())
   if (error) throw error
 }
 

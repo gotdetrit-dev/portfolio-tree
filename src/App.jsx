@@ -11,7 +11,9 @@ import RebalancePanel from './components/RebalancePanel.jsx'
 import CashManagement from './components/CashManagement.jsx'
 import TransactionHistory from './components/TransactionHistory.jsx'
 import TradeJournal from './components/TradeJournal.jsx'
+import WatchingList from './components/WatchingList.jsx'
 import { HoldingModal, PricePlanModal, TargetsModal, TransactionModal } from './components/Modals.jsx'
+import { makeWatchingRecord } from './watchingList.js'
 
 function defaultTargets() {
   const t = {}
@@ -29,11 +31,17 @@ export default function App({ user, onSignOut }) {
   const [cashActivity, setCashActivity] = useState([])
   const [tradeJournal, setTradeJournal] = useState([])
 
+  // Views, Watching List (localStorage), and toast
+  const [view, setView] = useState('dashboard')
+  const [watchingList, setWatchingList] = useState([])
+  const [toast, setToast] = useState('')
+
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
   const [seeding, setSeeding] = useState(false)
   const [refreshingPrices, setRefreshingPrices] = useState(false)
   const autoRefreshedRef = useRef(false)
+  const toastTimer = useRef(null)
 
   // Modal state
   const [txnModal, setTxnModal] = useState(null)
@@ -48,6 +56,7 @@ export default function App({ user, onSignOut }) {
     setTransactions(data.transactions)
     setCashActivity(data.cashActivity)
     setTradeJournal(data.tradeJournal || [])
+    setWatchingList(data.watchingList || [])
     setCash(data.settings.cash)
     setMode(data.settings.mode)
     setAllTargets(data.settings.targets)
@@ -72,6 +81,12 @@ export default function App({ user, onSignOut }) {
 
   function reportError(e) {
     alert('บันทึกข้อมูลไม่สำเร็จ: ' + (e?.message || e))
+  }
+
+  function showToast(msg) {
+    setToast(msg)
+    clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(''), 4000)
   }
 
   // ─── Derived ───────────────────────────────────────────────────────────────
@@ -172,8 +187,12 @@ export default function App({ user, onSignOut }) {
     setHoldings((hs) => (exists ? hs.map((x) => (x.id === h.id ? h : x)) : [...hs, h]))
     setHoldModal(null)
     try {
-      if (exists) await db.updateHolding(h)
-      else await db.insertHolding(user.id, h)
+      if (exists) {
+        await db.updateHolding(h)
+      } else {
+        await db.insertHolding(user.id, h)
+        autoRemoveFromWatching(h.symbol)
+      }
     } catch (e) {
       reportError(e)
     }
@@ -222,6 +241,60 @@ export default function App({ user, onSignOut }) {
     } catch (e) {
       reportError(e)
     }
+  }
+
+  // ─── Watching List (synced via Supabase) ─────────────────────────────────────
+  async function addWatching(input) {
+    const t = (input.ticker || '').trim().toUpperCase()
+    const existing = watchingList.find((w) => w.ticker.toUpperCase() === t)
+    if (existing) {
+      if (!confirm(`มี ${t} อยู่ใน Watching List แล้ว — อัปเดตรายการเดิมแทนไหม?`)) return
+      const rec = makeWatchingRecord(input, existing)
+      setWatchingList((arr) => arr.map((w) => (w.id === rec.id ? rec : w)))
+      showToast(`อัปเดต ${t} ใน Watching List แล้ว`)
+      try { await db.updateWatchingRow(rec) } catch (e) { reportError(e) }
+    } else {
+      const rec = makeWatchingRecord(input)
+      setWatchingList((arr) => [...arr, rec])
+      showToast(`เพิ่ม ${t} เข้า Watching List แล้ว`)
+      try { await db.insertWatchingItem(user.id, rec) } catch (e) { reportError(e) }
+    }
+  }
+
+  async function editWatching(id, updated) {
+    const existing = watchingList.find((w) => w.id === id)
+    if (!existing) return
+    const rec = makeWatchingRecord(updated, existing)
+    setWatchingList((arr) => arr.map((w) => (w.id === id ? rec : w)))
+    try { await db.updateWatchingRow(rec) } catch (e) { reportError(e) }
+  }
+
+  async function deleteWatching(id) {
+    setWatchingList((arr) => arr.filter((w) => w.id !== id))
+    try { await db.deleteWatchingRow(id) } catch (e) { reportError(e) }
+  }
+
+  function markWatchingAsBought(item) {
+    const catMap = { Core: 'core', Stabilizer: 'stab', Booster: 'boost' }
+    setHoldModal({
+      cat: catMap[item.category] || 'core',
+      symbol: item.ticker,
+      name: item.assetName || item.ticker,
+      price: item.currentPrice || 0,
+      avg: item.currentPrice || 0,
+      qty: 0,
+      note: item.note || '',
+    })
+  }
+
+  // Remove a ticker from the Watching List after it is added to the portfolio.
+  // Called only once the portfolio save has succeeded.
+  async function autoRemoveFromWatching(ticker) {
+    const t = (ticker || '').toUpperCase()
+    if (!watchingList.some((w) => w.ticker.toUpperCase() === t)) return
+    setWatchingList((arr) => arr.filter((w) => w.ticker.toUpperCase() !== t))
+    showToast(`${t} ถูกเพิ่มเข้าพอร์ตแล้ว จึงลบออกจาก Watching List อัตโนมัติ`)
+    try { await db.deleteWatchingByTicker(user.id, t) } catch (e) { reportError(e) }
   }
 
   async function deleteHolding(h) {
@@ -377,6 +450,20 @@ export default function App({ user, onSignOut }) {
             {new Date().toLocaleDateString('th-TH', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
           </span>
           <span className="text-[11px] text-[var(--txt-dim)] hidden md:inline">{user.email}</span>
+          <button
+            className="btn whitespace-nowrap"
+            style={view === 'dashboard' ? { borderColor: 'rgba(52,224,122,0.5)', color: '#34e07a', background: 'rgba(52,224,122,0.08)' } : {}}
+            onClick={() => setView('dashboard')}
+          >
+            แดชบอร์ด
+          </button>
+          <button
+            className="btn whitespace-nowrap"
+            style={view === 'watching' ? { borderColor: 'rgba(52,224,122,0.5)', color: '#34e07a', background: 'rgba(52,224,122,0.08)' } : {}}
+            onClick={() => setView('watching')}
+          >
+            Watching List
+          </button>
           <a
             href="https://wethaiinvest.com/"
             target="_blank"
@@ -390,6 +477,20 @@ export default function App({ user, onSignOut }) {
         </div>
       </header>
 
+      {view === 'watching' && (
+        <section className="px-4 lg:px-10 mt-5">
+          <WatchingList
+            watchingList={watchingList}
+            onAdd={addWatching}
+            onEdit={editWatching}
+            onDelete={deleteWatching}
+            onMarkAsBought={markWatchingAsBought}
+          />
+        </section>
+      )}
+
+      {view === 'dashboard' && (
+        <>
       {/* KPI ribbon — โหมดตลาดเลือกจาก dropdown ในกล่องเดียวกัน */}
       <div className="px-6 lg:px-10 relative" style={{ zIndex: 60 }}>
         <SummaryBar
@@ -491,6 +592,8 @@ export default function App({ user, onSignOut }) {
           </div>
         </div>
       </section>
+        </>
+      )}
 
       {/* Footer note */}
       <footer className="px-6 lg:px-10 py-10 mt-6">
@@ -505,13 +608,22 @@ export default function App({ user, onSignOut }) {
         <TransactionModal initial={txnModal} holdings={holdings} onClose={() => setTxnModal(null)} onSubmit={commitTxn} />
       )}
       {holdModal && (
-        <HoldingModal initial={holdModal.id ? holdModal : null} onClose={() => setHoldModal(null)} onSubmit={commitHolding} />
+        <HoldingModal initial={holdModal} onClose={() => setHoldModal(null)} onSubmit={commitHolding} />
       )}
       {planModal && (
         <PricePlanModal initial={planModal} onClose={() => setPlanModal(null)} onSubmit={commitPlan} />
       )}
       {tgtModal && (
         <TargetsModal mode={mode} allTargets={allTargets} onClose={() => setTgtModal(false)} onSubmit={commitTargets} />
+      )}
+
+      {toast && (
+        <div
+          className="fixed left-1/2 bottom-6 -translate-x-1/2 panel rounded-xl px-4 py-3 text-[13px] fade-in"
+          style={{ zIndex: 300, boxShadow: '0 20px 50px rgba(0,0,0,0.6)', maxWidth: 'calc(100vw - 32px)' }}
+        >
+          {toast}
+        </div>
       )}
     </div>
   )

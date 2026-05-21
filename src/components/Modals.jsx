@@ -155,9 +155,13 @@ export function TransactionModal({ initial, holdings, onClose, onSubmit }) {
 // ─── Holding Edit Modal ────────────────────────────────────────────────────────
 export function HoldingModal({ initial, onClose, onSubmit }) {
   const isNew = !initial?.id
-  const [h, setH] = useState(
-    initial || { id: uid('h'), cat: 'core', symbol: '', name: '', qty: 0, avg: 0, price: 0, addPlan: [0, 0, 0], trimPlan: [0, 0, 0], note: '' },
-  )
+  // Spread `initial` over the defaults so a partial pre-fill (e.g. from the
+  // Watching List "Mark as Bought" action) works as well as a full edit.
+  const [h, setH] = useState(() => ({
+    id: uid('h'), cat: 'core', symbol: '', name: '', qty: 0, avg: 0, price: 0,
+    addPlan: [0, 0, 0], trimPlan: [0, 0, 0], note: '',
+    ...(initial || {}),
+  }))
   const upd = (k, v) => setH((s) => ({ ...s, [k]: v }))
 
   // Live lookup: on symbol blur, fetch company name + current price from Finnhub.
