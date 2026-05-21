@@ -117,7 +117,7 @@ function FilterChip({ active, onClick, label, color }) {
   )
 }
 
-export default function HoldingsTable({ holdings, agg, targets, onAddTxn, onEdit, onDelete, onPlan, onAddHolding, onRefreshPrices, refreshing }) {
+export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelete, onPlan, onAddHolding, onRefreshPrices, refreshing }) {
   const [filter, setFilter] = useState('all')
   const [sort, setSort] = useState({ key: 'mv', dir: 'desc' })
 
@@ -129,11 +129,8 @@ export default function HoldingsTable({ holdings, agg, targets, onAddTxn, onEdit
       const pl = mv - cost
       const plPct = cost ? (pl / cost) * 100 : 0
       const curPct = agg.total ? (mv / agg.total) * 100 : 0
-      // Target % within category, allocate proportional to current weight
-      const catHoldings = holdings.filter((x) => x.cat === h.cat)
-      const catMv = catHoldings.reduce((s, x) => s + holdingMV(x), 0)
-      const intraShare = catMv ? mv / catMv : 0
-      const tgtPct = (targets[h.cat] || 0) * intraShare
+      // Per-stock target allocation (% of the whole portfolio), set on the holding.
+      const tgtPct = h.targetPct || 0
       const diffPct = curPct - tgtPct
       const diffUsd = (diffPct / 100) * agg.total
       const np = nextPlan(h)
@@ -147,7 +144,7 @@ export default function HoldingsTable({ holdings, agg, targets, onAddTxn, onEdit
       return ((av || 0) - (bv || 0)) * dir
     })
     return enriched
-  }, [holdings, filter, sort, agg, targets])
+  }, [holdings, filter, sort, agg])
 
   function toggleSort(k) {
     setSort((s) => (s.key === k ? { key: k, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key: k, dir: 'desc' }))

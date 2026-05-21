@@ -159,7 +159,7 @@ export function HoldingModal({ initial, onClose, onSubmit }) {
   // Watching List "Mark as Bought" action) works as well as a full edit.
   const [h, setH] = useState(() => ({
     id: uid('h'), cat: 'core', symbol: '', name: '', qty: 0, avg: 0, price: 0,
-    addPlan: [0, 0, 0], trimPlan: [0, 0, 0], note: '',
+    addPlan: [0, 0, 0], trimPlan: [0, 0, 0], note: '', targetPct: 0,
     ...(initial || {}),
   }))
   const upd = (k, v) => setH((s) => ({ ...s, [k]: v }))
@@ -237,6 +237,18 @@ export function HoldingModal({ initial, onClose, onSubmit }) {
             <span className="text-white">{fmtUsd(h.qty * h.price)}</span>
           </div>
         </Field>
+        <div className="col-span-2">
+          <Field label="เป้าหมายสัดส่วน (% ของพอร์ตทั้งหมด)">
+            <input
+              type="number"
+              step="0.1"
+              className="field"
+              value={h.targetPct ?? 0}
+              onChange={(e) => upd('targetPct', Number(e.target.value))}
+              placeholder="เช่น 5"
+            />
+          </Field>
+        </div>
         <div className="col-span-2">
           <Field label="หมายเหตุ">
             <input className="field" value={h.note} onChange={(e) => upd('note', e.target.value)} />

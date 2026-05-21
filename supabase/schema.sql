@@ -31,6 +31,7 @@ create table if not exists public.holdings (
   qty        double precision not null default 0,
   avg        double precision not null default 0,
   price      double precision not null default 0,
+  target_pct double precision not null default 0,
   add_plan   jsonb not null default '[0,0,0]'::jsonb,
   trim_plan  jsonb not null default '[0,0,0]'::jsonb,
   note       text,

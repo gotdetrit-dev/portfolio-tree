@@ -566,7 +566,6 @@ export default function App({ user, onSignOut }) {
         <HoldingsTable
           holdings={holdings}
           agg={agg}
-          targets={targets}
           onAddTxn={(h) => setTxnModal({ type: h.type || 'buy', symbol: h.symbol, cat: h.cat, price: h.price, qty: '' })}
           onEdit={(h) => setHoldModal(h)}
           onDelete={(h) => deleteHolding(h)}
