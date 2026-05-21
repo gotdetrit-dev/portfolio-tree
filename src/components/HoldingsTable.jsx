@@ -13,15 +13,41 @@ function ZoneBadge({ zone }) {
 
 function RowActions({ row, onAddTxn, onPlan, onEdit, onDelete }) {
   const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState(null)
   const ref = useRef(null)
+  const btnRef = useRef(null)
+
   useEffect(() => {
     if (!open) return
     function onDoc(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
     function onEsc(e) { if (e.key === 'Escape') setOpen(false) }
+    function onScroll() { setOpen(false) }
     document.addEventListener('mousedown', onDoc)
     document.addEventListener('keydown', onEsc)
-    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onEsc) }
+    window.addEventListener('scroll', onScroll, true)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onEsc)
+      window.removeEventListener('scroll', onScroll, true)
+    }
   }, [open])
+
+  // The menu is `position: fixed` so no table/panel overflow can clip it.
+  // Position it from the button's viewport rect; flip upward near the bottom.
+  function toggle() {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      const MENU_H = 190
+      const below = window.innerHeight - r.bottom
+      const openUp = below < MENU_H && r.top > below
+      setPos({
+        right: Math.max(8, window.innerWidth - r.right),
+        top: openUp ? undefined : r.bottom + 6,
+        bottom: openUp ? window.innerHeight - r.top + 6 : undefined,
+      })
+    }
+    setOpen((o) => !o)
+  }
 
   const items = [
     { key: 'buy', label: 'ซื้อ', tone: '#9bffae', onClick: () => { onAddTxn({ ...row, type: 'buy' }); setOpen(false) } },
@@ -34,8 +60,9 @@ function RowActions({ row, onAddTxn, onPlan, onEdit, onDelete }) {
   return (
     <div className="relative inline-block" ref={ref}>
       <button
+        ref={btnRef}
         className="btn px-3 py-1 text-[11.5px] inline-flex items-center gap-1 whitespace-nowrap"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         title="จัดการรายการ"
       >
         จัดการ
@@ -46,10 +73,10 @@ function RowActions({ row, onAddTxn, onPlan, onEdit, onDelete }) {
           ▾
         </span>
       </button>
-      {open && (
+      {open && pos && (
         <div
-          className="absolute right-0 mt-1.5 z-30 panel rounded-lg p-1 fade-in"
-          style={{ minWidth: 168, boxShadow: '0 18px 40px rgba(0,0,0,0.55)' }}
+          className="fixed z-[120] panel rounded-lg p-1 fade-in"
+          style={{ minWidth: 168, top: pos.top, bottom: pos.bottom, right: pos.right, boxShadow: '0 18px 40px rgba(0,0,0,0.55)' }}
         >
           {items.map((it) => (
             <button
