@@ -9,10 +9,9 @@ import SummaryBar from './components/SummaryBar.jsx'
 import HoldingsTable from './components/HoldingsTable.jsx'
 import RebalancePanel from './components/RebalancePanel.jsx'
 import CashManagement from './components/CashManagement.jsx'
-import TransactionHistory from './components/TransactionHistory.jsx'
 import TradeJournal from './components/TradeJournal.jsx'
 import WatchingList from './components/WatchingList.jsx'
-import { HoldingModal, PricePlanModal, TargetsModal, TransactionModal } from './components/Modals.jsx'
+import { HistoryModal, HoldingModal, PricePlanModal, TargetsModal, TransactionModal } from './components/Modals.jsx'
 import { makeWatchingRecord } from './watchingList.js'
 
 function defaultTargets() {
@@ -48,6 +47,7 @@ export default function App({ user, onSignOut }) {
   const [planModal, setPlanModal] = useState(null)
   const [holdModal, setHoldModal] = useState(null)
   const [tgtModal, setTgtModal] = useState(false)
+  const [histModal, setHistModal] = useState(false)
 
   // ─── Data loading ──────────────────────────────────────────────────────────
   const refresh = useCallback(async () => {
@@ -613,6 +613,7 @@ export default function App({ user, onSignOut }) {
           onDelete={(h) => deleteHolding(h)}
           onPlan={(h) => setPlanModal(h)}
           onAddHolding={() => setHoldModal({})}
+          onShowHistory={() => setHistModal(true)}
           onRefreshPrices={isStockApiConfigured ? refreshPrices : undefined}
           refreshing={refreshingPrices}
         />
@@ -622,9 +623,6 @@ export default function App({ user, onSignOut }) {
       <section className="px-4 lg:px-10 mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-7">
           <RebalancePanel targets={targets} agg={agg} onAct={doRebalance} />
-          <div className="mt-6">
-            <TransactionHistory transactions={transactions} onDelete={deleteTransaction} />
-          </div>
         </div>
         <div className="lg:col-span-5" id="water-section">
           <CashManagement cash={cash} activity={cashActivity} onAdd={commitCash} />
@@ -656,6 +654,9 @@ export default function App({ user, onSignOut }) {
       )}
       {tgtModal && (
         <TargetsModal mode={mode} allTargets={allTargets} onClose={() => setTgtModal(false)} onSubmit={commitTargets} />
+      )}
+      {histModal && (
+        <HistoryModal transactions={transactions} onDelete={deleteTransaction} onClose={() => setHistModal(false)} />
       )}
 
       {toast && (

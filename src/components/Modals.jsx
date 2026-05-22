@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CATS, MODES, fmtUsd, uid } from '../data.js'
 import { isStockApiConfigured, lookupSymbol } from '../stockApi.js'
+import TransactionHistory from './TransactionHistory.jsx'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Modals: Transaction, Holding edit, Price plan, Target edit
@@ -311,6 +312,21 @@ export function PricePlanModal({ initial, onClose, onSubmit }) {
           <button className="btn btn-primary" onClick={() => onSubmit({ addPlan: add, trimPlan: trim, note })}>บันทึกแผน</button>
         </div>
       </div>
+    </Modal>
+  )
+}
+
+// ─── Transaction History Modal ─────────────────────────────────────────────────
+export function HistoryModal({ transactions, onDelete, onClose }) {
+  return (
+    <Modal
+      title="ประวัติรายการ"
+      subtitle={`${transactions.length} รายการ · รับรู้แล้วเฉพาะรายการขาย`}
+      onClose={onClose}
+      color="#7bd1ff"
+      maxWidth={720}
+    >
+      <TransactionHistory transactions={transactions} onDelete={onDelete} />
     </Modal>
   )
 }
