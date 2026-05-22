@@ -91,7 +91,6 @@ export default function SummaryBar({ agg, mode, rebalancing, onModeChange, onEdi
               width: 'min(760px, calc(100vw - 40px))',
               background: 'rgba(8,9,13,0.98)',
               border: '1px solid rgba(255,255,255,0.12)',
-              backdropFilter: 'blur(16px)',
               boxShadow: '0 30px 80px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.04)',
             }}
           >
