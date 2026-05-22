@@ -317,7 +317,7 @@ export function PricePlanModal({ initial, onClose, onSubmit }) {
 }
 
 // ─── Transaction History Modal ─────────────────────────────────────────────────
-export function HistoryModal({ transactions, onDelete, onClose }) {
+export function HistoryModal({ transactions, onEdit, onDelete, onClose }) {
   return (
     <Modal
       title="ประวัติรายการ"
@@ -326,7 +326,105 @@ export function HistoryModal({ transactions, onDelete, onClose }) {
       color="#7bd1ff"
       maxWidth={720}
     >
-      <TransactionHistory transactions={transactions} onDelete={onDelete} />
+      <TransactionHistory transactions={transactions} onEdit={onEdit} onDelete={onDelete} />
+    </Modal>
+  )
+}
+
+// ─── Transaction Edit Modal ────────────────────────────────────────────────────
+// Edits a single history record only — it does NOT recalculate holdings or น้ำ,
+// matching how deleting a transaction also leaves those untouched.
+export function TransactionEditModal({ initial, onClose, onSubmit }) {
+  const [type, setType] = useState(initial.type || 'buy')
+  const [symbol, setSymbol] = useState(initial.symbol || '')
+  const [cat, setCat] = useState(initial.cat || 'core')
+  const [date, setDate] = useState(initial.date || new Date().toISOString().slice(0, 10))
+  const [qty, setQty] = useState(initial.qty ?? '')
+  const [price, setPrice] = useState(initial.price ?? '')
+  const [fee, setFee] = useState(initial.fee ?? 0)
+  const [note, setNote] = useState(initial.note || '')
+
+  const gross = Number(price || 0) * Number(qty || 0)
+  const feeAmt = Number(fee || 0)
+  const total = type === 'buy' ? gross + feeAmt : gross - feeAmt
+  const colorMap = { buy: '#9bffae', sell: '#ff8aa0' }
+
+  function submit() {
+    const avgAtSell = initial.averageCostAtSellTime || 0
+    onSubmit({
+      ...initial,
+      type, symbol: symbol.toUpperCase(), cat, date,
+      qty: Number(qty), price: Number(price), fee: feeAmt, note,
+      total, grossProceeds: gross, netProceeds: total,
+      realizedPL: type === 'sell' ? (Number(price) - avgAtSell) * Number(qty) - feeAmt : 0,
+      averageCostAtSellTime: avgAtSell,
+    })
+  }
+
+  return (
+    <Modal
+      title="แก้ไขรายการ"
+      subtitle="ปรับเฉพาะบันทึกประวัติ ไม่กระทบจำนวนหุ้นหรือยอดน้ำ"
+      onClose={onClose}
+      color={colorMap[type] || '#fff'}
+    >
+      <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2">
+          <div className="grid grid-cols-2 gap-2 p-1 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }}>
+            {['buy', 'sell'].map((t) => (
+              <button
+                key={t}
+                onClick={() => setType(t)}
+                className="py-2 rounded-md text-[13px] font-medium transition-all"
+                style={{
+                  background: type === t ? (t === 'buy' ? 'rgba(155,255,174,0.12)' : 'rgba(255,138,160,0.12)') : 'transparent',
+                  color: type === t ? colorMap[t] : 'var(--txt-dim)',
+                  border: type === t ? `1px solid ${colorMap[t]}55` : '1px solid transparent',
+                }}
+              >
+                {t === 'buy' ? 'ซื้อ' : 'ขาย'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <Field label="ชื่อย่อ">
+          <input className="field" value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} placeholder="NVDA" />
+        </Field>
+        <Field label="หมวด">
+          <select className="field" value={cat} onChange={(e) => setCat(e.target.value)}>
+            {['cash', 'core', 'stab', 'boost'].map((k) => <option key={k} value={k}>{CATS[k].name}</option>)}
+          </select>
+        </Field>
+        <Field label="ราคา (USD)">
+          <input type="number" className="field" value={price} onChange={(e) => setPrice(e.target.value)} />
+        </Field>
+        <Field label="จำนวน">
+          <input type="number" className="field" value={qty} onChange={(e) => setQty(e.target.value)} />
+        </Field>
+        <Field label="ค่าธรรมเนียม (USD)">
+          <input type="number" step="0.01" className="field" value={fee} onChange={(e) => setFee(e.target.value)} />
+        </Field>
+        <Field label="วันที่">
+          <input type="date" className="field" value={date} onChange={(e) => setDate(e.target.value)} />
+        </Field>
+        <div className="col-span-2">
+          <Field label="หมายเหตุ">
+            <textarea className="field" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+          </Field>
+        </div>
+      </div>
+
+      <div className="mt-4 hairline rounded-xl p-3 flex items-center justify-between text-[12px]" style={{ background: 'rgba(0,0,0,0.3)' }}>
+        <span className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)]">มูลค่ารวม (รวมค่าธรรมเนียม)</span>
+        <span className="font-mono num-tabular text-white">{fmtUsd(total)}</span>
+      </div>
+
+      <div className="mt-5 flex items-center justify-end gap-2">
+        <button className="btn btn-ghost" onClick={onClose}>ยกเลิก</button>
+        <button className="btn btn-primary" onClick={submit} disabled={!symbol || price === '' || qty === ''}>
+          บันทึกการแก้ไข
+        </button>
+      </div>
     </Modal>
   )
 }

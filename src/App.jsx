@@ -11,7 +11,7 @@ import RebalancePanel from './components/RebalancePanel.jsx'
 import CashManagement from './components/CashManagement.jsx'
 import TradeJournal from './components/TradeJournal.jsx'
 import WatchingList from './components/WatchingList.jsx'
-import { HistoryModal, HoldingModal, PricePlanModal, TargetsModal, TransactionModal } from './components/Modals.jsx'
+import { HistoryModal, HoldingModal, PricePlanModal, TargetsModal, TransactionEditModal, TransactionModal } from './components/Modals.jsx'
 import { makeWatchingRecord } from './watchingList.js'
 
 function defaultTargets() {
@@ -48,6 +48,7 @@ export default function App({ user, onSignOut }) {
   const [holdModal, setHoldModal] = useState(null)
   const [tgtModal, setTgtModal] = useState(false)
   const [histModal, setHistModal] = useState(false)
+  const [txnEditModal, setTxnEditModal] = useState(null)
 
   // ─── Data loading ──────────────────────────────────────────────────────────
   const refresh = useCallback(async () => {
@@ -187,6 +188,18 @@ export default function App({ user, onSignOut }) {
     setTransactions((ts) => ts.filter((t) => t.id !== id))
     try {
       await db.deleteTransactionRow(id)
+    } catch (e) {
+      reportError(e)
+    }
+  }
+
+  // Edits a history record only — holdings and น้ำ are left untouched,
+  // matching deleteTransaction.
+  async function editTransaction(updated) {
+    setTxnEditModal(null)
+    setTransactions((ts) => ts.map((t) => (t.id === updated.id ? updated : t)))
+    try {
+      await db.updateTransactionRow(updated)
     } catch (e) {
       reportError(e)
     }
@@ -656,7 +669,19 @@ export default function App({ user, onSignOut }) {
         <TargetsModal mode={mode} allTargets={allTargets} onClose={() => setTgtModal(false)} onSubmit={commitTargets} />
       )}
       {histModal && (
-        <HistoryModal transactions={transactions} onDelete={deleteTransaction} onClose={() => setHistModal(false)} />
+        <HistoryModal
+          transactions={transactions}
+          onEdit={(t) => setTxnEditModal(t)}
+          onDelete={deleteTransaction}
+          onClose={() => setHistModal(false)}
+        />
+      )}
+      {txnEditModal && (
+        <TransactionEditModal
+          initial={txnEditModal}
+          onClose={() => setTxnEditModal(null)}
+          onSubmit={editTransaction}
+        />
       )}
 
       {toast && (

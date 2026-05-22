@@ -170,6 +170,13 @@ export async function insertTransaction(userId, txn) {
   if (error) throw error
 }
 
+export async function updateTransactionRow(txn) {
+  const { id, ...rest } = toTxnRow(txn, null)
+  delete rest.user_id
+  const { error } = await supabase.from('transactions').update(rest).eq('id', id)
+  if (error) throw error
+}
+
 export async function deleteTransactionRow(id) {
   const { error } = await supabase.from('transactions').delete().eq('id', id)
   if (error) throw error
