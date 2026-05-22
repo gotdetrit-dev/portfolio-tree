@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CAT_ORDER_TOP, MODES, aggregate, holdingCost, holdingMV, uid } from './data.js'
+import { CAT_ORDER_TOP, MODES, aggregate, fmtUsd, holdingCost, holdingMV, uid } from './data.js'
 import * as db from './db.js'
 import { getQuote, isStockApiConfigured } from './stockApi.js'
 import WeatherOverlay from './components/WeatherOverlay.jsx'
@@ -193,16 +193,104 @@ export default function App({ user, onSignOut }) {
     }
   }
 
-  // Edits a history record only — holdings and น้ำ are left untouched,
-  // matching deleteTransaction.
-  async function editTransaction(updated) {
+  // Edits a history record AND re-applies its effect: the matching holding's
+  // quantity / average cost and the น้ำ balance shift by the difference between
+  // the old and the new transaction. A full replay isn't possible (most holdings
+  // have no complete transaction history), so this works on deltas.
+  async function editTransaction(input) {
     setTxnEditModal(null)
+    const old = transactions.find((t) => t.id === input.id)
+    if (!old) return
+
+    // Derive the stored fields of the edited transaction.
+    const isBuy = input.type === 'buy'
+    const qty = Number(input.qty) || 0
+    const price = Number(input.price) || 0
+    const fee = Number(input.fee) || 0
+    const gross = qty * price
+    const total = isBuy ? gross + fee : gross - fee
+    // Realized P/L on a sell needs the average cost at sell time: keep the
+    // recorded one if it was already a sell, else use the holding's avg now.
+    const symHolding = holdings.find((h) => h.symbol === input.symbol)
+    const avgAtSell = old.type === 'sell'
+      ? Number(old.averageCostAtSellTime) || 0
+      : symHolding ? symHolding.avg : 0
+    const updated = {
+      ...input,
+      qty, price, fee, total, grossProceeds: gross, netProceeds: total,
+      realizedPL: isBuy ? 0 : (price - avgAtSell) * qty - fee,
+      averageCostAtSellTime: isBuy ? 0 : avgAtSell,
+    }
+
+    // How a transaction shifts holding qty, cost-basis pool, and น้ำ.
+    const effectOf = (t) => {
+      const tBuy = t.type === 'buy'
+      const tQty = Number(t.qty) || 0
+      const g = tQty * (Number(t.price) || 0)
+      return {
+        qty: tBuy ? tQty : -tQty,
+        costBasis: tBuy ? g : -tQty * (Number(t.averageCostAtSellTime) || 0),
+        cash: tBuy ? -(g + (Number(t.fee) || 0)) : g - (Number(t.fee) || 0),
+      }
+    }
+    const oldE = effectOf(old)
+    const newE = effectOf(updated)
+    const newCash = cash - oldE.cash + newE.cash
+
+    // Apply a qty / cost-basis change to a holding, looked up by symbol.
+    let nextHoldings = holdings
+    const ops = []
+    const adjust = (symbol, cat, dQty, dCost) => {
+      if (dQty === 0 && dCost === 0) return
+      const ex = nextHoldings.find((h) => h.symbol === symbol)
+      if (ex) {
+        const newQty = ex.qty + dQty
+        if (newQty <= 0) {
+          nextHoldings = nextHoldings.filter((h) => h.id !== ex.id)
+          ops.push({ kind: 'delete', id: ex.id })
+        } else {
+          const up = { ...ex, qty: newQty, avg: (ex.qty * ex.avg + dCost) / newQty }
+          nextHoldings = nextHoldings.map((h) => (h.id === ex.id ? up : h))
+          ops.push({ kind: 'update', holding: up })
+        }
+      } else if (dQty > 0) {
+        const created = {
+          id: uid('h'), cat: cat || 'core', symbol, name: symbol, qty: dQty,
+          avg: dCost / dQty, price, addPlan: [0, 0, 0], trimPlan: [0, 0, 0], note: '',
+        }
+        nextHoldings = [...nextHoldings, created]
+        ops.push({ kind: 'insert', holding: created })
+      }
+    }
+    if (old.symbol === updated.symbol) {
+      adjust(updated.symbol, updated.cat, newE.qty - oldE.qty, newE.costBasis - oldE.costBasis)
+    } else {
+      adjust(old.symbol, old.cat, -oldE.qty, -oldE.costBasis)
+      adjust(updated.symbol, updated.cat, newE.qty, newE.costBasis)
+    }
+
+    // Optimistic local update.
     setTransactions((ts) => ts.map((t) => (t.id === updated.id ? updated : t)))
+    setHoldings(nextHoldings)
+    setCash(newCash)
+
     try {
       await db.updateTransactionRow(updated)
+      for (const op of ops) {
+        if (op.kind === 'insert') await db.insertHolding(user.id, op.holding)
+        else if (op.kind === 'update') await db.updateHolding(op.holding)
+        else if (op.kind === 'delete') await db.deleteHolding(op.id)
+      }
+      await db.updateSettings(user.id, { cash: newCash })
     } catch (e) {
       reportError(e)
     }
+
+    const dCash = newCash - cash
+    showToast(
+      `อัปเดตประวัติ ${updated.symbol} แล้ว` +
+        (dCash ? ` · น้ำ ${dCash > 0 ? '+' : '−'}${fmtUsd(Math.abs(dCash))}` : ''),
+    )
   }
 
   async function commitHolding(h) {

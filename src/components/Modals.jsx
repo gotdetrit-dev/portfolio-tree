@@ -332,8 +332,8 @@ export function HistoryModal({ transactions, onEdit, onDelete, onClose }) {
 }
 
 // ─── Transaction Edit Modal ────────────────────────────────────────────────────
-// Edits a single history record only — it does NOT recalculate holdings or น้ำ,
-// matching how deleting a transaction also leaves those untouched.
+// Collects the edited fields; App.editTransaction derives totals and re-applies
+// the holding / น้ำ deltas.
 export function TransactionEditModal({ initial, onClose, onSubmit }) {
   const [type, setType] = useState(initial.type || 'buy')
   const [symbol, setSymbol] = useState(initial.symbol || '')
@@ -350,21 +350,17 @@ export function TransactionEditModal({ initial, onClose, onSubmit }) {
   const colorMap = { buy: '#9bffae', sell: '#ff8aa0' }
 
   function submit() {
-    const avgAtSell = initial.averageCostAtSellTime || 0
     onSubmit({
       ...initial,
       type, symbol: symbol.toUpperCase(), cat, date,
       qty: Number(qty), price: Number(price), fee: feeAmt, note,
-      total, grossProceeds: gross, netProceeds: total,
-      realizedPL: type === 'sell' ? (Number(price) - avgAtSell) * Number(qty) - feeAmt : 0,
-      averageCostAtSellTime: avgAtSell,
     })
   }
 
   return (
     <Modal
       title="แก้ไขรายการ"
-      subtitle="ปรับเฉพาะบันทึกประวัติ ไม่กระทบจำนวนหุ้นหรือยอดน้ำ"
+      subtitle="แก้แล้วระบบจะปรับจำนวนหุ้นและน้ำให้อัตโนมัติ"
       onClose={onClose}
       color={colorMap[type] || '#fff'}
     >
