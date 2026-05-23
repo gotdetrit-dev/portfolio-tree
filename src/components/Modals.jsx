@@ -309,8 +309,10 @@ export function PricePlanModal({ initial, onClose, onSubmit }) {
         </Field>
       </div>
       <div className="mt-5 flex items-center justify-between">
-        <div className="text-[11px] text-[var(--txt-dim)]">
-          ราคาปัจจุบัน <span className="font-mono text-white">{fmtUsd(initial.price)}</span>
+        <div className="text-[11px] text-[var(--txt-dim)] flex items-center gap-3 flex-wrap">
+          <span>ราคาปัจจุบัน <span className="font-mono text-white">{fmtUsd(initial.price)}</span></span>
+          <span className="text-[var(--txt-faint)]">·</span>
+          <span>ทุนเฉลี่ย <span className="font-mono text-white">{fmtUsd(initial.avg)}</span></span>
         </div>
         <div className="flex gap-2">
           <button className="btn btn-ghost" onClick={onClose}>ยกเลิก</button>
