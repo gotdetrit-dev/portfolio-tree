@@ -9,7 +9,15 @@ import { CATS, fmtPct, fmtPctPlain, fmtQty, fmtUsd, holdingCost, holdingMV, next
 function ZoneBadge({ zone }) {
   const tone = zone === 'Add Zone' ? '#9bffae' : zone === 'Trim Zone' ? '#ff8aa0' : '#cfd6e3'
   const labelMap = { 'Add Zone': 'โซนเพิ่ม', 'Trim Zone': 'โซนลด', Hold: 'ถือรอ' }
-  return <span className="chip" style={{ color: tone, fontSize: 9.5, padding: '1px 6px' }}>{labelMap[zone] || zone}</span>
+  const actionable = zone === 'Add Zone' || zone === 'Trim Zone'
+  return (
+    <span
+      className={`chip whitespace-nowrap font-semibold ${actionable ? 'chip-blink' : ''}`}
+      style={{ color: tone, fontSize: 12, padding: '4px 10px' }}
+    >
+      {labelMap[zone] || zone}
+    </span>
+  )
 }
 
 function RowActions({ row, onAddTxn, onPlan, onEdit, onDelete }) {
@@ -207,6 +215,7 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
         <table className="holdings w-full">
           <colgroup>
             <col style={{ width: 'auto', minWidth: '220px' }} />
+            <col style={{ width: '110px' }} />
             <col style={{ width: '140px' }} />
             <col style={{ width: '60px' }} />
             <col style={{ width: '104px' }} />
@@ -218,6 +227,7 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
           <thead>
             <tr>
               <SortHead k="symbol">สินทรัพย์</SortHead>
+              <th>โซน</th>
               <SortHead k="curPct">สัดส่วน</SortHead>
               <SortHead k="qty" align="right">จำนวน</SortHead>
               <SortHead k="price" align="right">ราคา</SortHead>
@@ -243,10 +253,7 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
                   {/* สินทรัพย์ — ชื่อย่อ + ชื่อเต็ม + หมายเหตุ + หมวด (pill) */}
                   <td>
                     <div className="leading-tight">
-                      <div className="flex items-center gap-2 whitespace-nowrap">
-                        <span className="mono font-semibold text-[13.5px]">{r.symbol}</span>
-                        <ZoneBadge zone={r.zone} />
-                      </div>
+                      <div className="mono font-semibold text-[13.5px] whitespace-nowrap">{r.symbol}</div>
                       <div className="text-[var(--txt-dim)] text-[11.5px] truncate" style={{ maxWidth: 240 }} title={r.name}>{r.name}</div>
                       {r.note && (
                         <div className="text-[var(--txt-faint)] text-[10.5px] truncate italic" style={{ maxWidth: 240 }} title={r.note}>{r.note}</div>
@@ -258,6 +265,11 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
                         </span>
                       </div>
                     </div>
+                  </td>
+
+                  {/* โซน — เพิ่ม / ลด / ถือ (กระพริบเฉพาะโซนที่ต้อง action) */}
+                  <td>
+                    <ZoneBadge zone={r.zone} />
                   </td>
 
                   {/* สัดส่วน — เกจเทียบเป้าหมายรายตัว */}
