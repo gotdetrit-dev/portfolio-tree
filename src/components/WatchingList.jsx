@@ -182,17 +182,34 @@ export default function WatchingList({ watchingList, onAdd, onEdit, onDelete, on
     <div className="space-y-6">
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        {summaryCards.map((c) => (
-          <div key={c.label} className="panel rounded-2xl px-4 py-3">
-            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--txt-faint)]">{c.label}</div>
+        {summaryCards.map((c) => {
+          const highlighted = c.label === 'Alert' || c.label === 'Near Support'
+          const shouldBlink = c.label === 'Alert' && c.value > 0
+          return (
             <div
-              className="text-[22px] font-mono num-tabular mt-1"
-              style={{ color: c.hex, textShadow: c.hex !== '#e8ecf2' ? `0 0 10px ${c.hex}55` : 'none' }}
+              key={c.label}
+              className={`panel rounded-2xl px-4 py-3 ${shouldBlink ? 'chip-blink' : ''}`}
+              style={highlighted ? {
+                borderColor: c.hex + '88',
+                background: `linear-gradient(180deg, ${c.hex}1f, ${c.hex}0a)`,
+                boxShadow: `0 0 20px ${c.hex}33, 0 0 0 1px ${c.hex}55`,
+              } : undefined}
             >
-              {c.value}
+              <div
+                className="text-[10px] uppercase tracking-[0.12em]"
+                style={{ color: highlighted ? c.hex : 'var(--txt-faint)', opacity: highlighted ? 0.9 : 1 }}
+              >
+                {c.label}
+              </div>
+              <div
+                className="text-[22px] font-mono num-tabular mt-1"
+                style={{ color: c.hex, textShadow: c.hex !== '#e8ecf2' ? `0 0 10px ${c.hex}55` : 'none' }}
+              >
+                {c.value}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Add form */}
