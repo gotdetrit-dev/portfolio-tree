@@ -209,7 +209,7 @@ body {
 
 table.holdings { width:100%; border-collapse: separate; border-spacing: 0; }
 table.holdings th {
-  text-align: left; padding: 10px 10px; font-size: 10.5px;
+  text-align: left; padding: 12px 10px; font-size: 10.5px;
   text-transform: uppercase; letter-spacing: 0.04em;
   color: var(--txt-dim); font-weight: 500;
   border-bottom: 1px solid var(--line);
@@ -217,7 +217,7 @@ table.holdings th {
   white-space: nowrap;
 }
 table.holdings td {
-  padding: 10px 10px; font-size: 13px;
+  padding: 14px 10px; font-size: 13px;
   border-bottom: 1px solid var(--line);
   font-variant-numeric: tabular-nums;
   vertical-align: middle;

@@ -161,7 +161,7 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
 
   return (
     <div className="panel rounded-2xl overflow-hidden">
-      <div className="flex items-center justify-between gap-3 p-4 border-b border-white/5 flex-wrap">
+      <div className="flex items-center justify-between gap-3 p-5 border-b border-white/5 flex-wrap">
         <div className="flex items-center gap-2">
           <div className="text-[14px] font-semibold tracking-wide">สินทรัพย์ในพอร์ต</div>
           <span className="text-[11px] text-[var(--txt-dim)]">{rows.length} รายการ</span>
@@ -189,8 +189,7 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
       <div className="overflow-x-auto">
         <table className="holdings w-full">
           <colgroup>
-            <col style={{ width: '80px' }} />
-            <col style={{ width: 'auto', minWidth: '180px' }} />
+            <col style={{ width: 'auto', minWidth: '220px' }} />
             <col style={{ width: '140px' }} />
             <col style={{ width: '60px' }} />
             <col style={{ width: '104px' }} />
@@ -201,7 +200,6 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
           </colgroup>
           <thead>
             <tr>
-              <th>หมวด</th>
               <SortHead k="symbol">สินทรัพย์</SortHead>
               <SortHead k="curPct">สัดส่วน</SortHead>
               <SortHead k="qty" align="right">จำนวน</SortHead>
@@ -225,15 +223,7 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
               const gaugeFill = r.tgtPct > 0 ? Math.min(100, Math.max(0, (r.curPct / r.tgtPct) * 100)) : 0
               return (
                 <tr key={r.id}>
-                  {/* หมวด */}
-                  <td>
-                    <span className="pill" style={{ color: c.hex, borderColor: c.hex + '66' }}>
-                      <span className="pill-dot" style={{ background: c.hex, boxShadow: `0 0 6px ${c.hex}` }} />
-                      {c.name}
-                    </span>
-                  </td>
-
-                  {/* สินทรัพย์ — ชื่อย่อ + ชื่อเต็ม + หมายเหตุ */}
+                  {/* สินทรัพย์ — ชื่อย่อ + ชื่อเต็ม + หมายเหตุ + หมวด (pill) */}
                   <td>
                     <div className="leading-tight">
                       <div className="flex items-center gap-2 whitespace-nowrap">
@@ -244,6 +234,12 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
                       {r.note && (
                         <div className="text-[var(--txt-faint)] text-[10.5px] truncate italic" style={{ maxWidth: 240 }} title={r.note}>{r.note}</div>
                       )}
+                      <div className="mt-1.5">
+                        <span className="pill" style={{ color: c.hex, borderColor: c.hex + '66', fontSize: 10, padding: '1px 7px' }}>
+                          <span className="pill-dot" style={{ background: c.hex, boxShadow: `0 0 6px ${c.hex}` }} />
+                          {c.name}
+                        </span>
+                      </div>
                     </div>
                   </td>
 
