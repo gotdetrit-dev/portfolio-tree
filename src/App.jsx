@@ -391,15 +391,15 @@ export default function App({ user, onSignOut }) {
     const t = (input.ticker || '').trim().toUpperCase()
     const existing = watchingList.find((w) => w.ticker.toUpperCase() === t)
     if (existing) {
-      if (!confirm(`มี ${t} อยู่ใน Watching List แล้ว — อัปเดตรายการเดิมแทนไหม?`)) return
+      if (!confirm(`มี ${t} อยู่ในรายการเฝ้าติดตามแล้ว — อัปเดตรายการเดิมแทนไหม?`)) return
       const rec = makeWatchingRecord(input, existing)
       setWatchingList((arr) => arr.map((w) => (w.id === rec.id ? rec : w)))
-      showToast(`อัปเดต ${t} ใน Watching List แล้ว`)
+      showToast(`อัปเดต ${t} ในรายการเฝ้าติดตามแล้ว`)
       try { await db.updateWatchingRow(rec) } catch (e) { reportError(e) }
     } else {
       const rec = makeWatchingRecord(input)
       setWatchingList((arr) => [...arr, rec])
-      showToast(`เพิ่ม ${t} เข้า Watching List แล้ว`)
+      showToast(`เพิ่ม ${t} เข้ารายการเฝ้าติดตามแล้ว`)
       try { await db.insertWatchingItem(user.id, rec) } catch (e) { reportError(e) }
     }
   }
@@ -436,7 +436,7 @@ export default function App({ user, onSignOut }) {
     const t = (ticker || '').toUpperCase()
     if (!watchingList.some((w) => w.ticker.toUpperCase() === t)) return
     setWatchingList((arr) => arr.filter((w) => w.ticker.toUpperCase() !== t))
-    showToast(`${t} ถูกเพิ่มเข้าพอร์ตแล้ว จึงลบออกจาก Watching List อัตโนมัติ`)
+    showToast(`${t} ถูกเพิ่มเข้าพอร์ตแล้ว จึงลบออกจากรายการเฝ้าติดตามอัตโนมัติ`)
     try { await db.deleteWatchingByTicker(user.id, t) } catch (e) { reportError(e) }
   }
 
@@ -604,7 +604,7 @@ export default function App({ user, onSignOut }) {
             style={view === 'watching' ? { borderColor: 'rgba(52,224,122,0.5)', color: '#34e07a', background: 'rgba(52,224,122,0.08)' } : {}}
             onClick={() => setView('watching')}
           >
-            Watching List
+            รายการเฝ้าติดตาม
           </button>
           <a
             href="https://wethaiinvest.com/"

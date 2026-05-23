@@ -175,7 +175,7 @@ export default function WatchingList({ watchingList, onAdd, onEdit, onDelete, on
   ]
 
   function handleDelete(item) {
-    if (confirm(`ลบ ${item.ticker} ออกจาก Watching List?`)) onDelete(item.id)
+    if (confirm(`ลบ ${item.ticker} ออกจากรายการเฝ้าติดตาม?`)) onDelete(item.id)
   }
 
   return (
@@ -197,9 +197,9 @@ export default function WatchingList({ watchingList, onAdd, onEdit, onDelete, on
 
       {/* Add form */}
       <div className="panel rounded-2xl p-5">
-        <div className="text-[14px] font-semibold tracking-wide mb-1">เพิ่มหุ้นเข้า Watching List</div>
+        <div className="text-[14px] font-semibold tracking-wide mb-1">เพิ่มหุ้นเข้ารายการเฝ้าติดตาม</div>
         <div className="text-[11px] text-[var(--txt-dim)] mb-4">Add Watching Stock — หุ้นที่กำลังเฝ้าดูรอจังหวะเข้าซื้อ</div>
-        <WatchingForm submitLabel="Add to Watching List" onSubmit={onAdd} />
+        <WatchingForm submitLabel="เพิ่มเข้ารายการเฝ้าติดตาม" onSubmit={onAdd} />
       </div>
 
       {/* Table */}
