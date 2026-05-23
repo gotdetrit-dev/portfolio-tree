@@ -74,7 +74,12 @@ export default function CategoryCard({ catKey, agg, targets, onClick, onManage, 
                 จัดการ
               </button>
             )}
-            <span className="chip whitespace-nowrap" style={{ color: actionTone, fontSize: 10, padding: '2px 8px' }}>{actionLabel}</span>
+            <span
+              className={`chip whitespace-nowrap font-semibold ${action !== 'ถือ' ? 'chip-blink' : ''}`}
+              style={{ color: actionTone, fontSize: 12, padding: '4px 10px' }}
+            >
+              {actionLabel}
+            </span>
           </div>
         </div>
 

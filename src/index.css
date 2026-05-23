@@ -140,6 +140,12 @@ body {
   border-radius: 999px;
   animation: heatWave linear infinite;
 }
+@keyframes chipBlink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+.chip-blink { animation: chipBlink 1.2s ease-in-out infinite; }
+
 @keyframes neonPulse {
   0%, 100% { filter: drop-shadow(0 0 4px currentColor) drop-shadow(0 0 12px currentColor); }
   50%      { filter: drop-shadow(0 0 6px currentColor) drop-shadow(0 0 20px currentColor); }
