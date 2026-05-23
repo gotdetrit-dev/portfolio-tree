@@ -31,7 +31,7 @@ function ConnectorLine({ color }) {
   )
 }
 
-export default function CategoryCard({ catKey, agg, targets, onClick, fillHeight }) {
+export default function CategoryCard({ catKey, agg, targets, onClick, onManage, fillHeight }) {
   const cat = CATS[catKey]
   const color = cat.hex
   const cur = agg.pct[catKey] || 0
@@ -44,9 +44,12 @@ export default function CategoryCard({ catKey, agg, targets, onClick, fillHeight
   return (
     <div className={`relative ${fillHeight ? 'h-full' : ''}`}>
       <ConnectorLine color={color} />
-      <button
+      <div
         onClick={onClick}
-        className={`relative w-full text-left rounded-2xl p-3 lg:p-3.5 panel transition-transform hover:-translate-y-0.5 glow-${cat.color} flex flex-col justify-between ${fillHeight ? 'h-full' : ''}`}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.() } }}
+        className={`relative w-full text-left rounded-2xl p-3 lg:p-3.5 panel transition-transform hover:-translate-y-0.5 glow-${cat.color} flex flex-col justify-between ${fillHeight ? 'h-full' : ''} cursor-pointer`}
         style={{ minHeight: 96 }}
       >
         {/* Title row */}
@@ -57,7 +60,19 @@ export default function CategoryCard({ catKey, agg, targets, onClick, fillHeight
             </div>
             <div className="text-[10px] font-thai mt-0.5 whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.55)' }}>{cat.th}</div>
           </div>
-          <span className="chip" style={{ color: actionTone, fontSize: 10, padding: '2px 6px' }}>{action}</span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {catKey === 'cash' && onManage && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onManage() }}
+                className="chip hover:bg-white/5 transition-colors"
+                title="ฝาก / ถอน / ปันผล / ดอกเบี้ย"
+                style={{ color, borderColor: color + '66', fontSize: 10, padding: '2px 8px' }}
+              >
+                จัดการ
+              </button>
+            )}
+            <span className="chip" style={{ color: actionTone, fontSize: 10, padding: '2px 6px' }}>{action}</span>
+          </div>
         </div>
 
         {/* Stat grid */}
@@ -105,7 +120,7 @@ export default function CategoryCard({ catKey, agg, targets, onClick, fillHeight
             />
           </div>
         </div>
-      </button>
+      </div>
     </div>
   )
 }

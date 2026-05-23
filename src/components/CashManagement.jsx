@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { fmtUsd, uid } from '../data.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CashManagement — deposits / withdrawals / dividends / interest / other
+// CashManagement — deposits / withdrawals / dividends / interest / other.
+// Rendered inside the cash-management modal; the modal provides the panel
+// chrome and the "ยอดคงเหลือ" subtitle.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CASH_TYPES = {
@@ -13,7 +15,7 @@ const CASH_TYPES = {
   other: { label: 'รายได้อื่น', sign: 1, tone: '#f7c948' },
 }
 
-export default function CashManagement({ cash, activity, onAdd }) {
+export default function CashManagement({ activity, onAdd }) {
   const [type, setType] = useState('deposit')
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
@@ -27,17 +29,7 @@ export default function CashManagement({ cash, activity, onAdd }) {
   }
 
   return (
-    <div className="panel rounded-2xl p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <div className="text-[14px] font-semibold tracking-wide">จัดการน้ำ</div>
-          <div className="text-[11px] text-[var(--txt-dim)]">
-            ยอดคงเหลือ <span className="font-mono text-cash">{fmtUsd(cash)}</span>{' '}
-            <span className="font-thai text-[var(--txt-faint)]">· น้ำหล่อเลี้ยงต้นไม้</span>
-          </div>
-        </div>
-      </div>
-
+    <div>
       {/* Type segmented row */}
       <div className="grid grid-cols-5 gap-1 mb-3">
         {Object.entries(CASH_TYPES).map(([k, v]) => (
@@ -69,8 +61,8 @@ export default function CashManagement({ cash, activity, onAdd }) {
       {/* Activity log */}
       <div className="mt-5">
         <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)] mb-2">กิจกรรมล่าสุด</div>
-        <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-1">
-          {[...activity].slice().reverse().map((a) => {
+        <div className="space-y-1.5">
+          {[...activity].reverse().map((a) => {
             const meta = CASH_TYPES[a.type] || CASH_TYPES.other
             return (
               <div key={a.id} className="hairline rounded-lg p-2 flex items-center gap-3 text-[12px]" style={{ background: 'rgba(255,255,255,0.015)' }}>

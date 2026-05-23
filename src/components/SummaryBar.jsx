@@ -24,25 +24,25 @@ export default function SummaryBar({ agg, mode, rebalancing, onModeChange, onEdi
     return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onEsc) }
   }, [modeOpen])
 
-  const simpleItems = [
-    { label: 'พอร์ตรวม', value: fmtUsd(agg.total), tone: '#fff' },
-    { label: 'น้ำ (เงินสด)', value: fmtUsd(agg.cash), tone: CATS.cash.hex },
-    { label: 'ลงทุนแล้ว', value: fmtUsd(agg.invested), tone: '#fff' },
-  ]
-
   return (
-    <div className="panel rounded-2xl px-5 py-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-5 items-center">
-      {simpleItems.map((it, i) => (
-        <div key={i}>
-          <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--txt-faint)]">{it.label}</div>
-          <div
-            className="text-[19px] font-mono num-tabular mt-1 whitespace-nowrap"
-            style={{ color: it.tone, textShadow: it.tone !== '#fff' ? `0 0 10px ${it.tone}66` : 'none' }}
-          >
-            {it.value}
-          </div>
+    <div className="panel rounded-2xl px-5 py-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 items-center">
+      {/* พอร์ตรวม — main number; น้ำ + ลงทุนแล้ว stacked underneath as breakdown */}
+      <div>
+        <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--txt-faint)]">พอร์ตรวม</div>
+        <div className="text-[19px] font-mono num-tabular mt-1 whitespace-nowrap" style={{ color: '#fff' }}>
+          {fmtUsd(agg.total)}
         </div>
-      ))}
+        <div className="mt-1.5 flex flex-col gap-0.5 text-[10.5px] font-mono num-tabular whitespace-nowrap leading-tight">
+          <span style={{ color: CATS.cash.hex, opacity: 0.9 }}>
+            <span className="text-[var(--txt-faint)] uppercase tracking-wider mr-1">น้ำ</span>
+            {fmtUsd(agg.cash)}
+          </span>
+          <span style={{ color: 'var(--txt-dim)' }}>
+            <span className="text-[var(--txt-faint)] uppercase tracking-wider mr-1">ลงทุน</span>
+            {fmtUsd(agg.invested)}
+          </span>
+        </div>
+      </div>
 
       {/* Combined กำไร/ขาดทุน tile spans 2 columns */}
       <div className="col-span-2">

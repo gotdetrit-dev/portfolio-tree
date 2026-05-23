@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CATS, MODES, fmtUsd, uid } from '../data.js'
 import { isStockApiConfigured, lookupSymbol } from '../stockApi.js'
 import TransactionHistory from './TransactionHistory.jsx'
+import CashManagement from './CashManagement.jsx'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Modals: Transaction, Holding edit, Price plan, Target edit
@@ -312,6 +313,21 @@ export function PricePlanModal({ initial, onClose, onSubmit }) {
           <button className="btn btn-primary" onClick={() => onSubmit({ addPlan: add, trimPlan: trim, note })}>บันทึกแผน</button>
         </div>
       </div>
+    </Modal>
+  )
+}
+
+// ─── Cash Management Modal ─────────────────────────────────────────────────────
+export function CashModal({ cash, activity, onAdd, onClose }) {
+  return (
+    <Modal
+      title="จัดการน้ำ"
+      subtitle={`ยอดคงเหลือ ${fmtUsd(cash)} · น้ำหล่อเลี้ยงต้นไม้`}
+      onClose={onClose}
+      color={CATS.cash.hex}
+      maxWidth={680}
+    >
+      <CashManagement activity={activity} onAdd={onAdd} />
     </Modal>
   )
 }

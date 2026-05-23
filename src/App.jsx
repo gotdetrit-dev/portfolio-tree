@@ -8,10 +8,9 @@ import CategoryCard from './components/CategoryCard.jsx'
 import SummaryBar from './components/SummaryBar.jsx'
 import HoldingsTable from './components/HoldingsTable.jsx'
 import RebalancePanel from './components/RebalancePanel.jsx'
-import CashManagement from './components/CashManagement.jsx'
 import TradeJournal from './components/TradeJournal.jsx'
 import WatchingList from './components/WatchingList.jsx'
-import { HistoryModal, HoldingModal, PricePlanModal, TargetsModal, TransactionEditModal, TransactionModal } from './components/Modals.jsx'
+import { CashModal, HistoryModal, HoldingModal, PricePlanModal, TargetsModal, TransactionEditModal, TransactionModal } from './components/Modals.jsx'
 import { makeWatchingRecord } from './watchingList.js'
 
 function defaultTargets() {
@@ -49,6 +48,7 @@ export default function App({ user, onSignOut }) {
   const [tgtModal, setTgtModal] = useState(false)
   const [histModal, setHistModal] = useState(false)
   const [txnEditModal, setTxnEditModal] = useState(null)
+  const [cashModal, setCashModal] = useState(false)
 
   // ─── Data loading ──────────────────────────────────────────────────────────
   const refresh = useCallback(async () => {
@@ -526,8 +526,7 @@ export default function App({ user, onSignOut }) {
 
   function clickCard(catKey) {
     if (catKey === 'cash') {
-      const el = document.getElementById('water-section')
-      window.scrollTo({ top: el ? el.getBoundingClientRect().top + window.scrollY - 20 : 0, behavior: 'smooth' })
+      setCashModal(true)
       return
     }
     const inCat = holdings.filter((h) => h.cat === catKey)
@@ -696,7 +695,14 @@ export default function App({ user, onSignOut }) {
             >
               {CAT_ORDER_TOP.map((k) => (
                 <div key={k} className="flex-1 min-h-0">
-                  <CategoryCard catKey={k} agg={agg} targets={targets} onClick={() => clickCard(k)} fillHeight />
+                  <CategoryCard
+                    catKey={k}
+                    agg={agg}
+                    targets={targets}
+                    onClick={() => clickCard(k)}
+                    onManage={k === 'cash' ? () => setCashModal(true) : undefined}
+                    fillHeight
+                  />
                 </div>
               ))}
             </div>
@@ -725,11 +731,8 @@ export default function App({ user, onSignOut }) {
         <div className="lg:col-span-7">
           <RebalancePanel targets={targets} agg={agg} onAct={doRebalance} />
         </div>
-        <div className="lg:col-span-5" id="water-section">
-          <CashManagement cash={cash} activity={cashActivity} onAdd={commitCash} />
-          <div className="mt-6">
-            <TradeJournal records={tradeJournal} onAdd={commitTradeRecord} onDelete={deleteTradeRecord} />
-          </div>
+        <div className="lg:col-span-5">
+          <TradeJournal records={tradeJournal} onAdd={commitTradeRecord} onDelete={deleteTradeRecord} />
         </div>
       </section>
         </>
@@ -769,6 +772,14 @@ export default function App({ user, onSignOut }) {
           initial={txnEditModal}
           onClose={() => setTxnEditModal(null)}
           onSubmit={editTransaction}
+        />
+      )}
+      {cashModal && (
+        <CashModal
+          cash={cash}
+          activity={cashActivity}
+          onAdd={commitCash}
+          onClose={() => setCashModal(false)}
         />
       )}
 
