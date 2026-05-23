@@ -698,8 +698,10 @@ export default function App({ user, onSignOut }) {
           onEdit={(h) => setHoldModal(h)}
           onDelete={(h) => deleteHolding(h)}
           onPlan={(h) => setPlanModal(h)}
+          targets={targets}
           onAddHolding={() => setHoldModal({})}
           onShowHistory={() => setHistModal(true)}
+          onManageCash={() => setCashModal(true)}
           onRefreshPrices={isStockApiConfigured ? refreshPrices : undefined}
           refreshing={refreshingPrices}
         />

@@ -130,7 +130,7 @@ function FilterChip({ active, onClick, label, color }) {
   )
 }
 
-export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelete, onPlan, onAddHolding, onShowHistory, onRefreshPrices, refreshing }) {
+export default function HoldingsTable({ holdings, agg, targets, onAddTxn, onEdit, onDelete, onPlan, onAddHolding, onShowHistory, onManageCash, onRefreshPrices, refreshing }) {
   const [filter, setFilter] = useState('all')
   const [sort, setSort] = useState({ key: 'mv', dir: 'desc' })
 
@@ -193,7 +193,7 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
       >
         <div className="flex items-center gap-2">
           <div className="text-[14px] font-semibold tracking-wide">สินทรัพย์ในพอร์ต</div>
-          <span className="text-[11px] text-[var(--txt-dim)]">{rows.length} รายการ</span>
+          <span className="text-[11px] text-[var(--txt-dim)]">{rows.length + ((filter === 'all' || filter === 'cash') ? 1 : 0)} รายการ</span>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <FilterChip active={filter === 'all'} onClick={() => setFilter('all')} label="ทั้งหมด" color="#fff" />
@@ -240,6 +240,73 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
             </tr>
           </thead>
           <tbody>
+            {(filter === 'all' || filter === 'cash') && (() => {
+              const cashCat = CATS.cash
+              const cashAmount = agg.cash || 0
+              const cashCur = agg.pct.cash || 0
+              const cashTgt = (targets && targets.cash) || 0
+              const cashDiff = cashCur - cashTgt
+              const cashTone = cashDiff > 1.0 ? '#ff8aa0' : cashDiff < -1.0 ? '#9bffae' : '#cfd6e3'
+              const cashStatus = cashDiff > 1.0 ? 'เกินเป้า' : cashDiff < -1.0 ? 'ต่ำกว่าเป้า' : 'สมดุล'
+              const cashFill = cashTgt > 0 ? Math.min(100, Math.max(0, (cashCur / cashTgt) * 100)) : 0
+              return (
+                <tr key="__cash__">
+                  {/* สินทรัพย์ */}
+                  <td>
+                    <div className="leading-tight">
+                      <div className="mono font-semibold text-[13.5px] whitespace-nowrap">USD</div>
+                      <div className="text-[var(--txt-dim)] text-[11.5px]">เงินสด · พร้อมใช้</div>
+                      <div className="mt-1.5">
+                        <span className="pill" style={{ color: cashCat.hex, borderColor: cashCat.hex + '66', fontSize: 10, padding: '1px 7px' }}>
+                          <span className="pill-dot" style={{ background: cashCat.hex, boxShadow: `0 0 6px ${cashCat.hex}` }} />
+                          {cashCat.name}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+                  {/* โซน — ไม่มีสำหรับเงินสด */}
+                  <td><span className="text-[var(--txt-faint)] text-[11px] italic">—</span></td>
+                  {/* สัดส่วน */}
+                  <td className="mono">
+                    <div className="flex items-baseline gap-1 leading-none whitespace-nowrap mb-1">
+                      <span className="text-[12.5px] font-semibold">{fmtPctPlain(cashCur, 1)}</span>
+                      <span className="text-[10px] text-[var(--txt-faint)]">/ {fmtPctPlain(cashTgt, 1)}</span>
+                    </div>
+                    <div className="relative h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.07)' }}>
+                      <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${cashFill}%`, background: cashTone, boxShadow: `0 0 6px ${cashTone}99` }} />
+                    </div>
+                    <div className="text-[10px] mt-0.5 whitespace-nowrap" style={{ color: cashTone }}>
+                      {fmtPct(cashDiff, 1)} <span className="text-[var(--txt-faint)]">· {cashStatus}</span>
+                    </div>
+                  </td>
+                  {/* จำนวน — ไม่มี (เงินสดไม่มี "หุ้น") */}
+                  <td className="mono text-[var(--txt-faint)]" style={{ textAlign: 'right' }}>—</td>
+                  {/* ราคา — แสดง USD */}
+                  <td className="mono" style={{ textAlign: 'right' }}>
+                    <div className="text-[10.5px] text-[var(--txt-faint)] whitespace-nowrap">สกุล</div>
+                    <div className="font-semibold text-[13px] whitespace-nowrap">USD</div>
+                  </td>
+                  {/* มูลค่า — ยอดน้ำเป็น USD */}
+                  <td className="mono font-semibold whitespace-nowrap" style={{ textAlign: 'right', color: cashCat.hex }}>
+                    {fmtUsd(cashAmount, 0)}
+                  </td>
+                  {/* กำไร/ขาดทุน — ไม่มี */}
+                  <td className="mono text-[var(--txt-faint)]" style={{ textAlign: 'right' }}>—</td>
+                  {/* คำสั่ง */}
+                  <td style={{ textAlign: 'right' }}>
+                    {onManageCash && (
+                      <button
+                        onClick={onManageCash}
+                        className="btn px-3 py-1 text-[11.5px] whitespace-nowrap"
+                        title="ฝาก / ถอน / ปันผล / ดอกเบี้ย"
+                      >
+                        จัดการ
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              )
+            })()}
             {rows.map((r) => {
               const c = CATS[r.cat]
               const plPos = r.pl >= 0
