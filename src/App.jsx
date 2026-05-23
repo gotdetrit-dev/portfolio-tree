@@ -607,11 +607,11 @@ export default function App({ user, onSignOut }) {
             รายการเฝ้าติดตาม
           </button>
           <button
-            className="btn whitespace-nowrap inline-flex items-center gap-1"
+            className="btn whitespace-nowrap"
             onClick={() => setJournalModal(true)}
             title="เปิดบันทึกการเทรด (มีลิงก์แหล่งข่าวข้างใน)"
           >
-            📰 แหล่งข่าว
+            แหล่งข่าว
           </button>
           <button className="btn btn-ghost whitespace-nowrap" onClick={onSignOut}>ออกจากระบบ</button>
         </div>
