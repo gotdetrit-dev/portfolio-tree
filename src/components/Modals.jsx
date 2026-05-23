@@ -327,8 +327,8 @@ export function PricePlanModal({ initial, onClose, onSubmit }) {
 export function JournalModal({ records, onAdd, onDelete, onClose }) {
   return (
     <Modal
-      title="บันทึกการเทรดรายวัน"
-      subtitle={`Daily Portfolio Journal · กรอกมือ · ${records.length} รายการ`}
+      title="ข่าวสารการเทรด"
+      subtitle={`กรอกมือ · ${records.length} รายการ`}
       onClose={onClose}
       maxWidth={620}
       headerAction={
