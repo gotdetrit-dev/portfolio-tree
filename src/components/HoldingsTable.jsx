@@ -6,17 +6,21 @@ import { CATS, fmtPct, fmtPctPlain, fmtQty, fmtUsd, holdingCost, holdingMV, next
 // HoldingsTable — full table with all required columns, filterable by category
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ZoneBadge({ zone }) {
+function ZoneBadge({ zone, onClick }) {
   const tone = zone === 'Add Zone' ? '#9bffae' : zone === 'Trim Zone' ? '#ff8aa0' : '#cfd6e3'
   const labelMap = { 'Add Zone': 'โซนเพิ่ม', 'Trim Zone': 'โซนลด', Hold: 'ถือรอ' }
   const actionable = zone === 'Add Zone' || zone === 'Trim Zone'
+  const Tag = onClick ? 'button' : 'span'
   return (
-    <span
-      className={`chip whitespace-nowrap font-semibold ${actionable ? 'chip-blink' : ''}`}
+    <Tag
+      onClick={onClick}
+      type={onClick ? 'button' : undefined}
+      className={`chip whitespace-nowrap font-semibold ${actionable ? 'chip-blink' : ''} ${onClick ? 'cursor-pointer hover:bg-white/5 transition-colors' : ''}`}
       style={{ color: tone, fontSize: 12, padding: '4px 10px' }}
+      title={onClick ? 'คลิกเพื่อแก้ไขแผนเพิ่ม/ลด' : undefined}
     >
       {labelMap[zone] || zone}
-    </span>
+    </Tag>
   )
 }
 
@@ -221,7 +225,6 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
             <col style={{ width: '104px' }} />
             <col style={{ width: '92px' }} />
             <col style={{ width: '100px' }} />
-            <col style={{ width: '116px' }} />
             <col style={{ width: '96px' }} />
           </colgroup>
           <thead>
@@ -233,7 +236,6 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
               <SortHead k="price" align="right">ราคา</SortHead>
               <SortHead k="mv" align="right">มูลค่า</SortHead>
               <SortHead k="pl" align="right">กำไร/ขาดทุน</SortHead>
-              <th>แผน</th>
               <th style={{ textAlign: 'right' }}>คำสั่ง</th>
             </tr>
           </thead>
@@ -267,9 +269,9 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
                     </div>
                   </td>
 
-                  {/* โซน — เพิ่ม / ลด / ถือ (กระพริบเฉพาะโซนที่ต้อง action) */}
+                  {/* โซน — คลิกเพื่อเปิดหน้าต่างแผนเพิ่ม/ลด */}
                   <td>
-                    <ZoneBadge zone={r.zone} />
+                    <ZoneBadge zone={r.zone} onClick={() => onPlan(r)} />
                   </td>
 
                   {/* สัดส่วน — เกจเทียบเป้าหมายรายตัว */}
@@ -311,18 +313,6 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
                   <td className="mono" style={{ textAlign: 'right' }}>
                     <div className="text-[13.5px] font-semibold leading-tight whitespace-nowrap" style={{ color: plPos ? '#9bffae' : '#ff8aa0' }}>{fmtUsd(r.pl, 0)}</div>
                     <div className="text-[11px] whitespace-nowrap" style={{ color: plPos ? '#9bffae' : '#ff8aa0', opacity: 0.85 }}>{fmtPct(r.plPct, 1)}</div>
-                  </td>
-
-                  {/* แผน — ระดับถัดไป */}
-                  <td className="mono text-[11.5px]">
-                    <div className="flex items-center gap-1 whitespace-nowrap" style={{ color: '#9bffae' }}>
-                      <span className="opacity-60">เพิ่ม</span>
-                      <span className="font-semibold">{r.nextAdd ? fmtUsd(r.nextAdd) : '—'}</span>
-                    </div>
-                    <div className="flex items-center gap-1 whitespace-nowrap" style={{ color: '#ff8aa0' }}>
-                      <span className="opacity-60">ลด</span>
-                      <span className="font-semibold">{r.nextTrim ? fmtUsd(r.nextTrim) : '—'}</span>
-                    </div>
                   </td>
 
                   {/* คำสั่ง */}
