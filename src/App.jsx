@@ -8,9 +8,8 @@ import CategoryCard from './components/CategoryCard.jsx'
 import SummaryBar from './components/SummaryBar.jsx'
 import HoldingsTable from './components/HoldingsTable.jsx'
 import RebalancePanel from './components/RebalancePanel.jsx'
-import TradeJournal from './components/TradeJournal.jsx'
 import WatchingList from './components/WatchingList.jsx'
-import { CashModal, HistoryModal, HoldingModal, PricePlanModal, TargetsModal, TransactionEditModal, TransactionModal } from './components/Modals.jsx'
+import { CashModal, HistoryModal, HoldingModal, JournalModal, PricePlanModal, TargetsModal, TransactionEditModal, TransactionModal } from './components/Modals.jsx'
 import { makeWatchingRecord } from './watchingList.js'
 
 function defaultTargets() {
@@ -49,6 +48,7 @@ export default function App({ user, onSignOut }) {
   const [histModal, setHistModal] = useState(false)
   const [txnEditModal, setTxnEditModal] = useState(null)
   const [cashModal, setCashModal] = useState(false)
+  const [journalModal, setJournalModal] = useState(false)
 
   // ─── Data loading ──────────────────────────────────────────────────────────
   const refresh = useCallback(async () => {
@@ -606,15 +606,13 @@ export default function App({ user, onSignOut }) {
           >
             รายการเฝ้าติดตาม
           </button>
-          <a
-            href="https://wethaiinvest.com/"
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
             className="btn whitespace-nowrap inline-flex items-center gap-1"
-            title="เปิดเว็บแหล่งข่าวการลงทุน (แท็บใหม่)"
+            onClick={() => setJournalModal(true)}
+            title="เปิดบันทึกการเทรด (มีลิงก์แหล่งข่าวข้างใน)"
           >
             📰 แหล่งข่าว
-          </a>
+          </button>
           <button className="btn btn-ghost whitespace-nowrap" onClick={onSignOut}>ออกจากระบบ</button>
         </div>
       </header>
@@ -726,14 +724,9 @@ export default function App({ user, onSignOut }) {
         />
       </section>
 
-      {/* Rebalance + Water + History */}
-      <section className="px-4 lg:px-10 mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-7">
-          <RebalancePanel targets={targets} agg={agg} onAct={doRebalance} />
-        </div>
-        <div className="lg:col-span-5">
-          <TradeJournal records={tradeJournal} onAdd={commitTradeRecord} onDelete={deleteTradeRecord} />
-        </div>
+      {/* Rebalance panel */}
+      <section className="px-4 lg:px-10 mt-6">
+        <RebalancePanel targets={targets} agg={agg} onAct={doRebalance} />
       </section>
         </>
       )}
@@ -780,6 +773,14 @@ export default function App({ user, onSignOut }) {
           activity={cashActivity}
           onAdd={commitCash}
           onClose={() => setCashModal(false)}
+        />
+      )}
+      {journalModal && (
+        <JournalModal
+          records={tradeJournal}
+          onAdd={commitTradeRecord}
+          onDelete={deleteTradeRecord}
+          onClose={() => setJournalModal(false)}
         />
       )}
 

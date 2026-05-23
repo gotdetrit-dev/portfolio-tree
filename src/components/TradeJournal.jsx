@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react'
 import { JOURNAL_PORTFOLIOS, fmtQty, fmtUsd, uid } from '../data.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TradeJournal — Daily Portfolio Journal.
+// TradeJournal — Daily Portfolio Journal, rendered inside the journal modal.
 // A manual daily trade log split across three portfolio groups, with the
 // reason for each decision. Standalone — it does not affect any calculation.
+// The modal wrapper provides the title and the news-source link in its header.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PF_KEYS = ['shay', 'channel', 'insider']
@@ -67,12 +68,7 @@ export default function TradeJournal({ records, onAdd, onDelete }) {
   )
 
   return (
-    <div className="panel rounded-2xl p-5">
-      <div className="mb-4">
-        <div className="text-[14px] font-semibold tracking-wide">บันทึกการเทรดรายวัน</div>
-        <div className="text-[11px] text-[var(--txt-dim)]">Daily Portfolio Journal · กรอกมือ · {records.length} รายการ</div>
-      </div>
-
+    <div>
       {/* Entry form */}
       <div className="grid grid-cols-2 gap-2">
         <label className="block">
@@ -171,7 +167,7 @@ export default function TradeJournal({ records, onAdd, onDelete }) {
         ))}
       </div>
 
-      <div className="space-y-1.5 max-h-[340px] overflow-y-auto pr-1">
+      <div className="space-y-1.5">
         {rows.map((r) => {
           const pf = JOURNAL_PORTFOLIOS[r.portfolio] || { name: r.portfolio, hex: '#8a92a3' }
           const isBuy = r.action === 'buy'

@@ -3,12 +3,13 @@ import { CATS, MODES, fmtUsd, uid } from '../data.js'
 import { isStockApiConfigured, lookupSymbol } from '../stockApi.js'
 import TransactionHistory from './TransactionHistory.jsx'
 import CashManagement from './CashManagement.jsx'
+import TradeJournal from './TradeJournal.jsx'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Modals: Transaction, Holding edit, Price plan, Target edit
 // ─────────────────────────────────────────────────────────────────────────────
 
-function Modal({ title, subtitle, onClose, children, color = '#fff', maxWidth = 560 }) {
+function Modal({ title, subtitle, onClose, children, color = '#fff', maxWidth = 560, headerAction }) {
   return (
     <div className="backdrop fade-in" onClick={onClose}>
       <div
@@ -27,7 +28,10 @@ function Modal({ title, subtitle, onClose, children, color = '#fff', maxWidth = 
             <div className="text-[16px] font-semibold tracking-tight" style={{ color }}>{title}</div>
             {subtitle && <div className="text-[12px] text-[var(--txt-dim)] mt-0.5">{subtitle}</div>}
           </div>
-          <button onClick={onClose} className="btn btn-ghost text-[16px] leading-none">✕</button>
+          <div className="flex items-center gap-2 shrink-0">
+            {headerAction}
+            <button onClick={onClose} className="btn btn-ghost text-[16px] leading-none">✕</button>
+          </div>
         </div>
         <div className="p-5 overflow-y-auto">{children}</div>
       </div>
@@ -313,6 +317,33 @@ export function PricePlanModal({ initial, onClose, onSubmit }) {
           <button className="btn btn-primary" onClick={() => onSubmit({ addPlan: add, trimPlan: trim, note })}>บันทึกแผน</button>
         </div>
       </div>
+    </Modal>
+  )
+}
+
+// ─── Trade Journal Modal ───────────────────────────────────────────────────────
+// Header carries a quick link to wethaiinvest.com (the original "แหล่งข่าว"
+// destination) so it's reachable while logging a trade.
+export function JournalModal({ records, onAdd, onDelete, onClose }) {
+  return (
+    <Modal
+      title="บันทึกการเทรดรายวัน"
+      subtitle={`Daily Portfolio Journal · กรอกมือ · ${records.length} รายการ`}
+      onClose={onClose}
+      maxWidth={620}
+      headerAction={
+        <a
+          href="https://wethaiinvest.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn whitespace-nowrap text-[12px]"
+          title="เปิดเว็บแหล่งข่าวการลงทุน (แท็บใหม่)"
+        >
+          📰 แหล่งข่าว
+        </a>
+      }
+    >
+      <TradeJournal records={records} onAdd={onAdd} onDelete={onDelete} />
     </Modal>
   )
 }
