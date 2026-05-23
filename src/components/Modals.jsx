@@ -327,7 +327,7 @@ export function PricePlanModal({ initial, onClose, onSubmit }) {
 export function JournalModal({ records, onAdd, onDelete, onClose }) {
   return (
     <Modal
-      title="ข่าวสารการเทรด"
+      title="ข่าวสารการซื้อขาย"
       subtitle={`กรอกมือ · ${records.length} รายการ`}
       onClose={onClose}
       maxWidth={620}
