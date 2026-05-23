@@ -106,10 +106,11 @@ function FilterChip({ active, onClick, label, color }) {
       onClick={onClick}
       className="px-3 py-1 rounded-full text-[11.5px] transition-all whitespace-nowrap"
       style={{
-        border: `1px solid ${active ? color + '88' : 'var(--line-strong)'}`,
-        background: active ? color + '14' : 'transparent',
-        color: active ? color : 'var(--txt)',
-        boxShadow: active ? `0 0 12px ${color}33` : 'none',
+        border: `1px solid ${color}${active ? '88' : '44'}`,
+        background: active ? color + '18' : 'transparent',
+        color,
+        boxShadow: active ? `0 0 14px ${color}55` : 'none',
+        opacity: active ? 1 : 0.85,
       }}
     >
       {label}
@@ -159,9 +160,25 @@ export default function HoldingsTable({ holdings, agg, onAddTxn, onEdit, onDelet
     </th>
   )
 
+  // When a single category is selected, tint the panel border + glow with that
+  // category's colour so the active filter is visible at a glance.
+  const filterColor = filter !== 'all' ? CATS[filter]?.hex : null
+
   return (
-    <div className="panel rounded-2xl overflow-hidden">
-      <div className="flex items-center justify-between gap-3 p-5 border-b border-white/5 flex-wrap">
+    <div
+      className="panel rounded-2xl overflow-hidden transition-all"
+      style={filterColor ? {
+        borderColor: filterColor + '55',
+        boxShadow: `0 0 0 1px ${filterColor}33, 0 0 28px ${filterColor}22`,
+      } : undefined}
+    >
+      <div
+        className="flex items-center justify-between gap-3 p-5 border-b flex-wrap transition-colors"
+        style={filterColor ? {
+          borderBottomColor: filterColor + '44',
+          background: filterColor + '0a',
+        } : { borderBottomColor: 'rgba(255,255,255,0.05)' }}
+      >
         <div className="flex items-center gap-2">
           <div className="text-[14px] font-semibold tracking-wide">สินทรัพย์ในพอร์ต</div>
           <span className="text-[11px] text-[var(--txt-dim)]">{rows.length} รายการ</span>
