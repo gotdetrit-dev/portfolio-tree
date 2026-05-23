@@ -7,7 +7,6 @@ import PortfolioTree from './components/PortfolioTree.jsx'
 import CategoryCard from './components/CategoryCard.jsx'
 import SummaryBar from './components/SummaryBar.jsx'
 import HoldingsTable from './components/HoldingsTable.jsx'
-import RebalancePanel from './components/RebalancePanel.jsx'
 import WatchingList from './components/WatchingList.jsx'
 import { CashModal, HistoryModal, HoldingModal, JournalModal, PricePlanModal, TargetsModal, TransactionEditModal, TransactionModal } from './components/Modals.jsx'
 import { makeWatchingRecord } from './watchingList.js'
@@ -506,24 +505,6 @@ export default function App({ user, onSignOut }) {
     }
   }
 
-  function doRebalance(row, pct) {
-    const usd = Math.abs(row.diffUsd) * (pct / 100)
-    if (row.action === 'สมดุล') return
-    if (row.key === 'cash') {
-      alert('น้ำจะถูกปรับอัตโนมัติเมื่อคุณเพิ่ม/ลดหมวดอื่น กรุณาเลือก ลำต้น / กิ่งก้าน / ใบ')
-      return
-    }
-    const inCat = holdings.filter((h) => h.cat === row.key)
-    if (inCat.length === 0) return
-    const target = inCat.reduce((a, b) => (holdingMV(a) > holdingMV(b) ? a : b))
-    const qty = +(usd / target.price).toFixed(4)
-    const type = row.action === 'ควรลด' ? 'sell' : 'buy'
-    setTxnModal({
-      type, symbol: target.symbol, cat: target.cat, price: target.price, qty,
-      note: `ปรับสมดุลอัตโนมัติ ${pct}% เข้าใกล้เป้า${row.cat.name}`,
-    })
-  }
-
   function clickCard(catKey) {
     if (catKey === 'cash') {
       setCashModal(true)
@@ -724,10 +705,6 @@ export default function App({ user, onSignOut }) {
         />
       </section>
 
-      {/* Rebalance panel */}
-      <section className="px-4 lg:px-10 mt-6">
-        <RebalancePanel targets={targets} agg={agg} onAct={doRebalance} />
-      </section>
         </>
       )}
 

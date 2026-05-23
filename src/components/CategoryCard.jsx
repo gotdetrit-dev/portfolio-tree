@@ -38,8 +38,11 @@ export default function CategoryCard({ catKey, agg, targets, onClick, onManage, 
   const tgt = targets[catKey] || 0
   const mv = agg.byCat[catKey] || 0
   const diff = cur - tgt
+  const diffUsd = (diff / 100) * (agg.total || 0)
   const action = diff > 1.5 ? 'ลด' : diff < -1.5 ? 'เพิ่ม' : 'ถือ'
   const actionTone = action === 'เพิ่ม' ? '#9bffae' : action === 'ลด' ? '#ff8aa0' : '#cfd6e3'
+  // Chip combines status + amount needed to rebalance, e.g. "ลด $30.3k".
+  const actionLabel = action === 'ถือ' ? 'ถือ' : `${action} ${fmtUsdK(Math.abs(diffUsd))}`
 
   return (
     <div className={`relative ${fillHeight ? 'h-full' : ''}`}>
@@ -71,7 +74,7 @@ export default function CategoryCard({ catKey, agg, targets, onClick, onManage, 
                 จัดการ
               </button>
             )}
-            <span className="chip" style={{ color: actionTone, fontSize: 10, padding: '2px 6px' }}>{action}</span>
+            <span className="chip whitespace-nowrap" style={{ color: actionTone, fontSize: 10, padding: '2px 8px' }}>{actionLabel}</span>
           </div>
         </div>
 
@@ -106,19 +109,30 @@ export default function CategoryCard({ catKey, agg, targets, onClick, onManage, 
           </div>
         </div>
 
-        {/* Bottom bar — current vs target */}
-        <div className="mt-2.5">
-          <div className="relative h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+        {/* Bottom bar — current vs target.
+            Target tick sits OUTSIDE the clipping bar so it extends above and below. */}
+        <div className="mt-2.5 relative">
+          <div className="h-1.5 rounded-full overflow-hidden relative" style={{ background: 'rgba(255,255,255,0.08)' }}>
             <div
               className="absolute inset-y-0 left-0 rounded-full"
               style={{ width: `${Math.min(100, Math.max(0, cur))}%`, background: color, boxShadow: `0 0 8px ${color}` }}
             />
-            <div
-              className="absolute top-[-2px] bottom-[-2px] w-[2px]"
-              style={{ left: `${Math.min(100, Math.max(0, tgt))}%`, background: '#fff', opacity: 0.6 }}
-              title={`Target ${tgt}%`}
-            />
           </div>
+          {/* Target marker — bright vertical line extending above + below the bar */}
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              left: `calc(${Math.min(100, Math.max(0, tgt))}% - 1px)`,
+              top: '-4px',
+              bottom: '-4px',
+              width: '2px',
+              background: '#fff',
+              opacity: 0.95,
+              boxShadow: '0 0 4px rgba(255,255,255,0.7)',
+              borderRadius: '1px',
+            }}
+            title={`เป้า ${tgt}%`}
+          />
         </div>
       </div>
     </div>
