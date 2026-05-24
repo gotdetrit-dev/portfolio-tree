@@ -3,7 +3,6 @@ import { CATS, MODES, fmtUsd, uid } from '../data.js'
 import { isStockApiConfigured, lookupSymbol } from '../stockApi.js'
 import TransactionHistory from './TransactionHistory.jsx'
 import CashManagement from './CashManagement.jsx'
-import TradeJournal from './TradeJournal.jsx'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Modals: Transaction, Holding edit, Price plan, Target edit
@@ -319,33 +318,6 @@ export function PricePlanModal({ initial, onClose, onSubmit }) {
           <button className="btn btn-primary" onClick={() => onSubmit({ addPlan: add, trimPlan: trim, note })}>บันทึกแผน</button>
         </div>
       </div>
-    </Modal>
-  )
-}
-
-// ─── Trade Journal Modal ───────────────────────────────────────────────────────
-// Header carries a quick link to wethaiinvest.com (the original "แหล่งข่าว"
-// destination) so it's reachable while logging a trade.
-export function JournalModal({ records, onAdd, onDelete, onClose }) {
-  return (
-    <Modal
-      title="ข่าวสารการซื้อขาย"
-      subtitle={`กรอกมือ · ${records.length} รายการ`}
-      onClose={onClose}
-      maxWidth={620}
-      headerAction={
-        <a
-          href="https://wethaiinvest.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn whitespace-nowrap text-[12px]"
-          title="เปิดเว็บแหล่งข่าวการลงทุน (แท็บใหม่)"
-        >
-          📰 แหล่งข่าว
-        </a>
-      }
-    >
-      <TradeJournal records={records} onAdd={onAdd} onDelete={onDelete} />
     </Modal>
   )
 }
