@@ -153,6 +153,8 @@ export function TradeJournalForm({ onAdd, onClose }) {
 // ─── History (default export, shown on the journal page) ─────────────────────
 export default function TradeJournal({ records, onDelete }) {
   const [filter, setFilter] = useState('all')
+  const [expanded, setExpanded] = useState({})
+  const toggleExpand = (id) => setExpanded((p) => ({ ...p, [id]: !p[id] }))
 
   const rows = useMemo(
     () => (filter === 'all' ? records : records.filter((r) => r.portfolio === filter)),
@@ -180,6 +182,9 @@ export default function TradeJournal({ records, onDelete }) {
           // บทความ (action='article') ไม่มี ซื้อ/ขาย/จำนวน/ราคา — แสดงเป็นบล็อกเนื้อหา
           if (r.action === 'article') {
             const ARTICLE_TONE = '#7bd1ff'
+            const content = r.reason || ''
+            const isLong = content.length > 220 || content.split('\n').length > 3
+            const isExpanded = !!expanded[r.id]
             return (
               <div key={r.id} className="hairline rounded-lg p-2.5" style={{ background: 'rgba(123,209,255,0.04)', borderColor: ARTICLE_TONE + '33' }}>
                 <div className="flex items-center gap-2 flex-wrap text-[12px]">
@@ -196,8 +201,21 @@ export default function TradeJournal({ records, onDelete }) {
                     ✕
                   </button>
                 </div>
-                {r.reason && (
-                  <div className="text-[12px] text-[var(--txt)] mt-1.5 whitespace-pre-wrap leading-relaxed">{r.reason}</div>
+                {content && (
+                  <div
+                    className={`text-[12px] text-[var(--txt)] mt-1.5 whitespace-pre-wrap leading-relaxed ${isLong && !isExpanded ? 'line-clamp-3' : ''}`}
+                  >
+                    {content}
+                  </div>
+                )}
+                {isLong && (
+                  <button
+                    onClick={() => toggleExpand(r.id)}
+                    className="text-[11px] mt-1 hover:underline"
+                    style={{ color: ARTICLE_TONE }}
+                  >
+                    {isExpanded ? '▴ ย่อ' : '▾ ดูเพิ่ม'}
+                  </button>
                 )}
               </div>
             )
