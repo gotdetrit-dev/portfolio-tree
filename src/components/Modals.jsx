@@ -3,6 +3,7 @@ import { CATS, MODES, fmtUsd, uid } from '../data.js'
 import { isStockApiConfigured, lookupSymbol } from '../stockApi.js'
 import TransactionHistory from './TransactionHistory.jsx'
 import CashManagement from './CashManagement.jsx'
+import { TradeJournalForm } from './TradeJournal.jsx'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Modals: Transaction, Holding edit, Price plan, Target edit
@@ -318,6 +319,20 @@ export function PricePlanModal({ initial, onClose, onSubmit }) {
           <button className="btn btn-primary" onClick={() => onSubmit({ addPlan: add, trimPlan: trim, note })}>บันทึกแผน</button>
         </div>
       </div>
+    </Modal>
+  )
+}
+
+// ─── Journal Add Modal ────────────────────────────────────────────────────────
+export function JournalAddModal({ onAdd, onClose }) {
+  return (
+    <Modal
+      title="เพิ่มบันทึกข่าวสารการซื้อขาย"
+      subtitle="กรอกรายละเอียดการซื้อขายในวันนี้"
+      onClose={onClose}
+      maxWidth={620}
+    >
+      <TradeJournalForm onAdd={onAdd} onClose={onClose} />
     </Modal>
   )
 }

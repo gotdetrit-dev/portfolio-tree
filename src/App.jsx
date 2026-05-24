@@ -9,7 +9,7 @@ import SummaryBar from './components/SummaryBar.jsx'
 import HoldingsTable from './components/HoldingsTable.jsx'
 import TradeJournal from './components/TradeJournal.jsx'
 import WatchingList from './components/WatchingList.jsx'
-import { CashModal, HistoryModal, HoldingModal, PricePlanModal, TargetsModal, TransactionEditModal, TransactionModal } from './components/Modals.jsx'
+import { CashModal, HistoryModal, HoldingModal, JournalAddModal, PricePlanModal, TargetsModal, TransactionEditModal, TransactionModal } from './components/Modals.jsx'
 import { makeWatchingRecord } from './watchingList.js'
 
 function defaultTargets() {
@@ -48,6 +48,7 @@ export default function App({ user, onSignOut }) {
   const [histModal, setHistModal] = useState(false)
   const [txnEditModal, setTxnEditModal] = useState(null)
   const [cashModal, setCashModal] = useState(false)
+  const [journalAddOpen, setJournalAddOpen] = useState(false)
 
   // ─── Data loading ──────────────────────────────────────────────────────────
   const refresh = useCallback(async () => {
@@ -614,24 +615,31 @@ export default function App({ user, onSignOut }) {
       {view === 'journal' && (
         <section className="px-4 lg:px-10 mt-5">
           <div className="panel rounded-2xl p-5">
-            <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
+            <div className="flex items-start justify-between gap-3 mb-5 flex-wrap">
               <div>
                 <div className="text-[18px] font-semibold tracking-tight">ข่าวสารการซื้อขาย</div>
                 <div className="text-[12px] text-[var(--txt-dim)] mt-0.5">กรอกมือ · {tradeJournal.length} รายการ</div>
               </div>
-              <a
-                href="https://wethaiinvest.com/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn whitespace-nowrap"
-                title="เปิดเว็บแหล่งข่าวการลงทุน (แท็บใหม่)"
-              >
-                📰 แหล่งข่าว
-              </a>
+              <div className="flex items-center gap-2 flex-wrap">
+                <a
+                  href="https://wethaiinvest.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn whitespace-nowrap"
+                  title="เปิดเว็บแหล่งข่าวการลงทุน (แท็บใหม่)"
+                >
+                  📰 แหล่งข่าว
+                </a>
+                <button
+                  className="btn btn-primary whitespace-nowrap"
+                  onClick={() => setJournalAddOpen(true)}
+                >
+                  ＋ เพิ่มบันทึก
+                </button>
+              </div>
             </div>
             <TradeJournal
               records={tradeJournal}
-              onAdd={commitTradeRecord}
               onDelete={deleteTradeRecord}
             />
           </div>
@@ -780,6 +788,12 @@ export default function App({ user, onSignOut }) {
           activity={cashActivity}
           onAdd={commitCash}
           onClose={() => setCashModal(false)}
+        />
+      )}
+      {journalAddOpen && (
+        <JournalAddModal
+          onAdd={commitTradeRecord}
+          onClose={() => setJournalAddOpen(false)}
         />
       )}
 

@@ -2,10 +2,13 @@ import { useMemo, useState } from 'react'
 import { JOURNAL_PORTFOLIOS, fmtQty, fmtUsd, uid } from '../data.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TradeJournal — Daily Portfolio Journal, rendered inside the journal modal.
+// TradeJournal — Daily Portfolio Journal.
 // A manual daily trade log split across three portfolio groups, with the
 // reason for each decision. Standalone — it does not affect any calculation.
-// The modal wrapper provides the title and the news-source link in its header.
+//
+// Split into two pieces:
+//   • TradeJournalForm — entry form, mounted inside the add-record modal
+//   • TradeJournal      — default export, renders only the history list
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PF_KEYS = ['shay', 'channel', 'insider']
@@ -27,7 +30,8 @@ function FilterPill({ active, onClick, label, color }) {
   )
 }
 
-export default function TradeJournal({ records, onAdd, onDelete }) {
+// ─── Form (used inside the add-record modal) ─────────────────────────────────
+export function TradeJournalForm({ onAdd, onClose }) {
   const [date, setDate] = useState(todayStr)
   const [portfolio, setPortfolio] = useState('shay')
   const [action, setAction] = useState('buy')
@@ -36,7 +40,6 @@ export default function TradeJournal({ records, onAdd, onDelete }) {
   const [price, setPrice] = useState('')
   const [reason, setReason] = useState('')
   const [note, setNote] = useState('')
-  const [filter, setFilter] = useState('all')
 
   const totalValue = (Number(quantity) || 0) * (Number(price) || 0)
   const canSave = ticker.trim() && Number(quantity) > 0 && Number(price) > 0
@@ -54,22 +57,11 @@ export default function TradeJournal({ records, onAdd, onDelete }) {
       reason: reason.trim(),
       note: note.trim(),
     })
-    // Keep date / portfolio / action for logging several trades in a row.
-    setTicker('')
-    setQuantity('')
-    setPrice('')
-    setReason('')
-    setNote('')
+    if (onClose) onClose()
   }
-
-  const rows = useMemo(
-    () => (filter === 'all' ? records : records.filter((r) => r.portfolio === filter)),
-    [records, filter],
-  )
 
   return (
     <div>
-      {/* Entry form */}
       <div className="grid grid-cols-2 gap-2">
         <label className="block">
           <span className="field-label">วันที่</span>
@@ -148,12 +140,28 @@ export default function TradeJournal({ records, onAdd, onDelete }) {
         </label>
       </div>
 
-      <button onClick={submit} disabled={!canSave} className="btn btn-primary w-full mt-3">
-        บันทึกรายการ
-      </button>
+      <div className="mt-4 flex items-center justify-end gap-2">
+        {onClose && <button className="btn btn-ghost" onClick={onClose}>ยกเลิก</button>}
+        <button onClick={submit} disabled={!canSave} className="btn btn-primary">
+          บันทึกรายการ
+        </button>
+      </div>
+    </div>
+  )
+}
 
-      {/* History */}
-      <div className="flex items-center gap-1.5 flex-wrap mt-5 mb-2">
+// ─── History (default export, shown on the journal page) ─────────────────────
+export default function TradeJournal({ records, onDelete }) {
+  const [filter, setFilter] = useState('all')
+
+  const rows = useMemo(
+    () => (filter === 'all' ? records : records.filter((r) => r.portfolio === filter)),
+    [records, filter],
+  )
+
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 flex-wrap mb-2">
         <span className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)] mr-1">ดูย้อนหลัง</span>
         <FilterPill active={filter === 'all'} onClick={() => setFilter('all')} label="ทั้งหมด" color="#fff" />
         {PF_KEYS.map((k) => (

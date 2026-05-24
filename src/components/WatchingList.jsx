@@ -131,6 +131,7 @@ export default function WatchingList({ watchingList, onAdd, onEdit, onDelete, on
   const [statusFilter, setStatusFilter] = useState('All')
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState(null)
+  const [adding, setAdding] = useState(false)
   const [expanded, setExpanded] = useState({})
 
   const enriched = useMemo(
@@ -212,13 +213,6 @@ export default function WatchingList({ watchingList, onAdd, onEdit, onDelete, on
         })}
       </div>
 
-      {/* Add form */}
-      <div className="panel rounded-2xl p-5">
-        <div className="text-[14px] font-semibold tracking-wide mb-1">เพิ่มหุ้นเข้ารายการเฝ้าติดตาม</div>
-        <div className="text-[11px] text-[var(--txt-dim)] mb-4">Add Watching Stock — หุ้นที่กำลังเฝ้าดูรอจังหวะเข้าซื้อ</div>
-        <WatchingForm submitLabel="เพิ่มเข้ารายการเฝ้าติดตาม" onSubmit={onAdd} />
-      </div>
-
       {/* Table */}
       <div className="panel rounded-2xl overflow-hidden">
         <div className="flex items-center justify-between gap-3 p-4 border-b border-white/5 flex-wrap">
@@ -242,6 +236,7 @@ export default function WatchingList({ watchingList, onAdd, onEdit, onDelete, on
               <option value="All">สถานะ: ทั้งหมด</option>
               {STATUSES.map((s) => <option key={s} value={s}>{STATUS_TH[s]}</option>)}
             </select>
+            <button className="btn whitespace-nowrap" onClick={() => setAdding(true)}>＋ เพิ่มหุ้นใหม่</button>
           </div>
         </div>
 
@@ -351,6 +346,34 @@ export default function WatchingList({ watchingList, onAdd, onEdit, onDelete, on
                 onSubmit={(data) => {
                   onEdit(editing.id, data)
                   setEditing(null)
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {adding && (
+        <div className="backdrop fade-in" onClick={() => setAdding(false)}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="panel rounded-2xl w-full overflow-hidden"
+            style={{ maxWidth: 640, maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}
+          >
+            <div className="flex items-start justify-between gap-4 p-5 border-b border-white/5">
+              <div>
+                <div className="text-[16px] font-semibold tracking-tight">เพิ่มหุ้นเข้ารายการเฝ้าติดตาม</div>
+                <div className="text-[12px] text-[var(--txt-dim)] mt-0.5">Add Watching Stock — หุ้นที่กำลังเฝ้าดูรอจังหวะเข้าซื้อ</div>
+              </div>
+              <button onClick={() => setAdding(false)} className="btn btn-ghost text-[16px] leading-none">✕</button>
+            </div>
+            <div className="p-5 overflow-y-auto">
+              <WatchingForm
+                submitLabel="เพิ่มเข้ารายการเฝ้าติดตาม"
+                onCancel={() => setAdding(false)}
+                onSubmit={(data) => {
+                  onAdd(data)
+                  setAdding(false)
                 }}
               />
             </div>
