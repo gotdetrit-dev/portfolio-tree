@@ -114,6 +114,23 @@ export default function App({ user, onSignOut }) {
     return { offCount, balanced: offCount === 0 }
   }, [agg, targets])
 
+  // Count today's activity for the scrolling ticker.
+  const todayActivity = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    const tradeAndDeposit =
+      transactions.filter((t) => t.date === today && (t.type === 'buy' || t.type === 'sell')).length
+      + cashActivity.filter((c) => c.date === today && c.type === 'deposit').length
+    const watchingAdded = watchingList.filter((w) => (w.createdAt || '').slice(0, 10) === today).length
+    const newsAdded = tradeJournal.filter((r) => r.date === today).length
+    return {
+      today,
+      tradeAndDeposit,
+      watchingAdded,
+      newsAdded,
+      hasAny: tradeAndDeposit + watchingAdded + newsAdded > 0,
+    }
+  }, [transactions, cashActivity, watchingList, tradeJournal])
+
   // ─── Actions ───────────────────────────────────────────────────────────────
   async function commitTxn(t) {
     setTxnModal(null)
@@ -665,6 +682,24 @@ export default function App({ user, onSignOut }) {
           onModeChange={changeMode}
           onEditTargets={() => setTgtModal(true)}
         />
+      </div>
+
+      {/* Today's activity ticker — สรุปการเปลี่ยนแปลงวันนี้ วิ่งวนเรื่อยๆ */}
+      <div className="px-4 lg:px-10 mt-3">
+        <div className="marquee text-[12px] py-1.5 px-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+          {(() => {
+            const dateText = new Date(todayActivity.today + 'T00:00:00').toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+            const msg = todayActivity.hasAny
+              ? `อัพเดตวันที่ ${dateText} · มีการฝาก/ซื้อ/ขาย ${todayActivity.tradeAndDeposit} รายการ · มีการเพิ่มรายการเฝ้าติดตาม ${todayActivity.watchingAdded} รายการ · มีการเพิ่มข่าวสาร ${todayActivity.newsAdded} รายการ`
+              : `อัพเดตวันที่ ${dateText} · ไม่มีการเปลี่ยนแปลงใดๆ`
+            return (
+              <div className="marquee-track">
+                <span className="marquee-item text-[var(--txt-dim)]">{msg}</span>
+                <span className="marquee-item text-[var(--txt-dim)]" aria-hidden>{msg}</span>
+              </div>
+            )
+          })()}
+        </div>
       </div>
 
       {/* Empty-state banner */}

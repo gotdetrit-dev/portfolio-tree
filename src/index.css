@@ -146,6 +146,22 @@ body {
 }
 .chip-blink { animation: chipBlink 1.2s ease-in-out infinite; }
 
+/* Horizontal scrolling ticker (today's activity strip). Two copies of the
+   message are stacked side-by-side and the track is translated by -50% so
+   the loop is seamless. */
+.marquee { overflow: hidden; white-space: nowrap; }
+.marquee-track {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: marquee 45s linear infinite;
+  will-change: transform;
+}
+.marquee-item { padding-right: 96px; }
+@keyframes marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+
 @keyframes neonPulse {
   0%, 100% { filter: drop-shadow(0 0 4px currentColor) drop-shadow(0 0 12px currentColor); }
   50%      { filter: drop-shadow(0 0 6px currentColor) drop-shadow(0 0 20px currentColor); }
