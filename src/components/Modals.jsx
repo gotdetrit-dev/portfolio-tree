@@ -340,12 +340,77 @@ export function PricePlanModal({ initial, transactions = [], onClose, onSubmit }
 export function JournalAddModal({ onAdd, onClose }) {
   return (
     <Modal
-      title="เพิ่มบันทึกข่าวสารการซื้อขาย"
+      title="บันทึกข่าวสารการซื้อขาย"
       subtitle="กรอกรายละเอียดการซื้อขายในวันนี้"
       onClose={onClose}
       maxWidth={620}
     >
       <TradeJournalForm onAdd={onAdd} onClose={onClose} />
+    </Modal>
+  )
+}
+
+// ─── Article Add Modal ────────────────────────────────────────────────────────
+// บันทึกบทความ / ข่าว / บทวิเคราะห์ — แชร์ตารางเดียวกับบันทึกการซื้อขาย
+// ทำเครื่องหมายด้วย action='article' เพื่อให้ TradeJournal แสดงผลคนละแบบ
+export function ArticleAddModal({ onAdd, onClose }) {
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [ticker, setTicker] = useState('')
+  const [content, setContent] = useState('')
+  const canSave = ticker.trim() && content.trim()
+
+  function submit() {
+    if (!canSave) return
+    onAdd({
+      id: uid('j'),
+      date,
+      portfolio: 'shay',
+      action: 'article',
+      ticker: ticker.trim().toUpperCase(),
+      quantity: 0,
+      price: 0,
+      reason: content.trim(),
+      note: '',
+    })
+    if (onClose) onClose()
+  }
+
+  return (
+    <Modal
+      title="บันทึกบทความ"
+      subtitle="บันทึกข่าว / บทความ / บทวิเคราะห์เกี่ยวกับหุ้น"
+      onClose={onClose}
+      maxWidth={620}
+      color="#7bd1ff"
+    >
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block">
+          <span className="field-label">วันที่</span>
+          <input type="date" className="field" value={date} onChange={(e) => setDate(e.target.value)} />
+        </label>
+        <label className="block">
+          <span className="field-label">ชื่อหุ้น (Ticker)</span>
+          <input className="field" value={ticker} onChange={(e) => setTicker(e.target.value.toUpperCase())} placeholder="NVDA" />
+        </label>
+      </div>
+      <div className="mt-3">
+        <label className="block">
+          <span className="field-label">เนื้อหา</span>
+          <textarea
+            className="field"
+            rows={6}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="พิมพ์ข่าว / บทความ / บทวิเคราะห์ที่อ่านเจอ"
+          />
+        </label>
+      </div>
+      <div className="mt-4 flex items-center justify-end gap-2">
+        <button className="btn btn-ghost" onClick={onClose}>ยกเลิก</button>
+        <button onClick={submit} disabled={!canSave} className="btn btn-primary">
+          บันทึก
+        </button>
+      </div>
     </Modal>
   )
 }

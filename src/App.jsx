@@ -9,7 +9,7 @@ import SummaryBar from './components/SummaryBar.jsx'
 import HoldingsTable from './components/HoldingsTable.jsx'
 import TradeJournal from './components/TradeJournal.jsx'
 import WatchingList from './components/WatchingList.jsx'
-import { CashModal, HistoryModal, HoldingModal, JournalAddModal, PricePlanModal, TargetsModal, TransactionEditModal, TransactionModal } from './components/Modals.jsx'
+import { ArticleAddModal, CashModal, HistoryModal, HoldingModal, JournalAddModal, PricePlanModal, TargetsModal, TransactionEditModal, TransactionModal } from './components/Modals.jsx'
 import { makeWatchingRecord } from './watchingList.js'
 
 function defaultTargets() {
@@ -49,6 +49,7 @@ export default function App({ user, onSignOut }) {
   const [txnEditModal, setTxnEditModal] = useState(null)
   const [cashModal, setCashModal] = useState(false)
   const [journalAddOpen, setJournalAddOpen] = useState(false)
+  const [articleAddOpen, setArticleAddOpen] = useState(false)
 
   // ─── Data loading ──────────────────────────────────────────────────────────
   const refresh = useCallback(async () => {
@@ -634,7 +635,14 @@ export default function App({ user, onSignOut }) {
                   className="btn btn-primary whitespace-nowrap"
                   onClick={() => setJournalAddOpen(true)}
                 >
-                  ＋ เพิ่มบันทึก
+                  ＋ บันทึกข่าวสารการซื้อขาย
+                </button>
+                <button
+                  className="btn whitespace-nowrap"
+                  onClick={() => setArticleAddOpen(true)}
+                  style={{ borderColor: 'rgba(123,209,255,0.5)', color: '#7bd1ff' }}
+                >
+                  ＋ บันทึกบทความ
                 </button>
               </div>
             </div>
@@ -794,6 +802,12 @@ export default function App({ user, onSignOut }) {
         <JournalAddModal
           onAdd={commitTradeRecord}
           onClose={() => setJournalAddOpen(false)}
+        />
+      )}
+      {articleAddOpen && (
+        <ArticleAddModal
+          onAdd={commitTradeRecord}
+          onClose={() => setArticleAddOpen(false)}
         />
       )}
 

@@ -177,6 +177,31 @@ export default function TradeJournal({ records, onDelete }) {
 
       <div className="space-y-1.5">
         {rows.map((r) => {
+          // บทความ (action='article') ไม่มี ซื้อ/ขาย/จำนวน/ราคา — แสดงเป็นบล็อกเนื้อหา
+          if (r.action === 'article') {
+            const ARTICLE_TONE = '#7bd1ff'
+            return (
+              <div key={r.id} className="hairline rounded-lg p-2.5" style={{ background: 'rgba(123,209,255,0.04)', borderColor: ARTICLE_TONE + '33' }}>
+                <div className="flex items-center gap-2 flex-wrap text-[12px]">
+                  <span className="text-[10px] font-mono text-[var(--txt-faint)]">{r.date}</span>
+                  <span className="px-2 py-0.5 rounded text-[10.5px] font-medium" style={{ color: ARTICLE_TONE, border: `1px solid ${ARTICLE_TONE}55`, background: ARTICLE_TONE + '14' }}>
+                    📰 บทความ
+                  </span>
+                  <span className="font-mono font-semibold">{r.ticker}</span>
+                  <button
+                    onClick={() => onDelete(r.id)}
+                    className="ml-auto text-[var(--txt-faint)] hover:text-[#ff8aa0] transition-colors text-[12px]"
+                    title="ลบบันทึกนี้"
+                  >
+                    ✕
+                  </button>
+                </div>
+                {r.reason && (
+                  <div className="text-[12px] text-[var(--txt)] mt-1.5 whitespace-pre-wrap leading-relaxed">{r.reason}</div>
+                )}
+              </div>
+            )
+          }
           const pf = JOURNAL_PORTFOLIOS[r.portfolio] || { name: r.portfolio, hex: '#8a92a3' }
           const isBuy = r.action === 'buy'
           const tone = isBuy ? '#9bffae' : '#ff8aa0'
