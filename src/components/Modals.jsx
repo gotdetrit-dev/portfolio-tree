@@ -165,7 +165,7 @@ export function HoldingModal({ initial, onClose, onSubmit }) {
   // Watching List "Mark as Bought" action) works as well as a full edit.
   const [h, setH] = useState(() => ({
     id: uid('h'), cat: 'core', symbol: '', name: '', qty: 0, avg: 0, price: 0,
-    addPlan: [0, 0, 0], trimPlan: [0, 0, 0], note: '', targetPct: 0,
+    addPlan: [0, 0, 0, 0, 0], trimPlan: [0, 0, 0, 0, 0], note: '', targetPct: 0,
     ...(initial || {}),
   }))
   const upd = (k, v) => setH((s) => ({ ...s, [k]: v }))
@@ -270,21 +270,25 @@ export function HoldingModal({ initial, onClose, onSubmit }) {
 }
 
 // ─── Price Plan Modal ──────────────────────────────────────────────────────────
+const PLAN_LEVELS = 5
+const padPlan = (arr) => Array.from({ length: PLAN_LEVELS }, (_, i) => Number(arr?.[i]) || 0)
+
 export function PricePlanModal({ initial, onClose, onSubmit }) {
-  const [add, setAdd] = useState(initial.addPlan || [0, 0, 0])
-  const [trim, setTrim] = useState(initial.trimPlan || [0, 0, 0])
+  const [add, setAdd] = useState(() => padPlan(initial.addPlan))
+  const [trim, setTrim] = useState(() => padPlan(initial.trimPlan))
   const [note, setNote] = useState(initial.note || '')
   function setLvl(arr, setter, i, v) {
     const next = [...arr]
     next[i] = Number(v)
     setter(next)
   }
+  const indexes = Array.from({ length: PLAN_LEVELS }, (_, i) => i)
   return (
     <Modal title="แผนเพิ่ม / ลด" subtitle={`${initial.symbol} · ${initial.name}`} onClose={onClose} color={CATS[initial.cat].hex}>
       <div className="grid grid-cols-2 gap-5">
         <div>
           <div className="text-[12px] font-semibold mb-2" style={{ color: '#9bffae' }}>แผนเพิ่ม (ราคาต่ำกว่า = ดีกว่า)</div>
-          {[0, 1, 2].map((i) => (
+          {indexes.map((i) => (
             <div key={i} className="mb-2">
               <Field label={`ไม้ที่ ${i + 1}`}>
                 <input type="number" className="field" value={add[i]} onChange={(e) => setLvl(add, setAdd, i, e.target.value)} placeholder="$" />
@@ -294,7 +298,7 @@ export function PricePlanModal({ initial, onClose, onSubmit }) {
         </div>
         <div>
           <div className="text-[12px] font-semibold mb-2" style={{ color: '#ff8aa0' }}>แผนลด (ราคาสูงกว่า = ดีกว่า)</div>
-          {[0, 1, 2].map((i) => (
+          {indexes.map((i) => (
             <div key={i} className="mb-2">
               <Field label={`ไม้ที่ ${i + 1}`}>
                 <input type="number" className="field" value={trim[i]} onChange={(e) => setLvl(trim, setTrim, i, e.target.value)} placeholder="$" />
