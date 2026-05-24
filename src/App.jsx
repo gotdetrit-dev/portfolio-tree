@@ -762,7 +762,7 @@ export default function App({ user, onSignOut }) {
         <HoldingModal initial={holdModal} onClose={() => setHoldModal(null)} onSubmit={commitHolding} />
       )}
       {planModal && (
-        <PricePlanModal initial={planModal} onClose={() => setPlanModal(null)} onSubmit={commitPlan} />
+        <PricePlanModal initial={planModal} transactions={transactions} onClose={() => setPlanModal(null)} onSubmit={commitPlan} />
       )}
       {tgtModal && (
         <TargetsModal mode={mode} allTargets={allTargets} onClose={() => setTgtModal(false)} onSubmit={commitTargets} />

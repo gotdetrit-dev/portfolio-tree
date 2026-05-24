@@ -273,10 +273,11 @@ export function HoldingModal({ initial, onClose, onSubmit }) {
 const PLAN_LEVELS = 5
 const padPlan = (arr) => Array.from({ length: PLAN_LEVELS }, (_, i) => Number(arr?.[i]) || 0)
 
-export function PricePlanModal({ initial, onClose, onSubmit }) {
+export function PricePlanModal({ initial, transactions = [], onClose, onSubmit }) {
   const [add, setAdd] = useState(() => padPlan(initial.addPlan))
   const [trim, setTrim] = useState(() => padPlan(initial.trimPlan))
   const [note, setNote] = useState(initial.note || '')
+  const symHistory = transactions.filter((t) => t.symbol === initial.symbol)
   function setLvl(arr, setter, i, v) {
     const next = [...arr]
     next[i] = Number(v)
@@ -312,6 +313,14 @@ export function PricePlanModal({ initial, onClose, onSubmit }) {
           <input className="field" value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>
       </div>
+
+      <div className="mt-5">
+        <div className="text-[11px] uppercase tracking-wider text-[var(--txt-faint)] mb-2">
+          ประวัติซื้อขาย {initial.symbol} · {symHistory.length} รายการ
+        </div>
+        <TransactionHistory transactions={symHistory} />
+      </div>
+
       <div className="mt-5 flex items-center justify-between">
         <div className="text-[11px] text-[var(--txt-dim)] flex items-center gap-3 flex-wrap">
           <span>ราคาปัจจุบัน <span className="font-mono text-white">{fmtUsd(initial.price)}</span></span>
