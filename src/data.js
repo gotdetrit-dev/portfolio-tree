@@ -124,13 +124,16 @@ export function aggregate(holdings, cash, transactions = [], cashActivity = []) 
   }
 }
 
-// Returns next "add" and next "trim" plan levels based on current price
+// Returns next "add" and next "trim" plan levels based on current price.
+// Zeros (unfilled ไม้) are ignored. If price has moved past every plan level
+// in the actionable direction, nextAdd/nextTrim is null and no zone fires —
+// so the badge clears instead of getting stuck on the last level.
 export function nextPlan(h) {
-  const sortedAdd = [...(h.addPlan || [])].sort((a, b) => b - a) // higher first
-  const sortedTrim = [...(h.trimPlan || [])].sort((a, b) => a - b) // lower first
-  const nextAdd = sortedAdd.find((p) => h.price >= p) ?? sortedAdd[sortedAdd.length - 1]
-  const nextTrim = sortedTrim.find((p) => h.price <= p) ?? sortedTrim[sortedTrim.length - 1]
-  // Zone heuristic: within 3% of nearest level
+  const sortedAdd = (h.addPlan || []).filter((p) => Number(p) > 0).sort((a, b) => b - a) // higher first
+  const sortedTrim = (h.trimPlan || []).filter((p) => Number(p) > 0).sort((a, b) => a - b) // lower first
+  const nextAdd = sortedAdd.find((p) => h.price >= p) ?? null
+  const nextTrim = sortedTrim.find((p) => h.price <= p) ?? null
+  // Zone heuristic: within 3% of the next pending level
   let zone = 'Hold'
   if (nextAdd && h.price <= nextAdd * 1.03) zone = 'Add Zone'
   if (nextTrim && h.price >= nextTrim * 0.97) zone = 'Trim Zone'
