@@ -124,19 +124,24 @@ export function aggregate(holdings, cash, transactions = [], cashActivity = []) 
   }
 }
 
-// Returns next "add" and next "trim" plan levels based on current price.
-// Zeros (unfilled ไม้) are ignored. If price has moved past every plan level
-// in the actionable direction, nextAdd/nextTrim is null and no zone fires —
-// so the badge clears instead of getting stuck on the last level.
+// Returns the most-recently-crossed add / trim plan levels for a holding.
+// Zeros (unfilled ไม้) are ignored. The zone fires only when the price has
+// actually CROSSED a plan level — no "approaching within 3%" heads-up — so
+// a price still below the first trim target (or above the first add target)
+// stays in Hold.
+//
+//   Add  fires when price drops to/below an add level   → nextAdd  = lowest p where p ≥ price
+//   Trim fires when price rises to/above a trim level   → nextTrim = highest p where p ≤ price
 export function nextPlan(h) {
-  const sortedAdd = (h.addPlan || []).filter((p) => Number(p) > 0).sort((a, b) => b - a) // higher first
-  const sortedTrim = (h.trimPlan || []).filter((p) => Number(p) > 0).sort((a, b) => a - b) // lower first
-  const nextAdd = sortedAdd.find((p) => h.price >= p) ?? null
-  const nextTrim = sortedTrim.find((p) => h.price <= p) ?? null
-  // Zone heuristic: within 3% of the next pending level
+  const adds = (h.addPlan || []).filter((p) => Number(p) > 0)
+  const trims = (h.trimPlan || []).filter((p) => Number(p) > 0)
+  const triggeredAdds = adds.filter((p) => p >= h.price)
+  const triggeredTrims = trims.filter((p) => p <= h.price)
+  const nextAdd = triggeredAdds.length ? Math.min(...triggeredAdds) : null
+  const nextTrim = triggeredTrims.length ? Math.max(...triggeredTrims) : null
   let zone = 'Hold'
-  if (nextAdd && h.price <= nextAdd * 1.03) zone = 'Add Zone'
-  if (nextTrim && h.price >= nextTrim * 0.97) zone = 'Trim Zone'
+  if (nextAdd) zone = 'Add Zone'
+  if (nextTrim) zone = 'Trim Zone'
   // zone labels stay English internally; ZoneBadge maps to Thai
   return { nextAdd, nextTrim, zone }
 }
