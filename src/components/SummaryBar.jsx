@@ -6,6 +6,14 @@ import { CATS, MODES, fmtPct, fmtUsd } from '../data.js'
 // holds the 3 seasonal mode cards plus the edit-targets button.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Display-only currency toggle for this panel. State + rate live here so the
+// rest of the app keeps using USD internally.
+const FALLBACK_THB = 36
+function fmtThb(n, rate) {
+  const v = (n || 0) * rate
+  return (v < 0 ? '-' : '') + '฿' + Math.abs(v).toLocaleString('th-TH', { maximumFractionDigits: 0 })
+}
+
 export default function SummaryBar({ agg, mode, rebalancing, onModeChange, onEditTargets }) {
   const m = MODES[mode]
   const totalPos = (agg.totalPL || 0) >= 0
@@ -24,22 +32,35 @@ export default function SummaryBar({ agg, mode, rebalancing, onModeChange, onEdi
     return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onEsc) }
   }, [modeOpen])
 
+  // ─── USD / THB switch — affects only the numbers in this panel ──────────────
+  const [currency, setCurrency] = useState('USD')
+  const [usdThb, setUsdThb] = useState(FALLBACK_THB)
+  useEffect(() => {
+    let cancelled = false
+    fetch('https://api.frankfurter.app/latest?from=USD&to=THB')
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled && d?.rates?.THB) setUsdThb(d.rates.THB) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+  const fmtMoney = (n) => (currency === 'THB' ? fmtThb(n, usdThb) : fmtUsd(n))
+
   return (
-    <div className="panel rounded-2xl px-5 py-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 items-center">
+    <div className="panel rounded-2xl px-5 py-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5 items-center">
       {/* พอร์ตรวม — main number; น้ำ + ลงทุนแล้ว stacked underneath as breakdown */}
       <div>
         <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--txt-faint)]">พอร์ตรวม</div>
         <div className="text-[19px] font-mono num-tabular mt-1 whitespace-nowrap" style={{ color: '#fff' }}>
-          {fmtUsd(agg.total)}
+          {fmtMoney(agg.total)}
         </div>
         <div className="mt-1.5 flex flex-col gap-0.5 text-[10.5px] font-mono num-tabular whitespace-nowrap leading-tight">
           <span style={{ color: CATS.cash.hex, opacity: 0.9 }}>
             <span className="text-[var(--txt-faint)] uppercase tracking-wider mr-1">น้ำ</span>
-            {fmtUsd(agg.cash)}
+            {fmtMoney(agg.cash)}
           </span>
           <span style={{ color: 'var(--txt-dim)' }}>
             <span className="text-[var(--txt-faint)] uppercase tracking-wider mr-1">ลงทุน</span>
-            {fmtUsd(agg.invested)}
+            {fmtMoney(agg.invested)}
           </span>
         </div>
       </div>
@@ -48,17 +69,17 @@ export default function SummaryBar({ agg, mode, rebalancing, onModeChange, onEdi
       <div className="col-span-2">
         <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--txt-faint)]">กำไร/ขาดทุนรวม</div>
         <div className="text-[19px] font-mono num-tabular mt-1 whitespace-nowrap" style={{ color: totalTone, textShadow: `0 0 10px ${totalTone}66` }}>
-          {fmtUsd(agg.totalPL || 0)} <span className="text-[12px] opacity-80">({fmtPct(agg.totalReturnPct || 0, 1)})</span>
+          {fmtMoney(agg.totalPL || 0)} <span className="text-[12px] opacity-80">({fmtPct(agg.totalReturnPct || 0, 1)})</span>
         </div>
         <div className="mt-1.5 flex items-center gap-3 text-[10.5px] font-mono num-tabular whitespace-nowrap leading-tight">
           <span style={{ color: realPos ? '#9bffae' : '#ff8aa0', opacity: 0.85 }}>
             <span className="text-[var(--txt-faint)] uppercase tracking-wider mr-1">รับรู้แล้ว</span>
-            {fmtUsd(agg.realizedPL || 0)}
+            {fmtMoney(agg.realizedPL || 0)}
           </span>
           <span className="text-[var(--txt-faint)]">·</span>
           <span style={{ color: unrealPos ? '#9bffae' : '#ff8aa0', opacity: 0.85 }}>
             <span className="text-[var(--txt-faint)] uppercase tracking-wider mr-1">ยังไม่รับรู้</span>
-            {fmtUsd(agg.unrealizedPL || 0)}
+            {fmtMoney(agg.unrealizedPL || 0)}
           </span>
         </div>
       </div>
@@ -155,6 +176,33 @@ export default function SummaryBar({ agg, mode, rebalancing, onModeChange, onEdi
           <span className="text-[13px] font-medium" style={{ color: rebalancing.balanced ? '#9bffae' : '#f7c948' }}>
             {rebalancing.balanced ? 'สมดุลแล้ว' : `${rebalancing.offCount} หมวดเกินเป้า`}
           </span>
+        </div>
+      </div>
+
+      {/* สกุลเงิน — สวิตช์แสดงผลในกล่องนี้ตัวเดียว (ไม่กระทบส่วนอื่น) */}
+      <div>
+        <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--txt-faint)]">สกุลเงิน</div>
+        <div className="mt-1 inline-flex items-center p-0.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.05)' }}>
+          {['USD', 'THB'].map((c) => {
+            const on = currency === c
+            return (
+              <button
+                key={c}
+                onClick={() => setCurrency(c)}
+                className="px-2.5 py-1 rounded text-[12px] font-semibold transition-all"
+                style={{
+                  background: on ? 'rgba(123,209,255,0.15)' : 'transparent',
+                  color: on ? '#7bd1ff' : 'var(--txt-dim)',
+                  border: on ? '1px solid rgba(123,209,255,0.55)' : '1px solid transparent',
+                }}
+              >
+                {c}
+              </button>
+            )
+          })}
+        </div>
+        <div className="text-[10px] text-[var(--txt-faint)] font-mono mt-1 whitespace-nowrap">
+          1 USD = ฿{usdThb.toFixed(2)}
         </div>
       </div>
     </div>
