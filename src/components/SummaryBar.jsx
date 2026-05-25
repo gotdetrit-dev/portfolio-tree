@@ -37,10 +37,28 @@ export default function SummaryBar({ agg, mode, rebalancing, onModeChange, onEdi
   const [usdThb, setUsdThb] = useState(FALLBACK_THB)
   useEffect(() => {
     let cancelled = false
-    fetch('https://api.frankfurter.app/latest?from=USD&to=THB')
-      .then((r) => r.json())
-      .then((d) => { if (!cancelled && d?.rates?.THB) setUsdThb(d.rates.THB) })
-      .catch(() => {})
+    // Try a chain of free, no-key exchange-rate sources (Thailand-friendly).
+    // Stops at the first source that returns a usable THB rate.
+    const sources = [
+      { url: 'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json', pick: (d) => d?.usd?.thb },
+      { url: 'https://latest.currency-api.pages.dev/v1/currencies/usd.json', pick: (d) => d?.usd?.thb },
+      { url: 'https://open.er-api.com/v6/latest/USD', pick: (d) => d?.rates?.THB },
+    ]
+    ;(async () => {
+      for (const s of sources) {
+        if (cancelled) return
+        try {
+          const r = await fetch(s.url)
+          if (!r.ok) continue
+          const d = await r.json()
+          const rate = s.pick(d)
+          if (rate && rate > 0) {
+            if (!cancelled) setUsdThb(rate)
+            return
+          }
+        } catch { /* try next source */ }
+      }
+    })()
     return () => { cancelled = true }
   }, [])
   const fmtMoney = (n) => (currency === 'THB' ? fmtThb(n, usdThb) : fmtUsd(n))
