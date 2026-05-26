@@ -58,8 +58,9 @@ export default function SummaryBar({ agg, mode, rebalancing, onModeChange, onEdi
     if ((n || 0) < 0) return '−' + s
     return s
   }
-  const tonePos = '#9bffae'
-  const toneNeg = '#ff8aa0'
+  // เขียว = สีปุ่ม "แดชบอร์ด" / Core hex, แดง = สี Booster hex
+  const tonePos = '#34e07a'
+  const toneNeg = '#ff4d6d'
   const toneOf = (n) => (n >= 0 ? tonePos : toneNeg)
 
   // ─── Derived values ─────────────────────────────────────────────────────────
