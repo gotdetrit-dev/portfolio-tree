@@ -224,6 +224,7 @@ export default function HoldingsTable({ holdings, agg, targets, onAddTxn, onEdit
             <col style={{ width: '60px' }} />
             <col style={{ width: '104px' }} />
             <col style={{ width: '92px' }} />
+            <col style={{ width: '92px' }} />
             <col style={{ width: '100px' }} />
             <col style={{ width: '96px' }} />
           </colgroup>
@@ -234,6 +235,7 @@ export default function HoldingsTable({ holdings, agg, targets, onAddTxn, onEdit
               <SortHead k="curPct">สัดส่วน</SortHead>
               <SortHead k="qty" align="right">จำนวน</SortHead>
               <SortHead k="price" align="right">ราคา</SortHead>
+              <SortHead k="avg" align="right">ต้นทุน</SortHead>
               <SortHead k="mv" align="right">มูลค่า</SortHead>
               <SortHead k="pl" align="right">กำไร/ขาดทุน</SortHead>
               <th style={{ textAlign: 'right' }}>คำสั่ง</th>
@@ -286,6 +288,8 @@ export default function HoldingsTable({ holdings, agg, targets, onAddTxn, onEdit
                     <div className="text-[10.5px] text-[var(--txt-faint)] whitespace-nowrap">สกุล</div>
                     <div className="font-semibold text-[13px] whitespace-nowrap">USD</div>
                   </td>
+                  {/* ต้นทุน — ไม่มีสำหรับเงินสด */}
+                  <td className="mono text-[var(--txt-faint)]" style={{ textAlign: 'right' }}>—</td>
                   {/* มูลค่า — ยอดน้ำเป็น USD */}
                   <td className="mono font-semibold whitespace-nowrap" style={{ textAlign: 'right', color: cashCat.hex }}>
                     {fmtUsd(cashAmount, 0)}
@@ -365,18 +369,22 @@ export default function HoldingsTable({ holdings, agg, targets, onAddTxn, onEdit
                   {/* จำนวน */}
                   <td className="mono" style={{ textAlign: 'right' }}>{fmtQty(r.qty)}</td>
 
-                  {/* ราคา — ต้นทุน → ปัจจุบัน + % เปลี่ยนแปลงวันนี้ */}
+                  {/* ราคา — ปัจจุบัน + % เปลี่ยนแปลงวันนี้ */}
                   <td className="mono" style={{ textAlign: 'right' }}>
-                    <div className="text-[10.5px] text-[var(--txt-faint)] whitespace-nowrap">ต้นทุน {fmtUsd(r.avg)}</div>
                     <div className="font-semibold text-[13px] whitespace-nowrap">{fmtUsd(r.price)}</div>
                     {typeof r.dayChangePct === 'number' && r.dayChangePct !== 0 && (
                       <div
-                        className="text-[10.5px] whitespace-nowrap"
+                        className="text-[10.5px] whitespace-nowrap mt-0.5"
                         style={{ color: r.dayChangePct >= 0 ? '#9bffae' : '#ff8aa0' }}
                       >
                         {fmtPct(r.dayChangePct, 2)} <span className="text-[var(--txt-faint)] text-[9.5px]">วันนี้</span>
                       </div>
                     )}
+                  </td>
+
+                  {/* ต้นทุน — ราคาเฉลี่ย */}
+                  <td className="mono text-[var(--txt-dim)] whitespace-nowrap" style={{ textAlign: 'right' }}>
+                    {fmtUsd(r.avg)}
                   </td>
 
                   {/* มูลค่า */}
