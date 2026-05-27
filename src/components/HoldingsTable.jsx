@@ -372,13 +372,15 @@ export default function HoldingsTable({ holdings, agg, targets, onAddTxn, onEdit
                   {/* ราคา — ปัจจุบัน + % เปลี่ยนแปลงวันนี้ */}
                   <td className="mono" style={{ textAlign: 'right' }}>
                     <div className="font-semibold text-[13px] whitespace-nowrap">{fmtUsd(r.price)}</div>
-                    {typeof r.dayChangePct === 'number' && r.dayChangePct !== 0 && (
+                    {typeof r.dayChangePct === 'number' ? (
                       <div
                         className="text-[10.5px] whitespace-nowrap mt-0.5"
-                        style={{ color: r.dayChangePct >= 0 ? '#9bffae' : '#ff8aa0' }}
+                        style={{ color: r.dayChangePct > 0 ? '#9bffae' : r.dayChangePct < 0 ? '#ff8aa0' : 'var(--txt-dim)' }}
                       >
                         {fmtPct(r.dayChangePct, 2)} <span className="text-[var(--txt-faint)] text-[9.5px]">วันนี้</span>
                       </div>
+                    ) : (
+                      <div className="text-[10.5px] text-[var(--txt-faint)] mt-0.5">— วันนี้</div>
                     )}
                   </td>
 
