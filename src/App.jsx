@@ -37,6 +37,7 @@ export default function App({ user, onSignOut }) {
   const [loadError, setLoadError] = useState(null)
   const [seeding, setSeeding] = useState(false)
   const [refreshingPrices, setRefreshingPrices] = useState(false)
+  const [refreshingWatching, setRefreshingWatching] = useState(false)
   const autoRefreshedRef = useRef(false)
   const toastTimer = useRef(null)
 
@@ -79,6 +80,7 @@ export default function App({ user, onSignOut }) {
     if (loading || autoRefreshedRef.current || !isStockApiConfigured) return
     autoRefreshedRef.current = true
     refreshPrices()
+    refreshWatchingPrices()
   }, [loading])
 
   function reportError(e) {
@@ -524,6 +526,36 @@ export default function App({ user, onSignOut }) {
     }
   }
 
+  // Same idea as refreshPrices but for the Watching List. Refetches the live
+  // price for each watched ticker, recomputes alert status (via makeWatchingRecord),
+  // and persists changes.
+  async function refreshWatchingPrices() {
+    if (!isStockApiConfigured || watchingList.length === 0 || refreshingWatching) return
+    setRefreshingWatching(true)
+    try {
+      const results = await Promise.all(
+        watchingList.map(async (w) => {
+          try {
+            const price = await getQuote(w.ticker)
+            if (price > 0 && price !== w.currentPrice) {
+              return makeWatchingRecord({ currentPrice: price }, w)
+            }
+            return w
+          } catch {
+            return w
+          }
+        }),
+      )
+      const changed = results.filter((w, i) => w !== watchingList[i])
+      setWatchingList(results)
+      await Promise.all(changed.map((w) => db.updateWatchingRow(w)))
+    } catch (e) {
+      reportError(e)
+    } finally {
+      setRefreshingWatching(false)
+    }
+  }
+
   function clickCard(catKey) {
     if (catKey === 'cash') {
       setCashModal(true)
@@ -626,6 +658,8 @@ export default function App({ user, onSignOut }) {
             onEdit={editWatching}
             onDelete={deleteWatching}
             onMarkAsBought={markWatchingAsBought}
+            onRefreshPrices={isStockApiConfigured ? refreshWatchingPrices : undefined}
+            refreshing={refreshingWatching}
           />
         </section>
       )}

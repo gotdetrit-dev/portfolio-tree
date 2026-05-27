@@ -126,7 +126,7 @@ function WatchingForm({ initial, submitLabel, onSubmit, onCancel }) {
   )
 }
 
-export default function WatchingList({ watchingList, onAdd, onEdit, onDelete, onMarkAsBought }) {
+export default function WatchingList({ watchingList, onAdd, onEdit, onDelete, onMarkAsBought, onRefreshPrices, refreshing }) {
   const [catFilter, setCatFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('All')
   const [search, setSearch] = useState('')
@@ -236,6 +236,11 @@ export default function WatchingList({ watchingList, onAdd, onEdit, onDelete, on
               <option value="All">สถานะ: ทั้งหมด</option>
               {STATUSES.map((s) => <option key={s} value={s}>{STATUS_TH[s]}</option>)}
             </select>
+            {onRefreshPrices && (
+              <button className="btn whitespace-nowrap" onClick={onRefreshPrices} disabled={refreshing}>
+                {refreshing ? 'กำลังอัปเดต…' : '↻ อัปเดตราคา'}
+              </button>
+            )}
             <button className="btn whitespace-nowrap" onClick={() => setAdding(true)}>＋ เพิ่มหุ้นใหม่</button>
           </div>
         </div>
