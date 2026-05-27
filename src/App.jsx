@@ -836,7 +836,7 @@ export default function App({ user, onSignOut }) {
 
       {/* Modals */}
       {txnModal && (
-        <TransactionModal initial={txnModal} holdings={holdings} onClose={() => setTxnModal(null)} onSubmit={commitTxn} />
+        <TransactionModal initial={txnModal} holdings={holdings} agg={agg} onClose={() => setTxnModal(null)} onSubmit={commitTxn} />
       )}
       {holdModal && (
         <HoldingModal initial={holdModal} onClose={() => setHoldModal(null)} onSubmit={commitHolding} />

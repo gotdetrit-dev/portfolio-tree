@@ -49,7 +49,7 @@ function Field({ label, children }) {
 }
 
 // ─── Transaction Modal ─────────────────────────────────────────────────────────
-export function TransactionModal({ initial, holdings, onClose, onSubmit }) {
+export function TransactionModal({ initial, holdings, agg, onClose, onSubmit }) {
   const [type, setType] = useState(initial?.type || 'buy')
   const [symbol, setSymbol] = useState(initial?.symbol || '')
   const [cat, setCat] = useState(initial?.cat || 'core')
@@ -63,6 +63,18 @@ export function TransactionModal({ initial, holdings, onClose, onSubmit }) {
   const fee = total * (Number(feePct || 0) / 100)
   const netBuy = total + fee
   const netSell = total - fee
+
+  // Allocation preview — what does this trade do to the stock's % of portfolio?
+  const portfolioTotal = agg?.total || 0
+  const existingHolding = symbol ? holdings.find((h) => h.symbol === symbol.toUpperCase()) : null
+  const marketPrice = existingHolding?.price || Number(price || 0)
+  const currentMV = existingHolding ? existingHolding.qty * existingHolding.price : 0
+  const currentPct = portfolioTotal > 0 ? (currentMV / portfolioTotal) * 100 : 0
+  const deltaShares = (type === 'buy' ? 1 : -1) * Number(qty || 0)
+  const newMV = Math.max(0, currentMV + deltaShares * marketPrice)
+  const newPct = portfolioTotal > 0 ? (newMV / portfolioTotal) * 100 : 0
+  const pctDelta = newPct - currentPct
+  const showAlloc = portfolioTotal > 0 && Number(qty) > 0 && Number(price) > 0
 
   function onSymbolChange(v) {
     setSymbol(v.toUpperCase())
@@ -124,21 +136,42 @@ export function TransactionModal({ initial, holdings, onClose, onSubmit }) {
         </div>
       </div>
 
-      <div className="mt-4 hairline rounded-xl p-3 grid grid-cols-3 gap-2 text-[12px]" style={{ background: 'rgba(0,0,0,0.3)' }}>
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)]">มูลค่ารวม</div>
-          <div className="font-mono num-tabular text-white">{fmtUsd(total)}</div>
-        </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)]">ค่าธรรมเนียม</div>
-          <div className="font-mono num-tabular text-[var(--txt-dim)]">{fmtUsd(fee)}</div>
-        </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)]">{type === 'buy' ? 'น้ำที่ใช้' : 'น้ำที่ได้คืน'}</div>
-          <div className="font-mono num-tabular" style={{ color: type === 'buy' ? '#ff8aa0' : '#9bffae' }}>
-            {type === 'buy' ? '−' : '+'}{fmtUsd(type === 'buy' ? netBuy : netSell)}
+      <div className="mt-4 hairline rounded-xl p-3 text-[12px]" style={{ background: 'rgba(0,0,0,0.3)' }}>
+        <div className="grid grid-cols-3 gap-2">
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)]">มูลค่ารวม</div>
+            <div className="font-mono num-tabular text-white">{fmtUsd(total)}</div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)]">ค่าธรรมเนียม</div>
+            <div className="font-mono num-tabular text-[var(--txt-dim)]">{fmtUsd(fee)}</div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)]">{type === 'buy' ? 'น้ำที่ใช้' : 'น้ำที่ได้คืน'}</div>
+            <div className="font-mono num-tabular" style={{ color: type === 'buy' ? '#ff8aa0' : '#9bffae' }}>
+              {type === 'buy' ? '−' : '+'}{fmtUsd(type === 'buy' ? netBuy : netSell)}
+            </div>
           </div>
         </div>
+        {showAlloc && (
+          <div className="mt-2 pt-2 border-t border-white/5 grid grid-cols-2 gap-2">
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)]">สัดส่วนปัจจุบัน</div>
+              <div className="font-mono num-tabular text-[var(--txt-dim)]">{currentPct.toFixed(2)}%</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)]">
+                หลัง{type === 'buy' ? 'ซื้อ' : 'ขาย'}
+              </div>
+              <div className="font-mono num-tabular" style={{ color: pctDelta > 0 ? '#9bffae' : pctDelta < 0 ? '#ff8aa0' : 'var(--txt-dim)' }}>
+                {newPct.toFixed(2)}%{' '}
+                <span className="text-[10.5px] opacity-80">
+                  ({pctDelta > 0 ? '+' : ''}{pctDelta.toFixed(2)}%)
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-5 flex items-center justify-end gap-2">
