@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { CATS, fmtQty, fmtUsd } from '../data.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -7,13 +8,57 @@ import { CATS, fmtQty, fmtUsd } from '../data.js'
 
 const TYPE_LABEL = { buy: 'ซื้อ', sell: 'ขาย', div: 'ปันผล' }
 
+const todayStr = () => new Date().toISOString().slice(0, 10)
+const yesterdayStr = () => new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+
+const DATE_FILTERS = [
+  { key: 'all', label: 'ทั้งหมด' },
+  { key: 'today', label: 'วันนี้' },
+  { key: 'yesterday', label: 'เมื่อวาน' },
+]
+
 export default function TransactionHistory({ transactions, onEdit, onDelete }) {
+  const [dateFilter, setDateFilter] = useState('all')
+
   if (transactions.length === 0) {
     return <div className="text-[12px] text-[var(--txt-faint)] italic">ยังไม่มีประวัติ</div>
   }
+
+  const filtered = dateFilter === 'today'
+    ? transactions.filter((t) => t.date === todayStr())
+    : dateFilter === 'yesterday'
+      ? transactions.filter((t) => t.date === yesterdayStr())
+      : transactions
+
   return (
-    <div className="space-y-1.5">
-      {[...transactions].reverse().map((t) => {
+    <div>
+      {/* Date filter pills */}
+      <div className="flex items-center gap-1.5 flex-wrap mb-3">
+        {DATE_FILTERS.map((opt) => {
+          const active = dateFilter === opt.key
+          return (
+            <button
+              key={opt.key}
+              onClick={() => setDateFilter(opt.key)}
+              className="px-3 py-1 rounded-full text-[11px] transition-all whitespace-nowrap"
+              style={{
+                border: `1px solid ${active ? 'rgba(255,255,255,0.45)' : 'var(--line-strong)'}`,
+                background: active ? 'rgba(255,255,255,0.08)' : 'transparent',
+                color: active ? '#fff' : 'var(--txt-dim)',
+              }}
+            >
+              {opt.label}
+            </button>
+          )
+        })}
+        <span className="text-[10px] text-[var(--txt-faint)] ml-1">{filtered.length} รายการ</span>
+      </div>
+
+      <div className="space-y-1.5">
+        {filtered.length === 0 && (
+          <div className="text-[12px] text-[var(--txt-faint)] italic">ไม่มีรายการในช่วงนี้</div>
+        )}
+        {[...filtered].reverse().map((t) => {
         const isBuy = t.type === 'buy'
         const isSell = t.type === 'sell'
         const tone = isBuy ? '#9bffae' : isSell ? '#ff8aa0' : '#7bd1ff'
@@ -67,6 +112,7 @@ export default function TransactionHistory({ transactions, onEdit, onDelete }) {
           </div>
         )
       })}
+      </div>
     </div>
   )
 }
