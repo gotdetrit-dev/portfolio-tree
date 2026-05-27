@@ -181,26 +181,38 @@ export default function WatchingList({ watchingList, onAdd, onEdit, onDelete, on
 
   return (
     <div className="space-y-6">
-      {/* Summary cards */}
+      {/* Summary cards — Alert / Near Support cards double as filter shortcuts */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {summaryCards.map((c) => {
-          const highlighted = c.label === 'Alert' || c.label === 'Near Support'
-          const shouldBlink = c.label === 'Alert' && c.value > 0
+          const filterKey = c.label === 'Alert' ? 'Alert' : c.label === 'Near Support' ? 'Near Support' : null
+          const clickable = !!filterKey
+          const isActive = clickable && statusFilter === filterKey
+          const highlighted = clickable
+          const shouldBlink = c.label === 'Alert' && c.value > 0 && !isActive
+          const cardStyle = highlighted ? {
+            borderColor: c.hex + (isActive ? 'CC' : '88'),
+            background: `linear-gradient(180deg, ${c.hex}${isActive ? '33' : '1f'}, ${c.hex}${isActive ? '18' : '0a'})`,
+            boxShadow: `0 0 ${isActive ? '32px' : '20px'} ${c.hex}${isActive ? '66' : '33'}, 0 0 0 1px ${c.hex}${isActive ? 'AA' : '55'}`,
+          } : undefined
+          const handleClick = clickable
+            ? () => setStatusFilter(isActive ? 'All' : filterKey)
+            : undefined
           return (
             <div
               key={c.label}
-              className={`panel rounded-2xl px-4 py-3 ${shouldBlink ? 'chip-blink' : ''}`}
-              style={highlighted ? {
-                borderColor: c.hex + '88',
-                background: `linear-gradient(180deg, ${c.hex}1f, ${c.hex}0a)`,
-                boxShadow: `0 0 20px ${c.hex}33, 0 0 0 1px ${c.hex}55`,
-              } : undefined}
+              onClick={handleClick}
+              role={clickable ? 'button' : undefined}
+              tabIndex={clickable ? 0 : undefined}
+              onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick() } } : undefined}
+              title={clickable ? (isActive ? `กรองอยู่ — คลิกเพื่อยกเลิก` : `คลิกเพื่อกรองเฉพาะ ${c.label}`) : undefined}
+              className={`panel rounded-2xl px-4 py-3 ${shouldBlink ? 'chip-blink' : ''} ${clickable ? 'cursor-pointer transition-transform hover:-translate-y-0.5' : ''}`}
+              style={cardStyle}
             >
               <div
                 className="text-[10px] uppercase tracking-[0.12em]"
                 style={{ color: highlighted ? c.hex : 'var(--txt-faint)', opacity: highlighted ? 0.9 : 1 }}
               >
-                {c.label}
+                {c.label}{isActive && ' ·  กรองอยู่'}
               </div>
               <div
                 className="text-[22px] font-mono num-tabular mt-1"
