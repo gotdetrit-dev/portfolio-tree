@@ -14,6 +14,27 @@ import { CATS, MODES, fmtPct, fmtUsd } from '../data.js'
 // ─────────────────────────────────────────────────────────────────────────────
 
 const FALLBACK_THB = 36
+const RATE_CACHE_KEY = 'usdThbRate.v1'
+
+// Read the last successful rate from localStorage (any age — we only fall back
+// to FALLBACK_THB if there is no cached value at all).
+function readCachedRate() {
+  try {
+    const raw = localStorage.getItem(RATE_CACHE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return typeof parsed?.rate === 'number' && parsed.rate > 0 ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function writeCachedRate(rate) {
+  try {
+    localStorage.setItem(RATE_CACHE_KEY, JSON.stringify({ rate, ts: Date.now() }))
+  } catch {}
+}
+
 function fmtThb(n, rate) {
   const v = (n || 0) * rate
   return (v < 0 ? '-' : '') + '฿' + Math.abs(v).toLocaleString('th-TH', { maximumFractionDigits: 2, minimumFractionDigits: 0 })
@@ -24,7 +45,9 @@ export default function SummaryBar({ agg, mode, rebalancing, onModeChange, onEdi
 
   // ─── Currency state + live USD/THB rate ─────────────────────────────────────
   const [currency, setCurrency] = useState('THB')
-  const [usdThb, setUsdThb] = useState(FALLBACK_THB)
+  // Use the last-known-good rate from localStorage as initial value to avoid
+  // showing the FALLBACK_THB=36 to users on devices where APIs are blocked.
+  const [usdThb, setUsdThb] = useState(() => readCachedRate()?.rate ?? FALLBACK_THB)
   useEffect(() => {
     let cancelled = false
     const sources = [
@@ -41,7 +64,10 @@ export default function SummaryBar({ agg, mode, rebalancing, onModeChange, onEdi
           const d = await r.json()
           const rate = s.pick(d)
           if (rate && rate > 0) {
-            if (!cancelled) setUsdThb(rate)
+            if (!cancelled) {
+              setUsdThb(rate)
+              writeCachedRate(rate)
+            }
             return
           }
         } catch { /* try next source */ }
