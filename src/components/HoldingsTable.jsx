@@ -7,9 +7,12 @@ import { CATS, fmtPct, fmtPctPlain, fmtQty, fmtUsd, holdingCost, holdingMV, next
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ZoneBadge({ zone, onClick }) {
-  const tone = zone === 'Add Zone' ? '#9bffae' : zone === 'Trim Zone' ? '#ff8aa0' : '#cfd6e3'
-  const labelMap = { 'Add Zone': 'โซนเพิ่ม', 'Trim Zone': 'โซนลด', Hold: 'ถือรอ' }
-  const actionable = zone === 'Add Zone' || zone === 'Trim Zone'
+  const tone = zone === 'Add Zone' ? '#9bffae'
+    : zone === 'Trim Zone' ? '#ff8aa0'
+    : zone === 'NoPlan' ? '#f7c948'
+    : '#cfd6e3'
+  const labelMap = { 'Add Zone': 'โซนเพิ่ม', 'Trim Zone': 'โซนลด', Hold: 'ถือรอ', NoPlan: 'ยังไม่ปรับแผน' }
+  const actionable = zone === 'Add Zone' || zone === 'Trim Zone' || zone === 'NoPlan'
   const Tag = onClick ? 'button' : 'span'
   return (
     <Tag
@@ -17,7 +20,7 @@ function ZoneBadge({ zone, onClick }) {
       type={onClick ? 'button' : undefined}
       className={`chip whitespace-nowrap font-semibold ${actionable ? 'chip-blink' : ''} ${onClick ? 'cursor-pointer hover:bg-white/5 transition-colors' : ''}`}
       style={{ color: tone, fontSize: 12, padding: '4px 10px' }}
-      title={onClick ? 'คลิกเพื่อแก้ไขแผนเพิ่ม/ลด' : undefined}
+      title={onClick ? (zone === 'NoPlan' ? 'คลิกเพื่อตั้งแผนเพิ่ม/ลด' : 'คลิกเพื่อแก้ไขแผนเพิ่ม/ลด') : undefined}
     >
       {labelMap[zone] || zone}
     </Tag>

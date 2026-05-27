@@ -135,11 +135,13 @@ export function aggregate(holdings, cash, transactions = [], cashActivity = []) 
 export function nextPlan(h) {
   const adds = (h.addPlan || []).filter((p) => Number(p) > 0)
   const trims = (h.trimPlan || []).filter((p) => Number(p) > 0)
+  const hasPlan = adds.length > 0 || trims.length > 0
   const triggeredAdds = adds.filter((p) => p >= h.price)
   const triggeredTrims = trims.filter((p) => p <= h.price)
   const nextAdd = triggeredAdds.length ? Math.min(...triggeredAdds) : null
   const nextTrim = triggeredTrims.length ? Math.max(...triggeredTrims) : null
-  let zone = 'Hold'
+  // 'NoPlan' = stock has no add/trim levels filled in yet — prompts the user to set one.
+  let zone = hasPlan ? 'Hold' : 'NoPlan'
   if (nextAdd) zone = 'Add Zone'
   if (nextTrim) zone = 'Trim Zone'
   // zone labels stay English internally; ZoneBadge maps to Thai
