@@ -365,10 +365,18 @@ export default function HoldingsTable({ holdings, agg, targets, onAddTxn, onEdit
                   {/* จำนวน */}
                   <td className="mono" style={{ textAlign: 'right' }}>{fmtQty(r.qty)}</td>
 
-                  {/* ราคา — ต้นทุน → ปัจจุบัน */}
+                  {/* ราคา — ต้นทุน → ปัจจุบัน + % เปลี่ยนแปลงวันนี้ */}
                   <td className="mono" style={{ textAlign: 'right' }}>
                     <div className="text-[10.5px] text-[var(--txt-faint)] whitespace-nowrap">ต้นทุน {fmtUsd(r.avg)}</div>
                     <div className="font-semibold text-[13px] whitespace-nowrap">{fmtUsd(r.price)}</div>
+                    {typeof r.dayChangePct === 'number' && r.dayChangePct !== 0 && (
+                      <div
+                        className="text-[10.5px] whitespace-nowrap"
+                        style={{ color: r.dayChangePct >= 0 ? '#9bffae' : '#ff8aa0' }}
+                      >
+                        {fmtPct(r.dayChangePct, 2)} <span className="text-[var(--txt-faint)] text-[9.5px]">วันนี้</span>
+                      </div>
+                    )}
                   </td>
 
                   {/* มูลค่า */}

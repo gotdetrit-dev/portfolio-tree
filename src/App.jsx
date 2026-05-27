@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CAT_ORDER_TOP, MODES, aggregate, fmtUsd, holdingCost, holdingMV, uid } from './data.js'
 import * as db from './db.js'
-import { getQuote, isStockApiConfigured } from './stockApi.js'
+import { getQuote, getQuoteFull, isStockApiConfigured } from './stockApi.js'
 import WeatherOverlay from './components/WeatherOverlay.jsx'
 import PortfolioTree from './components/PortfolioTree.jsx'
 import CategoryCard from './components/CategoryCard.jsx'
@@ -509,8 +509,11 @@ export default function App({ user, onSignOut }) {
       const results = await Promise.all(
         holdings.map(async (h) => {
           try {
-            const price = await getQuote(h.symbol)
-            return price > 0 ? { ...h, price } : h
+            const q = await getQuoteFull(h.symbol)
+            if (q && q.price > 0) {
+              return { ...h, price: q.price, dayChangePct: q.dayChangePct }
+            }
+            return h
           } catch {
             return h
           }

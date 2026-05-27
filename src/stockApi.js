@@ -27,12 +27,23 @@ async function call(path) {
   return res.json()
 }
 
-// Current price for a symbol (0 if unknown).
-export async function getQuote(symbol) {
+// Full quote: price + day change. Finnhub /quote returns c/d/dp/pc out of the box.
+export async function getQuoteFull(symbol) {
   const sym = (symbol || '').trim().toUpperCase()
-  if (!sym) return 0
+  if (!sym) return null
   const d = await call(`/quote?symbol=${encodeURIComponent(sym)}`)
-  return Number(d.c) || 0
+  return {
+    price: Number(d.c) || 0,
+    dayChange: Number(d.d) || 0,
+    dayChangePct: Number(d.dp) || 0,
+    prevClose: Number(d.pc) || 0,
+  }
+}
+
+// Current price for a symbol (0 if unknown). Backward-compat helper.
+export async function getQuote(symbol) {
+  const q = await getQuoteFull(symbol)
+  return q?.price || 0
 }
 
 // Company display name for a symbol ('' if unknown).
