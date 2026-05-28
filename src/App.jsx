@@ -461,10 +461,17 @@ export default function App({ user, onSignOut }) {
   }
 
   async function deleteHolding(h) {
-    if (!confirm(`ลบ ${h.symbol}? ตำแหน่งจะถูกลบออก (ไม่กระทบน้ำ)`)) return
+    const mv = holdingMV(h) // qty × current price
+    const msg = mv > 0
+      ? `ลบ ${h.symbol}? มูลค่าปัจจุบัน ${fmtUsd(mv)} จะถูกคืนเข้าน้ำ (เงินสด)`
+      : `ลบ ${h.symbol}? ตำแหน่งจะถูกลบออก`
+    if (!confirm(msg)) return
     setHoldings((hs) => hs.filter((x) => x.id !== h.id))
+    const newCash = cash + mv
+    if (mv > 0) setCash(newCash)
     try {
       await db.deleteHolding(h.id)
+      if (mv > 0) await db.updateSettings(user.id, { cash: newCash })
     } catch (e) {
       reportError(e)
     }
