@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CATS, MODES, fmtUsd, uid } from '../data.js'
+import { CATS, MODES, fmtPct, fmtUsd, uid } from '../data.js'
 import { isStockApiConfigured, lookupSymbol } from '../stockApi.js'
 import TransactionHistory from './TransactionHistory.jsx'
 import CashManagement from './CashManagement.jsx'
@@ -310,6 +310,9 @@ export function PricePlanModal({ initial, transactions = [], onClose, onSubmit }
   const [add, setAdd] = useState(() => padPlan(initial.addPlan))
   const [trim, setTrim] = useState(() => padPlan(initial.trimPlan))
   const [note, setNote] = useState(initial.note || '')
+  const avg = Number(initial.avg) || 0
+  // % distance of a level price from the average cost (− below avg, + above avg)
+  const pctFromAvg = (p) => (avg > 0 && Number(p) > 0 ? ((Number(p) - avg) / avg) * 100 : null)
   const symHistory = transactions.filter((t) => t.symbol === initial.symbol)
   function setLvl(arr, setter, i, v) {
     const next = [...arr]
@@ -318,27 +321,54 @@ export function PricePlanModal({ initial, transactions = [], onClose, onSubmit }
   }
   const indexes = Array.from({ length: PLAN_LEVELS }, (_, i) => i)
   return (
-    <Modal title="แผนเพิ่ม / ลด" subtitle={`${initial.symbol} · ${initial.name}`} onClose={onClose} color={CATS[initial.cat].hex}>
+    <Modal
+      title="แผนเพิ่ม / ลด"
+      subtitle={`${initial.symbol} · ${initial.name}`}
+      onClose={onClose}
+      color={CATS[initial.cat].hex}
+      headerAction={
+        <div className="text-right rounded-lg px-3 py-1.5" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--line)' }}>
+          <div className="text-[9.5px] uppercase tracking-wider text-[var(--txt-faint)]">ทุนเฉลี่ย</div>
+          <div className="font-mono text-[15px] font-semibold text-white leading-tight">{fmtUsd(avg)}</div>
+        </div>
+      }
+    >
       <div className="grid grid-cols-2 gap-5">
         <div>
           <div className="text-[12px] font-semibold mb-2" style={{ color: '#9bffae' }}>แผนเพิ่ม (ราคาต่ำกว่า = ดีกว่า)</div>
-          {indexes.map((i) => (
-            <div key={i} className="mb-2">
-              <Field label={`ไม้ที่ ${i + 1}`}>
-                <input type="number" className="field" value={add[i]} onChange={(e) => setLvl(add, setAdd, i, e.target.value)} placeholder="$" />
-              </Field>
-            </div>
-          ))}
+          {indexes.map((i) => {
+            const pct = pctFromAvg(add[i])
+            return (
+              <div key={i} className="mb-2">
+                <Field label={`ไม้ที่ ${i + 1}`}>
+                  <div className="flex items-center gap-2">
+                    <input type="number" className="field flex-1 min-w-0" value={add[i]} onChange={(e) => setLvl(add, setAdd, i, e.target.value)} placeholder="$" />
+                    <span className="text-[11px] font-mono num-tabular w-[54px] text-right shrink-0" style={{ color: '#9bffae' }}>
+                      {pct != null ? fmtPct(pct, 1) : '—'}
+                    </span>
+                  </div>
+                </Field>
+              </div>
+            )
+          })}
         </div>
         <div>
           <div className="text-[12px] font-semibold mb-2" style={{ color: '#ff8aa0' }}>แผนลด (ราคาสูงกว่า = ดีกว่า)</div>
-          {indexes.map((i) => (
-            <div key={i} className="mb-2">
-              <Field label={`ไม้ที่ ${i + 1}`}>
-                <input type="number" className="field" value={trim[i]} onChange={(e) => setLvl(trim, setTrim, i, e.target.value)} placeholder="$" />
-              </Field>
-            </div>
-          ))}
+          {indexes.map((i) => {
+            const pct = pctFromAvg(trim[i])
+            return (
+              <div key={i} className="mb-2">
+                <Field label={`ไม้ที่ ${i + 1}`}>
+                  <div className="flex items-center gap-2">
+                    <input type="number" className="field flex-1 min-w-0" value={trim[i]} onChange={(e) => setLvl(trim, setTrim, i, e.target.value)} placeholder="$" />
+                    <span className="text-[11px] font-mono num-tabular w-[54px] text-right shrink-0" style={{ color: '#ff8aa0' }}>
+                      {pct != null ? fmtPct(pct, 1) : '—'}
+                    </span>
+                  </div>
+                </Field>
+              </div>
+            )
+          })}
         </div>
       </div>
       <div className="mt-4">
@@ -449,7 +479,7 @@ export function ArticleAddModal({ onAdd, onClose }) {
 }
 
 // ─── Cash Management Modal ─────────────────────────────────────────────────────
-export function CashModal({ cash, activity, onAdd, onClose }) {
+export function CashModal({ cash, activity, onAdd, onDelete, onClose }) {
   return (
     <Modal
       title="จัดการน้ำ"
@@ -458,7 +488,7 @@ export function CashModal({ cash, activity, onAdd, onClose }) {
       color={CATS.cash.hex}
       maxWidth={680}
     >
-      <CashManagement activity={activity} onAdd={onAdd} />
+      <CashManagement activity={activity} onAdd={onAdd} onDelete={onDelete} />
     </Modal>
   )
 }

@@ -189,6 +189,11 @@ export async function insertCashActivity(userId, activity) {
   if (error) throw error
 }
 
+export async function deleteCashActivityRow(id) {
+  const { error } = await supabase.from('cash_activity').delete().eq('id', id)
+  if (error) throw error
+}
+
 // ─── Trade journal ────────────────────────────────────────────────────────────
 
 export async function insertTradeRecord(userId, record) {

@@ -15,7 +15,7 @@ const CASH_TYPES = {
   other: { label: 'รายได้อื่น', sign: 1, tone: '#f7c948' },
 }
 
-export default function CashManagement({ activity, onAdd }) {
+export default function CashManagement({ activity, onAdd, onDelete }) {
   const [type, setType] = useState('deposit')
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
@@ -72,6 +72,15 @@ export default function CashManagement({ activity, onAdd }) {
                   {meta.sign > 0 ? '+' : '−'}{fmtUsd(Math.abs(a.amount))}
                 </span>
                 <span className="text-[var(--txt-dim)] flex-1 truncate">{a.note || '—'}</span>
+                {onDelete && (
+                  <button
+                    onClick={() => onDelete(a.id)}
+                    className="text-[var(--txt-faint)] hover:text-[#ff8aa0] transition-colors text-[12px] shrink-0"
+                    title="ลบรายการนี้ (ยอดน้ำคงเดิม)"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
             )
           })}

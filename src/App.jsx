@@ -387,6 +387,19 @@ export default function App({ user, onSignOut }) {
     }
   }
 
+  // Deletes a cash-activity log entry only — the น้ำ balance is NOT changed
+  // (it's stored separately). Removing a deposit/withdraw fixes the cost-basis
+  // / income calculation without touching the current balance.
+  async function deleteCashActivity(id) {
+    if (!confirm('ลบรายการนี้ออกจากประวัติ? (ยอดน้ำคงเดิม — ปรับ “ต้นทุน/รายได้” ในการคำนวณเท่านั้น)')) return
+    setCashActivity((arr) => arr.filter((a) => a.id !== id))
+    try {
+      await db.deleteCashActivityRow(id)
+    } catch (e) {
+      reportError(e)
+    }
+  }
+
   async function commitTradeRecord(record) {
     setTradeJournal((arr) => [record, ...arr])
     try {
@@ -874,6 +887,7 @@ export default function App({ user, onSignOut }) {
           cash={cash}
           activity={cashActivity}
           onAdd={commitCash}
+          onDelete={deleteCashActivity}
           onClose={() => setCashModal(false)}
         />
       )}
