@@ -199,6 +199,7 @@ export function HoldingModal({ initial, onClose, onSubmit }) {
   const [h, setH] = useState(() => ({
     id: uid('h'), cat: 'core', symbol: '', name: '', qty: 0, avg: 0, price: 0,
     addPlan: [0, 0, 0, 0, 0], trimPlan: [0, 0, 0, 0, 0], note: '', targetPct: 0,
+    trackedAdd: null, trackedTrim: null,
     ...(initial || {}),
   }))
   const upd = (k, v) => setH((s) => ({ ...s, [k]: v }))
@@ -310,6 +311,9 @@ export function PricePlanModal({ initial, transactions = [], onClose, onSubmit }
   const [add, setAdd] = useState(() => padPlan(initial.addPlan))
   const [trim, setTrim] = useState(() => padPlan(initial.trimPlan))
   const [note, setNote] = useState(initial.note || '')
+  // ไม้ที่ติดตาม (index 0-4 ต่อแผน, null = ไม่ติดตาม) — เลือกได้ 1 ไม้/แผน
+  const [trackedAdd, setTrackedAdd] = useState(initial.trackedAdd ?? null)
+  const [trackedTrim, setTrackedTrim] = useState(initial.trackedTrim ?? null)
   const avg = Number(initial.avg) || 0
   // % distance of a level price from the average cost (− below avg, + above avg)
   const pctFromAvg = (p) => (avg > 0 && Number(p) > 0 ? ((Number(p) - avg) / avg) * 100 : null)
@@ -335,17 +339,28 @@ export function PricePlanModal({ initial, transactions = [], onClose, onSubmit }
     >
       <div className="grid grid-cols-2 gap-5">
         <div>
-          <div className="text-[12px] font-semibold mb-2" style={{ color: '#9bffae' }}>แผนเพิ่ม (ราคาต่ำกว่า = ดีกว่า)</div>
+          <div className="text-[12px] font-semibold" style={{ color: '#9bffae' }}>แผนเพิ่ม (ราคาต่ำกว่า = ดีกว่า)</div>
+          <div className="text-[9.5px] text-[var(--txt-faint)] mb-2">ราคา · %ห่างทุน · ☑ ติดตาม (เลือกได้ 1)</div>
           {indexes.map((i) => {
             const pct = pctFromAvg(add[i])
+            const canTrack = Number(add[i]) > 0
             return (
               <div key={i} className="mb-2">
                 <Field label={`ไม้ที่ ${i + 1}`}>
                   <div className="flex items-center gap-2">
                     <input type="number" className="field flex-1 min-w-0" value={add[i]} onChange={(e) => setLvl(add, setAdd, i, e.target.value)} placeholder="$" />
-                    <span className="text-[11px] font-mono num-tabular w-[54px] text-right shrink-0" style={{ color: '#9bffae' }}>
+                    <span className="text-[11px] font-mono num-tabular w-[52px] text-right shrink-0" style={{ color: '#9bffae' }}>
                       {pct != null ? fmtPct(pct, 1) : '—'}
                     </span>
+                    <input
+                      type="checkbox"
+                      checked={trackedAdd === i}
+                      onChange={() => setTrackedAdd(trackedAdd === i ? null : i)}
+                      disabled={!canTrack}
+                      className="w-4 h-4 shrink-0 cursor-pointer disabled:opacity-25"
+                      style={{ accentColor: '#9bffae' }}
+                      title="ติดตามไม้นี้"
+                    />
                   </div>
                 </Field>
               </div>
@@ -353,17 +368,28 @@ export function PricePlanModal({ initial, transactions = [], onClose, onSubmit }
           })}
         </div>
         <div>
-          <div className="text-[12px] font-semibold mb-2" style={{ color: '#ff8aa0' }}>แผนลด (ราคาสูงกว่า = ดีกว่า)</div>
+          <div className="text-[12px] font-semibold" style={{ color: '#ff8aa0' }}>แผนลด (ราคาสูงกว่า = ดีกว่า)</div>
+          <div className="text-[9.5px] text-[var(--txt-faint)] mb-2">ราคา · %ห่างทุน · ☑ ติดตาม (เลือกได้ 1)</div>
           {indexes.map((i) => {
             const pct = pctFromAvg(trim[i])
+            const canTrack = Number(trim[i]) > 0
             return (
               <div key={i} className="mb-2">
                 <Field label={`ไม้ที่ ${i + 1}`}>
                   <div className="flex items-center gap-2">
                     <input type="number" className="field flex-1 min-w-0" value={trim[i]} onChange={(e) => setLvl(trim, setTrim, i, e.target.value)} placeholder="$" />
-                    <span className="text-[11px] font-mono num-tabular w-[54px] text-right shrink-0" style={{ color: '#ff8aa0' }}>
+                    <span className="text-[11px] font-mono num-tabular w-[52px] text-right shrink-0" style={{ color: '#ff8aa0' }}>
                       {pct != null ? fmtPct(pct, 1) : '—'}
                     </span>
+                    <input
+                      type="checkbox"
+                      checked={trackedTrim === i}
+                      onChange={() => setTrackedTrim(trackedTrim === i ? null : i)}
+                      disabled={!canTrack}
+                      className="w-4 h-4 shrink-0 cursor-pointer disabled:opacity-25"
+                      style={{ accentColor: '#ff8aa0' }}
+                      title="ติดตามไม้นี้"
+                    />
                   </div>
                 </Field>
               </div>
@@ -392,7 +418,7 @@ export function PricePlanModal({ initial, transactions = [], onClose, onSubmit }
         </div>
         <div className="flex gap-2">
           <button className="btn btn-ghost" onClick={onClose}>ยกเลิก</button>
-          <button className="btn btn-primary" onClick={() => onSubmit({ addPlan: add, trimPlan: trim, note })}>บันทึกแผน</button>
+          <button className="btn btn-primary" onClick={() => onSubmit({ addPlan: add, trimPlan: trim, note, trackedAdd, trackedTrim })}>บันทึกแผน</button>
         </div>
       </div>
     </Modal>

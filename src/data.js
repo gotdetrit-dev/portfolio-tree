@@ -136,10 +136,25 @@ export function nextPlan(h) {
   const adds = (h.addPlan || []).filter((p) => Number(p) > 0)
   const trims = (h.trimPlan || []).filter((p) => Number(p) > 0)
   const hasPlan = adds.length > 0 || trims.length > 0
-  const triggeredAdds = adds.filter((p) => p >= h.price)
-  const triggeredTrims = trims.filter((p) => p <= h.price)
-  const nextAdd = triggeredAdds.length ? Math.min(...triggeredAdds) : null
-  const nextTrim = triggeredTrims.length ? Math.max(...triggeredTrims) : null
+
+  // If the user marked a specific ไม้ to track, the zone is driven by THAT
+  // level only — price must reach/cross the tracked price to fire.
+  const trackedAddPrice = h.trackedAdd != null ? Number(h.addPlan?.[h.trackedAdd]) || 0 : 0
+  const trackedTrimPrice = h.trackedTrim != null ? Number(h.trimPlan?.[h.trackedTrim]) || 0 : 0
+  const hasTracked = trackedAddPrice > 0 || trackedTrimPrice > 0
+
+  let nextAdd
+  let nextTrim
+  if (hasTracked) {
+    nextAdd = trackedAddPrice > 0 && h.price <= trackedAddPrice ? trackedAddPrice : null
+    nextTrim = trackedTrimPrice > 0 && h.price >= trackedTrimPrice ? trackedTrimPrice : null
+  } else {
+    const triggeredAdds = adds.filter((p) => p >= h.price)
+    const triggeredTrims = trims.filter((p) => p <= h.price)
+    nextAdd = triggeredAdds.length ? Math.min(...triggeredAdds) : null
+    nextTrim = triggeredTrims.length ? Math.max(...triggeredTrims) : null
+  }
+
   // 'NoPlan' = stock has no add/trim levels filled in yet — prompts the user to set one.
   let zone = hasPlan ? 'Hold' : 'NoPlan'
   if (nextAdd) zone = 'Add Zone'

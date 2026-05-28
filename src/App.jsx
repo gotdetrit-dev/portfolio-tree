@@ -364,7 +364,14 @@ export default function App({ user, onSignOut }) {
   async function commitPlan(p) {
     const current = holdings.find((x) => x.id === planModal.id)
     if (!current) { setPlanModal(null); return }
-    const updated = { ...current, addPlan: p.addPlan, trimPlan: p.trimPlan, note: p.note }
+    const updated = {
+      ...current,
+      addPlan: p.addPlan,
+      trimPlan: p.trimPlan,
+      note: p.note,
+      trackedAdd: p.trackedAdd ?? null,
+      trackedTrim: p.trackedTrim ?? null,
+    }
     setHoldings((hs) => hs.map((x) => (x.id === current.id ? updated : x)))
     setPlanModal(null)
     try {
