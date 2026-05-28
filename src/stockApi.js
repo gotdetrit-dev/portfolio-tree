@@ -13,18 +13,24 @@ const BASE = 'https://finnhub.io/api/v1'
 // True only when the API key is present. Stock features stay dormant otherwise.
 export const isStockApiConfigured = Boolean(KEY)
 
-// Finnhub free tier allows ~60 requests/minute. With many symbols (holdings +
-// watching list) firing at once this gets exceeded → HTTP 429. To avoid that,
-// every request reserves a time slot spaced REQUEST_GAP_MS apart. Concurrent
-// callers are spread out automatically via the shared `nextSlot` cursor.
-const REQUEST_GAP_MS = 1200 // ≈ 50 req/min — safely under the 60/min cap
-let nextSlot = 0
-function reserveSlot() {
-  const now = Date.now()
-  const slot = Math.max(now, nextSlot)
-  nextSlot = slot + REQUEST_GAP_MS
-  const wait = slot - now
-  return wait > 0 ? new Promise((r) => setTimeout(r, wait)) : Promise.resolve()
+// Finnhub free tier ≈ 60 requests/minute. Use a rolling 60-second window capped
+// at MAX_PER_MIN: a small batch (e.g. just the 14 holdings) fires immediately,
+// and only a large burst (e.g. a big watching list) gets spread out. This is
+// much faster than fixed spacing, which made every refresh slow.
+const MAX_PER_MIN = 55
+const WINDOW_MS = 60000
+const recent = []
+async function reserveSlot() {
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const now = Date.now()
+    while (recent.length && recent[0] <= now - WINDOW_MS) recent.shift()
+    if (recent.length < MAX_PER_MIN) {
+      recent.push(now)
+      return
+    }
+    await new Promise((r) => setTimeout(r, recent[0] + WINDOW_MS - now + 50))
+  }
 }
 
 async function call(path) {

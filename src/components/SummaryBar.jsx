@@ -59,7 +59,9 @@ export default function SummaryBar({ agg, mode, rebalancing, needAdjustCount = 0
       for (const s of sources) {
         if (cancelled) return
         try {
-          const r = await fetch(s.url)
+          // Time each source out at 4s so a slow/blocked source fails over fast
+          // instead of hanging on the browser's long default timeout.
+          const r = await fetch(s.url, { signal: AbortSignal.timeout(4000) })
           if (!r.ok) continue
           const d = await r.json()
           const rate = s.pick(d)
