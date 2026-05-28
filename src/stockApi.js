@@ -13,8 +13,23 @@ const BASE = 'https://finnhub.io/api/v1'
 // True only when the API key is present. Stock features stay dormant otherwise.
 export const isStockApiConfigured = Boolean(KEY)
 
+// Finnhub free tier allows ~60 requests/minute. With many symbols (holdings +
+// watching list) firing at once this gets exceeded → HTTP 429. To avoid that,
+// every request reserves a time slot spaced REQUEST_GAP_MS apart. Concurrent
+// callers are spread out automatically via the shared `nextSlot` cursor.
+const REQUEST_GAP_MS = 1200 // ≈ 50 req/min — safely under the 60/min cap
+let nextSlot = 0
+function reserveSlot() {
+  const now = Date.now()
+  const slot = Math.max(now, nextSlot)
+  nextSlot = slot + REQUEST_GAP_MS
+  const wait = slot - now
+  return wait > 0 ? new Promise((r) => setTimeout(r, wait)) : Promise.resolve()
+}
+
 async function call(path) {
   if (!isStockApiConfigured) throw new Error('ยังไม่ได้ตั้งค่า Finnhub API key')
+  await reserveSlot()
   let res
   try {
     res = await fetch(`${BASE}${path}&token=${KEY}`)

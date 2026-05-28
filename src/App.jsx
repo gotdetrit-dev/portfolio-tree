@@ -39,6 +39,7 @@ export default function App({ user, onSignOut }) {
   const [refreshingPrices, setRefreshingPrices] = useState(false)
   const [refreshingWatching, setRefreshingWatching] = useState(false)
   const autoRefreshedRef = useRef(false)
+  const watchingRefreshedRef = useRef(false)
   const toastTimer = useRef(null)
 
   // Modal state
@@ -75,13 +76,21 @@ export default function App({ user, onSignOut }) {
     return () => { cancelled = true }
   }, [refresh])
 
-  // Auto-refresh live prices once, right after the initial data load.
+  // Auto-refresh holdings prices once, right after the initial data load.
   useEffect(() => {
     if (loading || autoRefreshedRef.current || !isStockApiConfigured) return
     autoRefreshedRef.current = true
     refreshPrices()
-    refreshWatchingPrices()
   }, [loading])
+
+  // Refresh the (often long) watching list only when the user first opens its
+  // page — keeps the initial dashboard load from firing dozens of extra Finnhub
+  // calls at once and tripping the rate limit.
+  useEffect(() => {
+    if (view !== 'watching' || watchingRefreshedRef.current || loading || !isStockApiConfigured) return
+    watchingRefreshedRef.current = true
+    refreshWatchingPrices()
+  }, [view, loading])
 
   function reportError(e) {
     alert('บันทึกข้อมูลไม่สำเร็จ: ' + (e?.message || e))
