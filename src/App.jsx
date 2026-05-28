@@ -578,22 +578,23 @@ export default function App({ user, onSignOut }) {
     if (!isStockApiConfigured || watchingList.length === 0 || refreshingWatching) return
     setRefreshingWatching(true)
     try {
-      const results = await Promise.all(
+      // Update each item as soon as its price arrives (progressive) instead of
+      // waiting for the whole batch — so the fast ones show immediately and the
+      // rate-limited tail trickles in without blocking the rest.
+      await Promise.all(
         watchingList.map(async (w) => {
           try {
             const price = await getQuote(w.ticker)
             if (price > 0 && price !== w.currentPrice) {
-              return makeWatchingRecord({ currentPrice: price }, w)
+              const rec = makeWatchingRecord({ currentPrice: price }, w)
+              setWatchingList((arr) => arr.map((x) => (x.id === w.id ? rec : x)))
+              await db.updateWatchingRow(rec)
             }
-            return w
           } catch {
-            return w
+            /* skip this ticker */
           }
         }),
       )
-      const changed = results.filter((w, i) => w !== watchingList[i])
-      setWatchingList(results)
-      await Promise.all(changed.map((w) => db.updateWatchingRow(w)))
     } catch (e) {
       reportError(e)
     } finally {
