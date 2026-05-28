@@ -349,7 +349,7 @@ export function PricePlanModal({ initial, transactions = [], onClose, onSubmit }
                 <Field label={`ไม้ที่ ${i + 1}`}>
                   <div className="flex items-center gap-2">
                     <input type="number" className="field flex-1 min-w-0" value={add[i]} onChange={(e) => setLvl(add, setAdd, i, e.target.value)} placeholder="$" />
-                    <span className="text-[11px] font-mono num-tabular w-[52px] text-right shrink-0" style={{ color: '#9bffae' }}>
+                    <span className="text-[11px] font-mono num-tabular w-[52px] text-right shrink-0" style={{ color: '#f7c948' }}>
                       {pct != null ? fmtPct(pct, 1) : '—'}
                     </span>
                     <input
@@ -378,7 +378,7 @@ export function PricePlanModal({ initial, transactions = [], onClose, onSubmit }
                 <Field label={`ไม้ที่ ${i + 1}`}>
                   <div className="flex items-center gap-2">
                     <input type="number" className="field flex-1 min-w-0" value={trim[i]} onChange={(e) => setLvl(trim, setTrim, i, e.target.value)} placeholder="$" />
-                    <span className="text-[11px] font-mono num-tabular w-[52px] text-right shrink-0" style={{ color: '#ff8aa0' }}>
+                    <span className="text-[11px] font-mono num-tabular w-[52px] text-right shrink-0" style={{ color: '#f7c948' }}>
                       {pct != null ? fmtPct(pct, 1) : '—'}
                     </span>
                     <input
