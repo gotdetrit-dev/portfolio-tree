@@ -51,6 +51,10 @@ export default function SummaryBar({ agg, mode, rebalancing, needAdjustCount = 0
   useEffect(() => {
     let cancelled = false
     const sources = [
+      // Same-origin Vercel function → near-realtime (Yahoo) + no CORS. Falls
+      // back to the once-a-day no-key APIs if the function isn't available
+      // (e.g. local Vite dev, where /api doesn't run).
+      { url: '/api/fxrate', pick: (d) => d?.rate },
       { url: 'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json', pick: (d) => d?.usd?.thb },
       { url: 'https://latest.currency-api.pages.dev/v1/currencies/usd.json', pick: (d) => d?.usd?.thb },
       { url: 'https://open.er-api.com/v6/latest/USD', pick: (d) => d?.rates?.THB },
