@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CAT_ORDER_TOP, MODES, aggregate, fmtUsd, holdingCost, holdingMV, uid } from './data.js'
+import { CAT_ORDER_TOP, MODES, aggregate, fmtUsd, holdingCost, holdingMV, nextPlan, uid } from './data.js'
 import * as db from './db.js'
 import { getQuote, getQuoteFull, isStockApiConfigured } from './stockApi.js'
 import WeatherOverlay from './components/WeatherOverlay.jsx'
@@ -115,6 +115,12 @@ export default function App({ user, onSignOut }) {
     }
     return { offCount, balanced: offCount === 0 }
   }, [agg, targets])
+
+  // Count holdings that need action — any zone except "ถือรอ" (Hold).
+  const needAdjustCount = useMemo(
+    () => holdings.filter((h) => nextPlan(h).zone !== 'Hold').length,
+    [holdings],
+  )
 
   // Count today's activity for the scrolling ticker.
   const todayActivity = useMemo(() => {
@@ -743,6 +749,7 @@ export default function App({ user, onSignOut }) {
           agg={agg}
           mode={mode}
           rebalancing={rebalancing}
+          needAdjustCount={needAdjustCount}
           onModeChange={changeMode}
           onEditTargets={() => setTgtModal(true)}
         />

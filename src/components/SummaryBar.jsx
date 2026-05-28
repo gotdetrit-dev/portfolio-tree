@@ -40,7 +40,7 @@ function fmtThb(n, rate) {
   return (v < 0 ? '-' : '') + '฿' + Math.abs(v).toLocaleString('th-TH', { maximumFractionDigits: 2, minimumFractionDigits: 0 })
 }
 
-export default function SummaryBar({ agg, mode, rebalancing, onModeChange, onEditTargets }) {
+export default function SummaryBar({ agg, mode, rebalancing, needAdjustCount = 0, onModeChange, onEditTargets }) {
   const m = MODES[mode]
 
   // ─── Currency state + live USD/THB rate ─────────────────────────────────────
@@ -258,6 +258,21 @@ export default function SummaryBar({ agg, mode, rebalancing, onModeChange, onEdi
           />
           <span className="text-[13px] font-medium" style={{ color: rebalancing.balanced ? '#9bffae' : '#f7c948' }}>
             {rebalancing.balanced ? 'สมดุลแล้ว' : `${rebalancing.offCount} หมวดเกินเป้า`}
+          </span>
+        </div>
+
+        {/* Per-stock adjustment alert — blinks red when any stock needs action */}
+        <div className={`flex items-center gap-2 whitespace-nowrap ${needAdjustCount > 0 ? 'chip-blink' : ''}`}>
+          <span className="text-[10px] uppercase tracking-[0.12em] text-[var(--txt-faint)]">หุ้นต้องปรับ</span>
+          <span
+            className="inline-block w-2 h-2 rounded-full"
+            style={{
+              background: needAdjustCount > 0 ? '#ff4d6d' : '#8a92a3',
+              boxShadow: needAdjustCount > 0 ? '0 0 10px #ff4d6d' : 'none',
+            }}
+          />
+          <span className="text-[13px] font-medium" style={{ color: needAdjustCount > 0 ? '#ff4d6d' : 'var(--txt-dim)' }}>
+            {needAdjustCount > 0 ? `${needAdjustCount} รายการ` : 'ไม่มี'}
           </span>
         </div>
 
