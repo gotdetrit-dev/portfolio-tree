@@ -137,28 +137,29 @@ export function nextPlan(h) {
   const trims = (h.trimPlan || []).filter((p) => Number(p) > 0)
   const hasPlan = adds.length > 0 || trims.length > 0
 
-  // If the user marked a specific ไม้ to track, the zone is driven by THAT
-  // level only — price must reach/cross the tracked price to fire.
+  // The zone is driven by the ไม้ the user marked to track — price must
+  // reach/cross the tracked price to fire.
   const trackedAddPrice = h.trackedAdd != null ? Number(h.addPlan?.[h.trackedAdd]) || 0 : 0
   const trackedTrimPrice = h.trackedTrim != null ? Number(h.trimPlan?.[h.trackedTrim]) || 0 : 0
   const hasTracked = trackedAddPrice > 0 || trackedTrimPrice > 0
 
-  let nextAdd
-  let nextTrim
-  if (hasTracked) {
+  let nextAdd = null
+  let nextTrim = null
+  let zone
+
+  if (!hasPlan) {
+    // ยังไม่ใส่ราคาไม้เลย
+    zone = 'NoPlan'   // → "โปรดปรับแผน"
+  } else if (!hasTracked) {
+    // ใส่ราคาแล้วแต่ยังไม่ติ๊กไม้ที่จะติดตาม
+    zone = 'NoTrack'  // → "โปรดระบุจุดเข้าออก"
+  } else {
     nextAdd = trackedAddPrice > 0 && h.price <= trackedAddPrice ? trackedAddPrice : null
     nextTrim = trackedTrimPrice > 0 && h.price >= trackedTrimPrice ? trackedTrimPrice : null
-  } else {
-    const triggeredAdds = adds.filter((p) => p >= h.price)
-    const triggeredTrims = trims.filter((p) => p <= h.price)
-    nextAdd = triggeredAdds.length ? Math.min(...triggeredAdds) : null
-    nextTrim = triggeredTrims.length ? Math.max(...triggeredTrims) : null
+    zone = 'Hold'
+    if (nextAdd) zone = 'Add Zone'
+    if (nextTrim) zone = 'Trim Zone'
   }
-
-  // 'NoPlan' = stock has no add/trim levels filled in yet — prompts the user to set one.
-  let zone = hasPlan ? 'Hold' : 'NoPlan'
-  if (nextAdd) zone = 'Add Zone'
-  if (nextTrim) zone = 'Trim Zone'
   // zone labels stay English internally; ZoneBadge maps to Thai
   return { nextAdd, nextTrim, zone }
 }

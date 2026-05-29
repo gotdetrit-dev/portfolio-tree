@@ -10,9 +10,17 @@ function ZoneBadge({ zone, onClick }) {
   const tone = zone === 'Add Zone' ? '#9bffae'
     : zone === 'Trim Zone' ? '#ff8aa0'
     : zone === 'NoPlan' ? '#f7c948'
+    : zone === 'NoTrack' ? '#7bd1ff'
     : '#cfd6e3'
-  const labelMap = { 'Add Zone': 'โซนเพิ่ม', 'Trim Zone': 'โซนลด', Hold: 'ถือรอ', NoPlan: 'ยังไม่ปรับแผน' }
-  const actionable = zone === 'Add Zone' || zone === 'Trim Zone' || zone === 'NoPlan'
+  const labelMap = {
+    'Add Zone': 'โซนเพิ่ม', 'Trim Zone': 'โซนลด', Hold: 'ถือรอ',
+    NoPlan: 'โปรดปรับแผน', NoTrack: 'โปรดระบุจุดเข้าออก',
+  }
+  const actionable = zone === 'Add Zone' || zone === 'Trim Zone' || zone === 'NoPlan' || zone === 'NoTrack'
+  const titleMap = {
+    NoPlan: 'คลิกเพื่อตั้งราคาไม้เพิ่ม/ลด',
+    NoTrack: 'คลิกเพื่อติ๊กเลือกจุดเข้าออก (ไม้ที่ติดตาม)',
+  }
   const Tag = onClick ? 'button' : 'span'
   return (
     <Tag
@@ -20,7 +28,7 @@ function ZoneBadge({ zone, onClick }) {
       type={onClick ? 'button' : undefined}
       className={`chip whitespace-nowrap font-semibold ${actionable ? 'chip-blink' : ''} ${onClick ? 'cursor-pointer hover:bg-white/5 transition-colors' : ''}`}
       style={{ color: tone, fontSize: 12, padding: '4px 10px' }}
-      title={onClick ? (zone === 'NoPlan' ? 'คลิกเพื่อตั้งแผนเพิ่ม/ลด' : 'คลิกเพื่อแก้ไขแผนเพิ่ม/ลด') : undefined}
+      title={onClick ? (titleMap[zone] || 'คลิกเพื่อแก้ไขแผนเพิ่ม/ลด') : undefined}
     >
       {labelMap[zone] || zone}
     </Tag>
@@ -222,7 +230,7 @@ export default function HoldingsTable({ holdings, agg, targets, onAddTxn, onEdit
         <table className="holdings w-full">
           <colgroup>
             <col style={{ width: 'auto', minWidth: '220px' }} />
-            <col style={{ width: '110px' }} />
+            <col style={{ width: '150px' }} />
             <col style={{ width: '140px' }} />
             <col style={{ width: '60px' }} />
             <col style={{ width: '104px' }} />
