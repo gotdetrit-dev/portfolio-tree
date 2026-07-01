@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CAT_ORDER_TOP, MODES, aggregate, fmtUsd, holdingCost, holdingMV, nextPlan, uid } from './data.js'
+import { downloadPortfolioReport } from './pdfExport.js'
 import * as db from './db.js'
 import { getQuote, getQuoteFull, isStockApiConfigured } from './stockApi.js'
 import WeatherOverlay from './components/WeatherOverlay.jsx'
@@ -863,6 +864,7 @@ export default function App({ user, onSignOut }) {
           onShowHistory={() => setHistModal(true)}
           onManageCash={() => setCashModal(true)}
           onRefreshPrices={isStockApiConfigured ? refreshPrices : undefined}
+          onDownloadPdf={() => downloadPortfolioReport({ holdings, agg, targets })}
           refreshing={refreshingPrices}
         />
       </section>

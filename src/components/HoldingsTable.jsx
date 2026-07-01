@@ -141,7 +141,7 @@ function FilterChip({ active, onClick, label, color }) {
   )
 }
 
-export default function HoldingsTable({ holdings, agg, targets, onAddTxn, onEdit, onDelete, onPlan, onAddHolding, onShowHistory, onManageCash, onRefreshPrices, refreshing }) {
+export default function HoldingsTable({ holdings, agg, targets, onAddTxn, onEdit, onDelete, onPlan, onAddHolding, onShowHistory, onManageCash, onRefreshPrices, onDownloadPdf, refreshing }) {
   const [filter, setFilter] = useState('all')
   const [sort, setSort] = useState({ key: 'mv', dir: 'desc' })
 
@@ -220,6 +220,11 @@ export default function HoldingsTable({ holdings, agg, targets, onAddTxn, onEdit
           {onShowHistory && (
             <button className="btn whitespace-nowrap" onClick={onShowHistory} title="ประวัติรายการ">
               🕘 ประวัติ
+            </button>
+          )}
+          {onDownloadPdf && (
+            <button className="btn whitespace-nowrap" onClick={onDownloadPdf} title="ดาวน์โหลดภาพรวมพอร์ตเป็น PDF">
+              ⬇ PDF
             </button>
           )}
           <button className="btn whitespace-nowrap" onClick={onAddHolding}>＋ เพิ่มสินทรัพย์</button>
