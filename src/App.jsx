@@ -673,29 +673,39 @@ export default function App({ user, onSignOut }) {
           <span className="text-[11px] text-[var(--txt-dim)] hidden md:inline">{user.email}</span>
           <button
             className="btn whitespace-nowrap"
-            style={view === 'dashboard' ? { borderColor: 'rgba(52,224,122,0.5)', color: '#34e07a', background: 'rgba(52,224,122,0.08)' } : {}}
-            onClick={() => setView('dashboard')}
+            style={{ borderColor: 'rgba(52,224,122,0.5)', color: '#34e07a', background: 'rgba(52,224,122,0.08)' }}
+            title="หน้าหลักหุ้นสหรัฐฯ — คลิกเพื่ออยู่ที่หมวดนี้ (ยังไม่มีหมวดอื่น)"
           >
-            แดชบอร์ด
-          </button>
-          <button
-            className="btn whitespace-nowrap"
-            style={view === 'watching' ? { borderColor: 'rgba(52,224,122,0.5)', color: '#34e07a', background: 'rgba(52,224,122,0.08)' } : {}}
-            onClick={() => setView('watching')}
-          >
-            รายการเฝ้าติดตาม
-          </button>
-          <button
-            className="btn whitespace-nowrap"
-            style={view === 'journal' ? { borderColor: 'rgba(123,209,255,0.5)', color: '#7bd1ff', background: 'rgba(123,209,255,0.08)' } : {}}
-            onClick={() => setView('journal')}
-            title="เปิดข่าวสารการซื้อขาย"
-          >
-            แหล่งข่าว
+            🇺🇸 หุ้นอเมริกา
           </button>
           <button className="btn btn-ghost whitespace-nowrap" onClick={onSignOut}>ออกจากระบบ</button>
         </div>
       </header>
+
+      {/* Sub-nav ของหมวด "หุ้นอเมริกา" — แดชบอร์ด / รายการเฝ้าติดตาม / แหล่งข่าว */}
+      <div className="px-4 lg:px-10 mt-4 flex items-center gap-2 flex-wrap">
+        {[
+          { key: 'dashboard', label: 'แดชบอร์ด', color: '#34e07a' },
+          { key: 'watching', label: 'รายการเฝ้าติดตาม', color: '#34e07a' },
+          { key: 'journal', label: 'แหล่งข่าว', color: '#7bd1ff' },
+        ].map((tab) => {
+          const on = view === tab.key
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setView(tab.key)}
+              className="px-3 py-1.5 rounded-full text-[12px] font-medium transition-all whitespace-nowrap"
+              style={{
+                border: `1px solid ${on ? tab.color + '88' : 'var(--line-strong)'}`,
+                background: on ? tab.color + '14' : 'transparent',
+                color: on ? tab.color : 'var(--txt-dim)',
+              }}
+            >
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
 
       {view === 'watching' && (
         <section className="px-4 lg:px-10 mt-5">
