@@ -31,6 +31,8 @@ export default function App({ user, onSignOut }) {
 
   // Views, Watching List (localStorage), and toast
   const [view, setView] = useState('dashboard')
+  // Top-level section (จะเพิ่มหมวดอื่นในอนาคต — ตอนนี้พร้อมใช้แค่ ตลาดหุ้นอเมริกา)
+  const [section, setSection] = useState('us-stocks')
   const [watchingList, setWatchingList] = useState([])
   const [toast, setToast] = useState('')
 
@@ -666,48 +668,69 @@ export default function App({ user, onSignOut }) {
             <div className="text-[11px] text-[var(--txt-dim)] font-thai">ระบบจัดการพอร์ตลงทุน · ใช้ต้นไม้เป็นภาพแทน</div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-[11px] text-[var(--txt-dim)] font-mono hidden sm:inline">
-            {new Date().toLocaleDateString('th-TH', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-          </span>
-          <span className="text-[11px] text-[var(--txt-dim)] hidden md:inline">{user.email}</span>
-          <button
-            className="btn whitespace-nowrap"
-            style={{ borderColor: 'rgba(52,224,122,0.5)', color: '#34e07a', background: 'rgba(52,224,122,0.08)' }}
-            title="หน้าหลักหุ้นสหรัฐฯ — คลิกเพื่ออยู่ที่หมวดนี้ (ยังไม่มีหมวดอื่น)"
-          >
-            หุ้นอเมริกา
-          </button>
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {[
+            { key: 'business', label: 'ธุรกิจของฉัน' },
+            { key: 'money',    label: 'ตลาดเงิน' },
+            { key: 'us-stocks', label: 'ตลาดหุ้นอเมริกา' },
+          ].map((s) => {
+            const on = section === s.key
+            return (
+              <button
+                key={s.key}
+                className="btn whitespace-nowrap"
+                style={on ? { borderColor: 'rgba(52,224,122,0.5)', color: '#34e07a', background: 'rgba(52,224,122,0.08)' } : {}}
+                onClick={() => setSection(s.key)}
+              >
+                {s.label}
+              </button>
+            )
+          })}
           <button className="btn btn-ghost whitespace-nowrap" onClick={onSignOut}>ออกจากระบบ</button>
         </div>
       </header>
 
-      {/* Sub-nav ของหมวด "หุ้นอเมริกา" — แดชบอร์ด / รายการเฝ้าติดตาม / แหล่งข่าว */}
-      <div className="px-4 lg:px-10 mt-4 flex items-center gap-2 flex-wrap">
-        {[
-          { key: 'dashboard', label: 'แดชบอร์ด', color: '#34e07a' },
-          { key: 'watching', label: 'รายการเฝ้าติดตาม', color: '#34e07a' },
-          { key: 'journal', label: 'แหล่งข่าว', color: '#7bd1ff' },
-        ].map((tab) => {
-          const on = view === tab.key
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setView(tab.key)}
-              className="px-3 py-1.5 rounded-full text-[12px] font-medium transition-all whitespace-nowrap"
-              style={{
-                border: `1px solid ${on ? tab.color + '88' : 'var(--line-strong)'}`,
-                background: on ? tab.color + '14' : 'transparent',
-                color: on ? tab.color : 'var(--txt-dim)',
-              }}
-            >
-              {tab.label}
-            </button>
-          )
-        })}
-      </div>
+      {/* Placeholder สำหรับหมวดที่ยังไม่มีเนื้อหา */}
+      {section !== 'us-stocks' && (
+        <section className="px-4 lg:px-10 mt-6">
+          <div className="panel rounded-2xl px-6 py-16 text-center">
+            <div className="text-[36px] mb-2">🚧</div>
+            <div className="text-[18px] font-semibold mb-1">
+              {section === 'business' ? 'ธุรกิจของฉัน' : 'ตลาดเงิน'}
+            </div>
+            <div className="text-[13px] text-[var(--txt-dim)]">กำลังพัฒนา — ยังไม่พร้อมใช้งาน</div>
+          </div>
+        </section>
+      )}
 
-      {view === 'watching' && (
+      {/* Sub-nav ของหมวด "ตลาดหุ้นอเมริกา" — แดชบอร์ด / รายการเฝ้าติดตาม / แหล่งข่าว */}
+      {section === 'us-stocks' && (
+        <div className="px-4 lg:px-10 mt-4 flex items-center gap-2 flex-wrap">
+          {[
+            { key: 'dashboard', label: 'แดชบอร์ด', color: '#34e07a' },
+            { key: 'watching', label: 'รายการเฝ้าติดตาม', color: '#34e07a' },
+            { key: 'journal', label: 'แหล่งข่าว', color: '#7bd1ff' },
+          ].map((tab) => {
+            const on = view === tab.key
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setView(tab.key)}
+                className="px-3 py-1.5 rounded-full text-[12px] font-medium transition-all whitespace-nowrap"
+                style={{
+                  border: `1px solid ${on ? tab.color + '88' : 'var(--line-strong)'}`,
+                  background: on ? tab.color + '14' : 'transparent',
+                  color: on ? tab.color : 'var(--txt-dim)',
+                }}
+              >
+                {tab.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {section === 'us-stocks' && view === 'watching' && (
         <section className="px-4 lg:px-10 mt-5">
           <WatchingList
             watchingList={watchingList}
@@ -721,7 +744,7 @@ export default function App({ user, onSignOut }) {
         </section>
       )}
 
-      {view === 'journal' && (
+      {section === 'us-stocks' && view === 'journal' && (
         <section className="px-4 lg:px-10 mt-5">
           <div className="panel rounded-2xl p-5">
             <div className="flex items-start justify-between gap-3 mb-5 flex-wrap">
@@ -762,7 +785,7 @@ export default function App({ user, onSignOut }) {
         </section>
       )}
 
-      {view === 'dashboard' && (
+      {section === 'us-stocks' && view === 'dashboard' && (
         <>
       {/* KPI ribbon — โหมดตลาดเลือกจาก dropdown ในกล่องเดียวกัน */}
       <div className="px-6 lg:px-10 relative" style={{ zIndex: 60 }}>
