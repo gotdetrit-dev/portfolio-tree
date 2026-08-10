@@ -676,7 +676,7 @@ export default function App({ user, onSignOut }) {
             style={{ borderColor: 'rgba(52,224,122,0.5)', color: '#34e07a', background: 'rgba(52,224,122,0.08)' }}
             title="หน้าหลักหุ้นสหรัฐฯ — คลิกเพื่ออยู่ที่หมวดนี้ (ยังไม่มีหมวดอื่น)"
           >
-            🇺🇸 หุ้นอเมริกา
+            หุ้นอเมริกา
           </button>
           <button className="btn btn-ghost whitespace-nowrap" onClick={onSignOut}>ออกจากระบบ</button>
         </div>
