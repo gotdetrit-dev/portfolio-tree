@@ -5,9 +5,9 @@
 // this same-origin (/api/fxrate), so no CORS and no third-party network blocks.
 // Falls back to a daily source if Yahoo is unavailable.
 
-async function fromYahoo() {
+async function fromYahoo(symbol) {
   const r = await fetch(
-    'https://query1.finance.yahoo.com/v8/finance/chart/THB=X?interval=1m&range=1d',
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d`,
     { headers: { 'User-Agent': 'Mozilla/5.0' } },
   )
   if (!r.ok) throw new Error('yahoo ' + r.status)
@@ -18,25 +18,33 @@ async function fromYahoo() {
   return { rate, time: meta.regularMarketTime || null, source: 'yahoo' }
 }
 
-async function fromErApi() {
-  const r = await fetch('https://open.er-api.com/v6/latest/USD')
+async function fromErApi(pair) {
+  const base = pair.slice(0, 3)
+  const quote = pair.slice(3)
+  const r = await fetch(`https://open.er-api.com/v6/latest/${base}`)
   if (!r.ok) throw new Error('er-api ' + r.status)
   const d = await r.json()
-  const rate = Number(d?.rates?.THB)
+  const rate = Number(d?.rates?.[quote])
   if (!(rate > 0)) throw new Error('er-api no rate')
   return { rate, time: null, source: 'er-api' }
 }
 
 export default async function handler(req, res) {
-  for (const fn of [fromYahoo, fromErApi]) {
-    try {
-      const out = await fn()
-      // Edge-cache 60s so it's ~realtime without hammering the source.
-      res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=600')
-      return res.status(200).json(out)
-    } catch {
-      /* try next */
-    }
-  }
-  return res.status(502).json({ error: 'no rate' })
+  // Accept ?pair=USDJPY (or default to USDTHB). Yahoo uses "<PAIR>=X" format.
+  const pair = String(req.query?.pair || 'USDTHB').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6) || 'USDTHB'
+  const yahooSymbol = pair + '=X'
+
+  try {
+    const out = await fromYahoo(yahooSymbol)
+    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=600')
+    return res.status(200).json({ ...out, pair })
+  } catch { /* try er-api */ }
+
+  try {
+    const out = await fromErApi(pair)
+    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600')
+    return res.status(200).json({ ...out, pair })
+  } catch { /* fail */ }
+
+  return res.status(502).json({ error: 'no rate', pair })
 }

@@ -10,6 +10,7 @@ import SummaryBar from './components/SummaryBar.jsx'
 import HoldingsTable from './components/HoldingsTable.jsx'
 import TradeJournal from './components/TradeJournal.jsx'
 import WatchingList from './components/WatchingList.jsx'
+import MoneyMarket from './components/MoneyMarket.jsx'
 import { ArticleAddModal, CashModal, HistoryModal, HoldingModal, JournalAddModal, PricePlanModal, TargetsModal, TransactionEditModal, TransactionModal } from './components/Modals.jsx'
 import { makeWatchingRecord } from './watchingList.js'
 
@@ -690,14 +691,15 @@ export default function App({ user, onSignOut }) {
         </div>
       </header>
 
-      {/* Placeholder สำหรับหมวดที่ยังไม่มีเนื้อหา */}
-      {section !== 'us-stocks' && (
+      {/* ตลาดเงิน — Forex/CFD tracker */}
+      {section === 'money' && <MoneyMarket />}
+
+      {/* ธุรกิจของฉัน — ยังไม่มีเนื้อหา */}
+      {section === 'business' && (
         <section className="px-4 lg:px-10 mt-6">
           <div className="panel rounded-2xl px-6 py-16 text-center">
             <div className="text-[36px] mb-2">🚧</div>
-            <div className="text-[18px] font-semibold mb-1">
-              {section === 'business' ? 'ธุรกิจของฉัน' : 'ตลาดเงิน'}
-            </div>
+            <div className="text-[18px] font-semibold mb-1">ธุรกิจของฉัน</div>
             <div className="text-[13px] text-[var(--txt-dim)]">กำลังพัฒนา — ยังไม่พร้อมใช้งาน</div>
           </div>
         </section>
