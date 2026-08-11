@@ -692,7 +692,7 @@ export default function App({ user, onSignOut }) {
       </header>
 
       {/* ตลาดเงิน — Forex/CFD tracker */}
-      {section === 'money' && <MoneyMarket />}
+      {section === 'money' && <MoneyMarket user={user} />}
 
       {/* ธุรกิจของฉัน — ยังไม่มีเนื้อหา */}
       {section === 'business' && (

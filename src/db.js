@@ -246,6 +246,122 @@ export async function deleteWatchingByTicker(userId, ticker) {
   if (error) throw error
 }
 
+// ─── Money Market (Forex tracker) ────────────────────────────────────────────
+
+const toMmPositionRow = (p, userId) => ({
+  id: p.id, user_id: userId,
+  pair: p.pair, direction: p.direction, lot: num(p.lot),
+  leverage: Math.max(1, Number(p.leverage) || 1),
+  entry: num(p.entry),
+  tp: p.tp ?? null, sl: p.sl ?? null,
+  opened_at: p.openedAt || new Date().toISOString(),
+  closed: !!p.closed,
+  close_price: p.closePrice ?? null,
+  closed_at: p.closedAt ?? null,
+  pnl_usd: p.pnlUsd ?? null,
+  pnl_thb: p.pnlThb ?? null,
+})
+
+const fromMmPositionRow = (r) => ({
+  id: r.id, pair: r.pair, direction: r.direction,
+  lot: num(r.lot), leverage: Number(r.leverage) || 1, entry: num(r.entry),
+  tp: r.tp == null ? null : num(r.tp),
+  sl: r.sl == null ? null : num(r.sl),
+  openedAt: r.opened_at,
+  closed: !!r.closed,
+  closePrice: r.close_price == null ? null : num(r.close_price),
+  closedAt: r.closed_at,
+  pnlUsd: r.pnl_usd == null ? null : num(r.pnl_usd),
+  pnlThb: r.pnl_thb == null ? null : num(r.pnl_thb),
+})
+
+const toMmActivityRow = (a, userId) => ({
+  id: a.id, user_id: userId,
+  kind: a.kind,
+  at: a.at || new Date().toISOString(),
+  amount_thb: a.amountThb ?? null,
+  pair: a.pair ?? null, direction: a.direction ?? null,
+  lot: a.lot ?? null, entry: a.entry ?? null,
+  exit_price: a.exit ?? null,
+  pnl_usd: a.pnlUsd ?? null, pnl_thb: a.pnlThb ?? null,
+})
+
+const fromMmActivityRow = (r) => ({
+  id: r.id, kind: r.kind, at: r.at,
+  amountThb: r.amount_thb == null ? null : num(r.amount_thb),
+  pair: r.pair, direction: r.direction,
+  lot: r.lot == null ? null : num(r.lot),
+  entry: r.entry == null ? null : num(r.entry),
+  exit: r.exit_price == null ? null : num(r.exit_price),
+  pnlUsd: r.pnl_usd == null ? null : num(r.pnl_usd),
+  pnlThb: r.pnl_thb == null ? null : num(r.pnl_thb),
+})
+
+// Load ทั้งหมดของ money market (balance + positions + activity)
+// คืนค่า null ถ้า migration ยังไม่ได้ถูกรัน (table ไม่มี) — ให้ UI แสดง state ว่างแทน crash
+export async function loadMoneyMarket(userId) {
+  const [b, p, a] = await Promise.all([
+    supabase.from('mm_balance').select('*').eq('user_id', userId).maybeSingle(),
+    supabase.from('mm_positions').select('*').eq('user_id', userId).order('opened_at', { ascending: false }),
+    supabase.from('mm_activity').select('*').eq('user_id', userId).order('at', { ascending: false }),
+  ])
+  if (b.error && b.error.code !== 'PGRST116') return { missingTable: true }
+  if (p.error) return { missingTable: true }
+  if (a.error) return { missingTable: true }
+  return {
+    balance: b.data ? num(b.data.balance_thb) : 0,
+    hasBalanceRow: !!b.data,
+    positions: p.data.map(fromMmPositionRow),
+    activity: a.data.map(fromMmActivityRow),
+  }
+}
+
+export async function setMmBalance(userId, balanceThb) {
+  const { error } = await supabase.from('mm_balance').upsert(
+    { user_id: userId, balance_thb: Number(balanceThb) || 0, updated_at: new Date().toISOString() },
+    { onConflict: 'user_id' },
+  )
+  if (error) throw error
+}
+
+export async function insertMmPosition(userId, position) {
+  const { error } = await supabase.from('mm_positions').insert(toMmPositionRow(position, userId))
+  if (error) throw error
+}
+
+export async function updateMmPosition(position) {
+  const { id, ...rest } = toMmPositionRow(position, null)
+  delete rest.user_id
+  const { error } = await supabase.from('mm_positions').update(rest).eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteMmPosition(id) {
+  const { error } = await supabase.from('mm_positions').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function insertMmActivity(userId, activity) {
+  const { error } = await supabase.from('mm_activity').insert(toMmActivityRow(activity, userId))
+  if (error) throw error
+}
+
+// One-shot: migrate localStorage → Supabase (called once by MoneyMarket component
+// on first Supabase load if localStorage has legacy data).
+export async function migrateMoneyMarketFromLocal(userId, { balance, positions, activity }) {
+  await setMmBalance(userId, balance)
+  if (positions?.length) {
+    const rows = positions.map((p) => toMmPositionRow(p, userId))
+    const { error } = await supabase.from('mm_positions').insert(rows)
+    if (error) throw error
+  }
+  if (activity?.length) {
+    const rows = activity.map((a) => toMmActivityRow(a, userId))
+    const { error } = await supabase.from('mm_activity').insert(rows)
+    if (error) throw error
+  }
+}
+
 // ─── Sample data ──────────────────────────────────────────────────────────────
 
 // One-time helper to fill an empty account with the demo portfolio.

@@ -3,10 +3,15 @@
 // ผู้ใช้เติมเงิน (บาท) แล้วเปิด long/short คู่เงินได้ พร้อม TP/SL
 // ระบบดึงราคาสดจาก /api/fxrate?pair=... เพื่อคำนวณ P/L ปัจจุบัน
 //
-// MVP: เก็บใน localStorage (ยังไม่ sync cross-device) — จะย้ายไป Supabase ทีหลัง
+// ข้อมูลทุกอย่าง sync กับ Supabase — เปิดคนละเครื่องยังเห็นข้อมูลเดียวกัน
+// ถ้าพบข้อมูลเก่าใน localStorage (จากเวอร์ชัน MVP) จะ auto-migrate ขึ้น Supabase ครั้งเดียว
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  loadMoneyMarket, setMmBalance, insertMmPosition, updateMmPosition,
+  deleteMmPosition, insertMmActivity, migrateMoneyMarketFromLocal,
+} from '../db.js'
 
 const PAIRS = [
   { s: 'USDJPY', label: 'USD/JPY' },
@@ -21,33 +26,23 @@ const PAIRS = [
 ]
 
 // ─── Forex math ─────────────────────────────────────────────────────────────
-// Contract size ต่อ 1 lot — ต่างกันตามประเภทสินทรัพย์
 function contractSize(pair) {
   if (/^(XAU|XAG)/.test(pair)) return 100          // โลหะ: 100 oz ต่อ lot
   if (/^(BTC|ETH)/.test(pair)) return 1            // คริปโต: 1 unit
   return 100000                                     // Forex มาตรฐาน
 }
-
 const quoteCcy = (pair) => pair.slice(3, 6)
-
-// P/L ใน "quote currency" (สกุลตัวหลังของคู่เงิน)
 function pnlQuote(pos, currentPrice) {
   const dir = pos.direction === 'long' ? 1 : -1
   return (currentPrice - pos.entry) * dir * pos.lot * contractSize(pos.pair)
 }
-
-// แปลง P/L จาก quote currency → USD
-// - ถ้า quote เป็น USD อยู่แล้ว (EURUSD, XAUUSD): ไม่ต้องแปลง
-// - ถ้าคู่เงินขึ้นต้นด้วย USD (USDJPY, USDCHF): แปลงโดยหารด้วยราคาปัจจุบันของคู่นั้นเอง
 function pnlUsd(pos, currentPrice) {
   const q = quoteCcy(pos.pair)
   const raw = pnlQuote(pos, currentPrice)
   if (q === 'USD') return raw
   if (pos.pair.startsWith('USD')) return raw / currentPrice
-  return raw // fallback
+  return raw
 }
-
-// ระยะห่างเป็น pips (ประมาณ) — สำหรับดูว่าห่างจาก TP/SL กี่ pip
 function pipsAway(pair, from, to) {
   if (!from || !to) return null
   const pipSize = /JPY$/.test(pair) ? 0.01 : /^X(AU|AG)/.test(pair) ? 0.1 : 0.0001
@@ -62,10 +57,13 @@ const fmtN = (n, frac = 2) => {
 const fmtSigned = (n, frac = 2) => (n == null || !isFinite(n)) ? '—' : (n >= 0 ? '+' : '') + fmtN(n, frac)
 const priceDigits = (pair) => /JPY$/.test(pair) ? 3 : /^X(AU|AG)/.test(pair) ? 2 : 5
 
-// ─── LocalStorage keys ───────────────────────────────────────────────────────
+const genId = () => Math.random().toString(36).slice(2, 12) + Date.now().toString(36).slice(-4)
+
+// ─── LocalStorage keys (legacy — used only for one-time migration) ──────────
 const LS_BALANCE = 'mm_balance_v1'
 const LS_POSITIONS = 'mm_positions_v1'
-const LS_ACTIVITY = 'mm_activity_v1' // ประวัติเติม/ถอน/ปิด
+const LS_ACTIVITY = 'mm_activity_v1'
+const LS_MIGRATED_FLAG = 'mm_migrated_to_supabase_v1'
 
 const loadJson = (k, dflt) => {
   try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : dflt } catch { return dflt }
@@ -84,25 +82,89 @@ async function fetchPair(pair) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-export default function MoneyMarket() {
-  const [balance, setBalance] = useState(() => Number(loadJson(LS_BALANCE, 20000)) || 20000)
-  const [positions, setPositions] = useState(() => loadJson(LS_POSITIONS, []))
-  const [activity, setActivity] = useState(() => loadJson(LS_ACTIVITY, []))
-  const [prices, setPrices] = useState({})           // { USDJPY: { rate, source, time } }
+export default function MoneyMarket({ user }) {
+  const userId = user?.id
+  const [status, setStatus] = useState('loading')  // loading | ready | needs-migration | error
+  const [errorMsg, setErrorMsg] = useState('')
+  const [balance, setBalance] = useState(0)
+  const [positions, setPositions] = useState([])
+  const [activity, setActivity] = useState([])
+  const [prices, setPrices] = useState({})
   const [usdThb, setUsdThb] = useState(0)
-  const [loading, setLoading] = useState(false)
+  const [loadingPrices, setLoadingPrices] = useState(false)
   const [lastRefresh, setLastRefresh] = useState(null)
 
-  // Persist
-  useEffect(() => { localStorage.setItem(LS_BALANCE, JSON.stringify(balance)) }, [balance])
-  useEffect(() => { localStorage.setItem(LS_POSITIONS, JSON.stringify(positions)) }, [positions])
-  useEffect(() => { localStorage.setItem(LS_ACTIVITY, JSON.stringify(activity)) }, [activity])
+  // ── Initial load from Supabase + auto-migrate legacy localStorage ──────
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const data = await loadMoneyMarket(userId)
+        if (cancelled) return
+        if (data.missingTable) {
+          setStatus('needs-migration')
+          return
+        }
 
-  // Refresh prices for all open positions + USDTHB
+        // Auto-migrate: ถ้ายังไม่เคย migrate + มีข้อมูลใน localStorage → ยัดขึ้น Supabase
+        const localPositions = loadJson(LS_POSITIONS, [])
+        const localActivity = loadJson(LS_ACTIVITY, [])
+        const localBalanceRaw = localStorage.getItem(LS_BALANCE)
+        const alreadyMigrated = localStorage.getItem(LS_MIGRATED_FLAG) === '1'
+        const supabaseEmpty = !data.hasBalanceRow && data.positions.length === 0 && data.activity.length === 0
+        const hasLocalData = localPositions.length > 0 || localActivity.length > 0 || localBalanceRaw != null
+
+        if (!alreadyMigrated && supabaseEmpty && hasLocalData) {
+          try {
+            await migrateMoneyMarketFromLocal(userId, {
+              balance: Number(localBalanceRaw) || 20000,
+              positions: localPositions,
+              activity: localActivity,
+            })
+            localStorage.setItem(LS_MIGRATED_FLAG, '1')
+            // Reload
+            const refreshed = await loadMoneyMarket(userId)
+            if (cancelled) return
+            setBalance(refreshed.balance)
+            setPositions(refreshed.positions)
+            setActivity(refreshed.activity)
+            setStatus('ready')
+            alert(`กู้ข้อมูลเก่าจาก localStorage ขึ้น Supabase สำเร็จ:\n· ยอดเงิน ฿${(Number(localBalanceRaw) || 20000).toFixed(2)}\n· สถานะ ${localPositions.length} รายการ\n· ประวัติ ${localActivity.length} รายการ`)
+            return
+          } catch (e) {
+            console.error('mm migrate failed', e)
+          }
+        }
+
+        // ครั้งแรกไม่มี row เลย — สร้างยอดเริ่มต้น ฿20,000
+        if (!data.hasBalanceRow) {
+          await setMmBalance(userId, 20000)
+          setBalance(20000)
+        } else {
+          setBalance(data.balance)
+        }
+        setPositions(data.positions)
+        setActivity(data.activity)
+        setStatus('ready')
+      } catch (e) {
+        console.error(e)
+        setErrorMsg(String(e?.message || e))
+        setStatus('error')
+      }
+    })()
+    return () => { cancelled = true }
+  }, [userId])
+
+  // ── Price refresh ───────────────────────────────────────────────────────
+  const openPairsKey = useMemo(
+    () => [...new Set(positions.filter((p) => !p.closed).map((p) => p.pair))].sort().join(','),
+    [positions],
+  )
+
   const refresh = useCallback(async () => {
-    const open = positions.filter((p) => !p.closed)
-    const pairs = [...new Set(open.map((p) => p.pair))]
-    setLoading(true)
+    const pairs = openPairsKey ? openPairsKey.split(',') : []
+    setLoadingPrices(true)
     try {
       const results = await Promise.all(pairs.map(async (p) => [p, await fetchPair(p)]))
       const map = {}
@@ -112,35 +174,31 @@ export default function MoneyMarket() {
       if (thb) setUsdThb(thb.rate)
       setLastRefresh(new Date())
     } finally {
-      setLoading(false)
+      setLoadingPrices(false)
     }
-  }, [positions])
+  }, [openPairsKey])
 
-  // Fetch on mount + when open positions change (new pair)
-  const openPairsKey = useMemo(
-    () => [...new Set(positions.filter((p) => !p.closed).map((p) => p.pair))].sort().join(','),
-    [positions],
-  )
-  useEffect(() => { refresh() }, [openPairsKey]) // eslint-disable-line
+  useEffect(() => { if (status === 'ready') refresh() }, [openPairsKey, status]) // eslint-disable-line
 
-  // Auto-refresh every 60s
   const timerRef = useRef(null)
   useEffect(() => {
+    if (status !== 'ready') return
     if (timerRef.current) clearInterval(timerRef.current)
     timerRef.current = setInterval(() => refresh(), 60000)
     return () => clearInterval(timerRef.current)
-  }, [refresh])
+  }, [refresh, status])
 
   // ── Actions ─────────────────────────────────────────────────────────────
   const [form, setForm] = useState({ pair: 'USDJPY', direction: 'short', lot: '0.2', leverage: 50, entry: '', tp: '', sl: '' })
   const [showTopup, setShowTopup] = useState(false)
+  const [busy, setBusy] = useState(false)
 
-  function openPosition() {
+  async function openPosition() {
     const entry = Number(form.entry)
     const lot = Number(form.lot)
-    if (!(entry > 0) || !(lot > 0)) return
+    if (!(entry > 0) || !(lot > 0) || busy) return
     const pos = {
-      id: 'p_' + Math.random().toString(36).slice(2, 10),
+      id: 'p_' + genId(),
       pair: form.pair,
       direction: form.direction,
       lot,
@@ -151,53 +209,91 @@ export default function MoneyMarket() {
       openedAt: new Date().toISOString(),
       closed: false,
     }
-    setPositions((arr) => [pos, ...arr])
-    setForm({ ...form, entry: '', tp: '', sl: '' })
+    setBusy(true)
+    try {
+      await insertMmPosition(userId, pos)
+      setPositions((arr) => [pos, ...arr])
+      setForm({ ...form, entry: '', tp: '', sl: '' })
+    } catch (e) {
+      alert('บันทึกล้มเหลว: ' + (e?.message || e))
+    } finally {
+      setBusy(false)
+    }
   }
 
-  function closePosition(id) {
+  async function closePosition(id) {
     const pos = positions.find((p) => p.id === id)
-    if (!pos) return
+    if (!pos || busy) return
     const price = prices[pos.pair]?.rate
     if (!price) { alert('ยังไม่มีราคาสด — ลองกดรีเฟรชก่อน'); return }
     const usd = pnlUsd(pos, price)
     const thb = usdThb ? usd * usdThb : 0
     if (!confirm(`ปิดสถานะ ${pos.pair} ${pos.direction} ที่ราคา ${fmtN(price, priceDigits(pos.pair))}\nP/L ≈ ${fmtSigned(thb, 2)} ฿ (${fmtSigned(usd, 2)} $)\nยืนยัน?`)) return
-    setBalance((b) => b + thb)
-    setPositions((arr) => arr.map((p) => p.id === id ? { ...p, closed: true, closePrice: price, closedAt: new Date().toISOString(), pnlUsd: usd, pnlThb: thb } : p))
-    setActivity((arr) => [{
-      id: 'a_' + Math.random().toString(36).slice(2, 8),
-      kind: 'close',
-      at: new Date().toISOString(),
-      pair: pos.pair,
-      direction: pos.direction,
-      lot: pos.lot,
-      entry: pos.entry,
-      exit: price,
-      pnlThb: thb,
-      pnlUsd: usd,
-    }, ...arr])
+    setBusy(true)
+    try {
+      const updatedPos = { ...pos, closed: true, closePrice: price, closedAt: new Date().toISOString(), pnlUsd: usd, pnlThb: thb }
+      const activityRow = {
+        id: 'a_' + genId(),
+        kind: 'close',
+        at: new Date().toISOString(),
+        pair: pos.pair, direction: pos.direction, lot: pos.lot,
+        entry: pos.entry, exit: price, pnlThb: thb, pnlUsd: usd,
+      }
+      const newBalance = balance + thb
+      await Promise.all([
+        updateMmPosition(updatedPos),
+        insertMmActivity(userId, activityRow),
+        setMmBalance(userId, newBalance),
+      ])
+      setPositions((arr) => arr.map((p) => p.id === id ? updatedPos : p))
+      setActivity((arr) => [activityRow, ...arr])
+      setBalance(newBalance)
+    } catch (e) {
+      alert('ปิดสถานะล้มเหลว: ' + (e?.message || e))
+    } finally {
+      setBusy(false)
+    }
   }
 
-  function deletePosition(id) {
+  async function deletePosition(id) {
     const pos = positions.find((p) => p.id === id)
-    if (!pos) return
+    if (!pos || busy) return
     if (!confirm(`ลบสถานะนี้ทิ้งถาวร (ไม่กระทบยอดเงิน)?\n${pos.pair} · ${pos.direction} · ${pos.lot} lot`)) return
-    setPositions((arr) => arr.filter((p) => p.id !== id))
+    setBusy(true)
+    try {
+      await deleteMmPosition(id)
+      setPositions((arr) => arr.filter((p) => p.id !== id))
+    } catch (e) {
+      alert('ลบล้มเหลว: ' + (e?.message || e))
+    } finally {
+      setBusy(false)
+    }
   }
 
-  function topup(amount, kind) {
+  async function topup(amount, kind) {
     const n = Number(amount)
-    if (!(n > 0)) return
+    if (!(n > 0) || busy) return
     const signed = kind === 'withdraw' ? -n : n
-    setBalance((b) => b + signed)
-    setActivity((arr) => [{
-      id: 'a_' + Math.random().toString(36).slice(2, 8),
-      kind,
-      at: new Date().toISOString(),
-      amountThb: signed,
-    }, ...arr])
-    setShowTopup(false)
+    setBusy(true)
+    try {
+      const activityRow = {
+        id: 'a_' + genId(),
+        kind, at: new Date().toISOString(),
+        amountThb: signed,
+      }
+      const newBalance = balance + signed
+      await Promise.all([
+        insertMmActivity(userId, activityRow),
+        setMmBalance(userId, newBalance),
+      ])
+      setActivity((arr) => [activityRow, ...arr])
+      setBalance(newBalance)
+      setShowTopup(false)
+    } catch (e) {
+      alert('บันทึกล้มเหลว: ' + (e?.message || e))
+    } finally {
+      setBusy(false)
+    }
   }
 
   // ── Derived ─────────────────────────────────────────────────────────────
@@ -214,6 +310,54 @@ export default function MoneyMarket() {
   const realizedThb = closed.reduce((s, p) => s + (p.pnlThb || 0), 0)
   const depositedThb = activity.filter((a) => a.kind === 'deposit').reduce((s, a) => s + (a.amountThb || 0), 0)
 
+  // ── Loading / error / migration guards ─────────────────────────────────
+  if (status === 'loading') {
+    return (
+      <section className="px-4 lg:px-10 mt-6">
+        <div className="panel rounded-2xl p-8 text-center text-[13px] text-[var(--txt-dim)]">
+          กำลังโหลดข้อมูลจาก Supabase…
+        </div>
+      </section>
+    )
+  }
+
+  if (status === 'needs-migration') {
+    return (
+      <section className="px-4 lg:px-10 mt-6">
+        <div className="panel rounded-2xl p-6">
+          <div className="text-[18px] font-semibold mb-2">⚠️ ต้องรัน SQL migration ก่อนใช้งาน</div>
+          <div className="text-[13px] text-[var(--txt-dim)] mb-4">
+            ระบบตลาดเงินย้ายไป Supabase แล้ว — แต่ยังไม่ได้สร้าง table ในฐานข้อมูล
+            <br />เปิด Supabase Dashboard → SQL Editor → เอาไฟล์ <code className="text-[var(--txt-bright)]">supabase/money_market.sql</code> ไปรัน
+          </div>
+          <div className="text-[12px] p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--line)' }}>
+            <div className="font-semibold mb-1">ขั้นตอน:</div>
+            <ol className="list-decimal pl-5 space-y-1">
+              <li>ไปที่ <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="underline">Supabase Dashboard</a></li>
+              <li>เลือกโปรเจกต์ Portfolio Tree → SQL Editor</li>
+              <li>เปิดไฟล์ <code>portfolio-tree/supabase/money_market.sql</code> คัดลอกทั้งหมด</li>
+              <li>Paste แล้วกด Run</li>
+              <li>รีเฟรชหน้านี้</li>
+            </ol>
+          </div>
+          <button className="btn btn-primary mt-4" onClick={() => window.location.reload()}>รีเฟรชหลังรัน SQL แล้ว</button>
+        </div>
+      </section>
+    )
+  }
+
+  if (status === 'error') {
+    return (
+      <section className="px-4 lg:px-10 mt-6">
+        <div className="panel rounded-2xl p-6">
+          <div className="text-[16px] font-semibold mb-2" style={{ color: '#ff4d6d' }}>เกิดข้อผิดพลาด</div>
+          <div className="text-[12px] font-mono">{errorMsg}</div>
+          <button className="btn mt-4" onClick={() => window.location.reload()}>รีเฟรช</button>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="px-4 lg:px-10 mt-6 pb-24 space-y-5">
       {/* KPI cards */}
@@ -222,7 +366,7 @@ export default function MoneyMarket() {
           label="ยอดเงิน (Balance)"
           value={`฿${fmtN(balance, 2)}`}
           sub={depositedThb ? `เติมสะสม ฿${fmtN(depositedThb, 2)}` : 'พร้อมเทรด'}
-          action={<button className="btn text-[11px] px-2 py-1" onClick={() => setShowTopup(true)}>เติม/ถอน</button>}
+          action={<button className="btn text-[11px] px-2 py-1" onClick={() => setShowTopup(true)} disabled={busy}>เติม/ถอน</button>}
         />
         <KpiCard
           label="P/L ที่ยังไม่ปิด (Floating)"
@@ -246,10 +390,10 @@ export default function MoneyMarket() {
       {/* Refresh bar */}
       <div className="flex items-center justify-between text-[12px] text-[var(--txt-dim)]">
         <div>
-          {loading ? 'กำลังดึงราคา…' : lastRefresh ? `อัพเดตล่าสุด ${lastRefresh.toLocaleTimeString('th-TH')}` : 'ยังไม่ได้ดึงราคา'}
-          {' · '}Auto-refresh ทุก 60 วินาที
+          {loadingPrices ? 'กำลังดึงราคา…' : lastRefresh ? `อัพเดตล่าสุด ${lastRefresh.toLocaleTimeString('th-TH')}` : 'ยังไม่ได้ดึงราคา'}
+          {' · '}Auto-refresh ทุก 60 วินาที · <span className="text-[var(--txt-faint)]">Sync กับ Supabase</span>
         </div>
-        <button className="btn text-[11px] px-2 py-1" onClick={refresh} disabled={loading}>
+        <button className="btn text-[11px] px-2 py-1" onClick={refresh} disabled={loadingPrices}>
           🔄 รีเฟรชราคา
         </button>
       </div>
@@ -294,9 +438,9 @@ export default function MoneyMarket() {
           </FormField>
         </div>
         <div className="flex items-center gap-2 mt-3">
-          <button onClick={openPosition} disabled={!Number(form.entry) || !Number(form.lot)}
+          <button onClick={openPosition} disabled={!Number(form.entry) || !Number(form.lot) || busy}
             className="btn btn-primary flex-1">
-            ✓ เปิดสถานะ
+            {busy ? '⋯ กำลังบันทึก…' : '✓ เปิดสถานะ'}
           </button>
           {prices[form.pair]?.rate && (
             <button
@@ -399,9 +543,9 @@ export default function MoneyMarket() {
                       {pThb != null ? fmtSigned(pThb, 2) + ' ฿' : '—'}
                     </td>
                     <td className="text-right" style={{ paddingRight: 16 }}>
-                      <button onClick={() => closePosition(p.id)} className="btn text-[11px] px-2 py-1 mr-1"
+                      <button onClick={() => closePosition(p.id)} disabled={busy} className="btn text-[11px] px-2 py-1 mr-1"
                         title="ปิดสถานะ (บวก/ลบ P/L เข้ายอดเงิน)">ปิด</button>
-                      <button onClick={() => deletePosition(p.id)} className="btn text-[11px] px-2 py-1"
+                      <button onClick={() => deletePosition(p.id)} disabled={busy} className="btn text-[11px] px-2 py-1"
                         style={{ color: '#ff4d6d' }} title="ลบทิ้ง (ไม่คำนวณ P/L)">🗑</button>
                     </td>
                   </tr>
@@ -463,7 +607,7 @@ export default function MoneyMarket() {
       )}
 
       {/* Topup modal */}
-      {showTopup && <TopupModal onClose={() => setShowTopup(false)} onSubmit={topup} balance={balance} />}
+      {showTopup && <TopupModal onClose={() => setShowTopup(false)} onSubmit={topup} balance={balance} busy={busy} />}
     </section>
   )
 }
@@ -493,7 +637,7 @@ function FormField({ label, children }) {
   )
 }
 
-function TopupModal({ onClose, onSubmit, balance }) {
+function TopupModal({ onClose, onSubmit, balance, busy }) {
   const [kind, setKind] = useState('deposit')
   const [amount, setAmount] = useState('')
   return (
@@ -519,9 +663,9 @@ function TopupModal({ onClose, onSubmit, balance }) {
             onChange={(e) => setAmount(e.target.value)} placeholder="20000" />
         </label>
         <div className="flex gap-2">
-          <button className="btn flex-1" onClick={onClose}>ยกเลิก</button>
-          <button className="btn btn-primary flex-1" onClick={() => onSubmit(amount, kind)} disabled={!Number(amount)}>
-            ยืนยัน
+          <button className="btn flex-1" onClick={onClose} disabled={busy}>ยกเลิก</button>
+          <button className="btn btn-primary flex-1" onClick={() => onSubmit(amount, kind)} disabled={!Number(amount) || busy}>
+            {busy ? '⋯' : 'ยืนยัน'}
           </button>
         </div>
       </div>
