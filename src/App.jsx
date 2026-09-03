@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CAT_ORDER_TOP, MODES, aggregate, fmtUsd, holdingCost, holdingMV, nextPlan, uid } from './data.js'
+import { CAT_ORDER_TOP, MODES, aggregate, fmtUsd, holdingCost, holdingMV, nextPlan, readFxRate, uid } from './data.js'
 import { downloadPortfolioReport } from './pdfExport.js'
 import * as db from './db.js'
 import { getQuote, getQuoteFull, isStockApiConfigured } from './stockApi.js'
@@ -158,21 +158,34 @@ export default function App({ user, onSignOut }) {
     const isBuy = t.type === 'buy'
     const existing = holdings.find((x) => x.symbol === t.symbol)
 
-    let realizedPL = 0
-    let averageCostAtSellTime = 0
+    // Currency handling: t.total, t.price, t.qty, t.fee เป็น "native" (THB สำหรับกองทุนไทย)
+    // Cash pool เก็บเป็น USD → ต้องแปลง native → USD ก่อนหัก/บวก
+    // realizedPL ก็ต้องเป็น USD เพื่อ SummaryBar รวม
+    const currency = t.currency || existing?.currency || 'USD'
+    const isThb = currency === 'THB'
+    const fxRate = isThb ? (t.fxRate || readFxRate()) : 1
+
+    let realizedPL = 0                                           // USD
+    let averageCostAtSellTime = 0                                // native
     if (!isBuy && existing) {
       averageCostAtSellTime = existing.avg
-      realizedPL = (t.price - averageCostAtSellTime) * t.qty - (t.fee || 0)
+      const realizedNative = (t.price - averageCostAtSellTime) * t.qty - (t.fee || 0)
+      realizedPL = isThb ? realizedNative / fxRate : realizedNative
     }
-    const grossProceeds = (t.price || 0) * (t.qty || 0)
-    const feeAmount = t.fee || 0
-    const netProceeds = isBuy ? grossProceeds + feeAmount : grossProceeds - feeAmount
-    const newCash = isBuy ? cash - t.total : cash + t.total
+    const grossProceeds = (t.price || 0) * (t.qty || 0)          // native
+    const feeAmount = t.fee || 0                                  // native
+    const netProceeds = isBuy ? grossProceeds + feeAmount : grossProceeds - feeAmount // native
+    const netUsd = isThb ? t.total / fxRate : t.total            // สำหรับหัก cash
+    const newCash = isBuy ? cash - netUsd : cash + netUsd
 
     const txnRow = {
       id: uid('t'), date: t.date, type: t.type, symbol: t.symbol, cat: t.cat,
-      qty: t.qty, price: t.price, fee: feeAmount, note: t.note, total: t.total,
-      realizedPL, averageCostAtSellTime, grossProceeds, netProceeds,
+      qty: t.qty, price: t.price, fee: feeAmount, note: t.note,
+      total: t.total,                                            // native — ให้ TransactionHistory แสดงต่อคน user
+      realizedPL,                                                // USD (สำหรับรวม SummaryBar)
+      averageCostAtSellTime,                                     // native
+      grossProceeds,                                             // native
+      netProceeds,                                               // native
     }
 
     // Resolve the holding change
@@ -189,6 +202,7 @@ export default function App({ user, onSignOut }) {
         const created = {
           id: uid('h'), cat: t.cat, symbol: t.symbol, name: t.symbol, qty: t.qty,
           avg: t.price, price: t.price, addPlan: [0, 0, 0], trimPlan: [0, 0, 0], note: t.note || '',
+          currency, manualPrice: isThb,
         }
         nextHoldings = [...holdings, created]
         holdingOp = { kind: 'insert', holding: created }

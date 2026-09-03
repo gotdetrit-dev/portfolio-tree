@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CATS, MODES, fmtPct, fmtUsd, uid } from '../data.js'
+import { CATS, MODES, fmtPct, fmtUsd, readFxRate, uid } from '../data.js'
 import { isStockApiConfigured, lookupSymbol } from '../stockApi.js'
 import TransactionHistory from './TransactionHistory.jsx'
 import CashManagement from './CashManagement.jsx'
@@ -59,20 +59,35 @@ export function TransactionModal({ initial, holdings, agg, onClose, onSubmit }) 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [note, setNote] = useState('')
 
-  const total = Number(price || 0) * Number(qty || 0)
-  const fee = total * (Number(feePct || 0) / 100)
-  const netBuy = total + fee
-  const netSell = total - fee
+  // Detect currency จาก holding ที่ตรง symbol (ค่า default USD สำหรับ symbol ใหม่)
+  const existingHolding = symbol ? holdings.find((h) => h.symbol === symbol.toUpperCase()) : null
+  const currency = existingHolding?.currency || 'USD'
+  const isThb = currency === 'THB'
+  const currSym = isThb ? '฿' : '$'
+  const fxRate = readFxRate() // อ่านครั้งเดียวต่อ render (สำหรับ preview USD equivalent)
+
+  // Native = สกุลของ holding (THB สำหรับกองทุนไทย, USD สำหรับหุ้น US)
+  const total = Number(price || 0) * Number(qty || 0)          // native
+  const fee = total * (Number(feePct || 0) / 100)              // native
+  const netBuy = total + fee                                    // native
+  const netSell = total - fee                                   // native
+  const netNative = type === 'buy' ? netBuy : netSell
+  const netUsd = isThb ? netNative / fxRate : netNative        // สำหรับหัก cash pool ที่เป็น USD
+
+  const fmtNative = (n) => isThb
+    ? currSym + Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : fmtUsd(n)
 
   // Allocation preview — what does this trade do to the stock's % of portfolio?
   const portfolioTotal = agg?.total || 0
-  const existingHolding = symbol ? holdings.find((h) => h.symbol === symbol.toUpperCase()) : null
-  const marketPrice = existingHolding?.price || Number(price || 0)
-  const currentMV = existingHolding ? existingHolding.qty * existingHolding.price : 0
-  const currentPct = portfolioTotal > 0 ? (currentMV / portfolioTotal) * 100 : 0
+  const marketPrice = existingHolding?.price || Number(price || 0)         // native
+  const currentMV_native = existingHolding ? existingHolding.qty * existingHolding.price : 0
+  const currentMV_usd = isThb ? currentMV_native / fxRate : currentMV_native
+  const currentPct = portfolioTotal > 0 ? (currentMV_usd / portfolioTotal) * 100 : 0
   const deltaShares = (type === 'buy' ? 1 : -1) * Number(qty || 0)
-  const newMV = Math.max(0, currentMV + deltaShares * marketPrice)
-  const newPct = portfolioTotal > 0 ? (newMV / portfolioTotal) * 100 : 0
+  const newMV_native = Math.max(0, currentMV_native + deltaShares * marketPrice)
+  const newMV_usd = isThb ? newMV_native / fxRate : newMV_native
+  const newPct = portfolioTotal > 0 ? (newMV_usd / portfolioTotal) * 100 : 0
   const pctDelta = newPct - currentPct
   const showAlloc = portfolioTotal > 0 && Number(qty) > 0 && Number(price) > 0
 
@@ -117,11 +132,11 @@ export function TransactionModal({ initial, holdings, agg, onClose, onSubmit }) 
             {['cash', 'core', 'stab', 'boost'].map((k) => <option key={k} value={k}>{CATS[k].name}</option>)}
           </select>
         </Field>
-        <Field label="ราคา (USD)">
-          <input type="number" className="field" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="142.80" />
+        <Field label={`ราคา (${currency})`}>
+          <input type="number" step="0.0001" className="field" value={price} onChange={(e) => setPrice(e.target.value)} placeholder={isThb ? '142.80' : '10.00'} />
         </Field>
-        <Field label="จำนวน">
-          <input type="number" className="field" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="10" />
+        <Field label={isThb ? 'จำนวนหน่วย' : 'จำนวน'}>
+          <input type="number" step="0.0001" className="field" value={qty} onChange={(e) => setQty(e.target.value)} placeholder={isThb ? '3835.4440' : '10'} />
         </Field>
         <Field label="ค่าธรรมเนียม %">
           <input type="number" step="0.01" className="field" value={feePct} onChange={(e) => setFeePct(e.target.value)} />
@@ -140,17 +155,25 @@ export function TransactionModal({ initial, holdings, agg, onClose, onSubmit }) 
         <div className="grid grid-cols-3 gap-2">
           <div>
             <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)]">มูลค่ารวม</div>
-            <div className="font-mono num-tabular text-white">{fmtUsd(total)}</div>
+            <div className="font-mono num-tabular text-white">{fmtNative(total)}</div>
+            {isThb && total > 0 && (
+              <div className="text-[9.5px] text-[var(--txt-faint)] mt-0.5">≈ {fmtUsd(total / fxRate)}</div>
+            )}
           </div>
           <div>
             <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)]">ค่าธรรมเนียม</div>
-            <div className="font-mono num-tabular text-[var(--txt-dim)]">{fmtUsd(fee)}</div>
+            <div className="font-mono num-tabular text-[var(--txt-dim)]">{fmtNative(fee)}</div>
           </div>
           <div>
             <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)]">{type === 'buy' ? 'น้ำที่ใช้' : 'น้ำที่ได้คืน'}</div>
             <div className="font-mono num-tabular" style={{ color: type === 'buy' ? '#ff8aa0' : '#9bffae' }}>
-              {type === 'buy' ? '−' : '+'}{fmtUsd(type === 'buy' ? netBuy : netSell)}
+              {type === 'buy' ? '−' : '+'}{fmtNative(netNative)}
             </div>
+            {isThb && netNative > 0 && (
+              <div className="text-[9.5px] mt-0.5" style={{ color: type === 'buy' ? '#ff8aa0aa' : '#9bffaeaa' }}>
+                ≈ {type === 'buy' ? '−' : '+'}{fmtUsd(netUsd)} <span className="text-[var(--txt-faint)]">(rate {fxRate.toFixed(2)})</span>
+              </div>
+            )}
           </div>
         </div>
         {showAlloc && (
@@ -180,7 +203,11 @@ export function TransactionModal({ initial, holdings, agg, onClose, onSubmit }) 
           className="btn btn-primary"
           onClick={() => onSubmit({
             type, symbol, cat, price: Number(price), qty: Number(qty), fee, feePct: Number(feePct), date, note,
-            total: type === 'buy' ? netBuy : netSell,
+            // total เป็น native currency (THB ถ้ากองทุนไทย). commitTxn ใน App.jsx
+            // จะแปลงเป็น USD สำหรับหัก cash pool + คำนวณ realized_pl เอง
+            total: netNative,
+            currency,
+            fxRate: isThb ? fxRate : null,
           })}
           disabled={!symbol || !price || !qty}
         >

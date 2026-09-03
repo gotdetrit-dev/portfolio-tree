@@ -85,7 +85,7 @@ export const INITIAL_CASH_ACTIVITY = [
 const FX_CACHE_KEY = 'usdThbRate.v1'
 const FX_FALLBACK = 33
 
-function readFxRate() {
+export function readFxRate() {
   try {
     if (typeof localStorage === 'undefined') return FX_FALLBACK
     const raw = localStorage.getItem(FX_CACHE_KEY)
