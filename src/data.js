@@ -111,7 +111,11 @@ export function aggregate(holdings, cash, transactions = [], cashActivity = []) 
     else cashIncome += amt // dividend / interest / other → realized income
   }
 
-  const sellRealized = transactions.reduce((s, t) => s + (t.type === 'sell' ? t.realizedPL || 0 : 0), 0)
+  // 'sell' = ขายจริง, 'import' = ยกยอดกำไรย้อนหลัง (นำเข้าจาก broker CSV เก่า)
+  const sellRealized = transactions.reduce(
+    (s, t) => s + ((t.type === 'sell' || t.type === 'import') ? (t.realizedPL || 0) : 0),
+    0,
+  )
   const realizedPL = sellRealized + cashIncome
   const totalPL = unrealizedPL + realizedPL
   // Backwards-compat alias `pl` (still used in CategoryCard / row sort)
