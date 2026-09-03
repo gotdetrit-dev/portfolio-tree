@@ -24,6 +24,8 @@ const toHoldingRow = (h, userId) => ({
   qty: num(h.qty), avg: num(h.avg), price: num(h.price), target_pct: num(h.targetPct),
   add_plan: h.addPlan ?? [0, 0, 0, 0, 0], trim_plan: h.trimPlan ?? [0, 0, 0, 0, 0], note: h.note ?? '',
   tracked_add: h.trackedAdd ?? null, tracked_trim: h.trackedTrim ?? null,
+  currency: h.currency || 'USD',
+  manual_price: !!h.manualPrice,
 })
 
 const fromHoldingRow = (r) => ({
@@ -31,6 +33,8 @@ const fromHoldingRow = (r) => ({
   qty: num(r.qty), avg: num(r.avg), price: num(r.price), targetPct: num(r.target_pct),
   addPlan: r.add_plan ?? [0, 0, 0, 0, 0], trimPlan: r.trim_plan ?? [0, 0, 0, 0, 0], note: r.note ?? '',
   trackedAdd: r.tracked_add ?? null, trackedTrim: r.tracked_trim ?? null,
+  currency: r.currency || 'USD',
+  manualPrice: !!r.manual_price,
 })
 
 const toTxnRow = (t, userId) => ({

@@ -200,9 +200,16 @@ export function HoldingModal({ initial, onClose, onSubmit }) {
     id: uid('h'), cat: 'core', symbol: '', name: '', qty: 0, avg: 0, price: 0,
     addPlan: [0, 0, 0, 0, 0], trimPlan: [0, 0, 0, 0, 0], note: '', targetPct: 0,
     trackedAdd: null, trackedTrim: null,
+    currency: 'USD', manualPrice: false,
     ...(initial || {}),
   }))
   const upd = (k, v) => setH((s) => ({ ...s, [k]: v }))
+  // เมื่อเปลี่ยน currency → บังคับ manualPrice สำหรับ THB (Finnhub ไม่มีข้อมูลกองทุนไทย)
+  const setCurrency = (v) => setH((s) => ({ ...s, currency: v, manualPrice: v === 'THB' ? true : s.manualPrice }))
+
+  const isThb = h.currency === 'THB'
+  const currSymbol = isThb ? '฿' : '$'
+  const fmtMoney = (n) => (isThb ? `${currSymbol}${Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}` : fmtUsd(n))
 
   // Live lookup: on symbol blur, fetch company name + current price from Finnhub.
   const [looking, setLooking] = useState(false)
@@ -210,7 +217,8 @@ export function HoldingModal({ initial, onClose, onSubmit }) {
 
   async function lookupAndFill(rawSymbol) {
     const sym = (rawSymbol || '').trim().toUpperCase()
-    if (!sym || !isStockApiConfigured) return
+    // ข้าม lookup สำหรับ THB / manual price (Finnhub ไม่มีข้อมูลกองทุนไทย)
+    if (!sym || !isStockApiConfigured || isThb || h.manualPrice) return
     setLooking(true)
     setLookMsg(null)
     try {
@@ -244,11 +252,16 @@ export function HoldingModal({ initial, onClose, onSubmit }) {
             value={h.symbol}
             onChange={(e) => upd('symbol', e.target.value.toUpperCase())}
             onBlur={(e) => lookupAndFill(e.target.value)}
-            placeholder="NVDA"
+            placeholder={isThb ? 'KFXAU-A' : 'NVDA'}
           />
-          {isStockApiConfigured && (
+          {isStockApiConfigured && !isThb && !h.manualPrice && (
             <div className="text-[10.5px] mt-1 leading-tight" style={{ color: lookStatus.color }}>
               {lookStatus.text}
+            </div>
+          )}
+          {(isThb || h.manualPrice) && (
+            <div className="text-[10.5px] mt-1 leading-tight" style={{ color: '#f7c948' }}>
+              🖊 คีย์ราคาเอง — ระบบจะไม่ auto-refresh
             </div>
           )}
         </Field>
@@ -257,24 +270,41 @@ export function HoldingModal({ initial, onClose, onSubmit }) {
             {['core', 'stab', 'boost', 'cash'].map((k) => <option key={k} value={k}>{CATS[k].name}</option>)}
           </select>
         </Field>
+        <Field label="สกุลเงิน">
+          <select className="field" value={h.currency} onChange={(e) => setCurrency(e.target.value)}>
+            <option value="USD">USD ($) — หุ้น US, ทอง, crypto</option>
+            <option value="THB">THB (฿) — กองทุนไทย, หุ้น SET</option>
+          </select>
+        </Field>
+        <Field label="รูปแบบราคา">
+          <label className="field flex items-center gap-2" style={{ cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={!!h.manualPrice}
+              disabled={isThb}
+              onChange={(e) => upd('manualPrice', e.target.checked)}
+            />
+            <span className="text-[12px]">กรอกราคาเอง (ไม่ auto-refresh)</span>
+          </label>
+        </Field>
         <div className="col-span-2">
           <Field label="ชื่อสินทรัพย์">
-            <input className="field" value={h.name} onChange={(e) => upd('name', e.target.value)} />
+            <input className="field" value={h.name} onChange={(e) => upd('name', e.target.value)} placeholder={isThb ? 'เช่น กองทุนเปิดกรุงศรีทองคำ' : ''} />
           </Field>
         </div>
-        <Field label="จำนวน">
-          <input type="number" className="field" value={h.qty} onChange={(e) => upd('qty', Number(e.target.value))} />
+        <Field label={isThb ? 'จำนวนหน่วย' : 'จำนวน'}>
+          <input type="number" step="0.0001" className="field" value={h.qty} onChange={(e) => upd('qty', Number(e.target.value))} />
         </Field>
-        <Field label="ทุนเฉลี่ย">
-          <input type="number" className="field" value={h.avg} onChange={(e) => upd('avg', Number(e.target.value))} />
+        <Field label={`ทุนเฉลี่ย (${currSymbol}/หน่วย)`}>
+          <input type="number" step="0.0001" className="field" value={h.avg} onChange={(e) => upd('avg', Number(e.target.value))} />
         </Field>
-        <Field label="ราคาปัจจุบัน">
-          <input type="number" className="field" value={h.price} onChange={(e) => upd('price', Number(e.target.value))} />
+        <Field label={`ราคาปัจจุบัน (${currSymbol}/หน่วย)`}>
+          <input type="number" step="0.0001" className="field" value={h.price} onChange={(e) => upd('price', Number(e.target.value))} />
         </Field>
         <Field label=" ">
           <div className="field flex items-center justify-between" style={{ cursor: 'default' }}>
             <span className="text-[var(--txt-faint)]">มูลค่า</span>
-            <span className="text-white">{fmtUsd(h.qty * h.price)}</span>
+            <span className="text-white">{fmtMoney(h.qty * h.price)}</span>
           </div>
         </Field>
         <div className="col-span-2">

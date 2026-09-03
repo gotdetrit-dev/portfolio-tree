@@ -79,8 +79,37 @@ export const INITIAL_CASH_ACTIVITY = [
 
 // ─── Calculations ─────────────────────────────────────────────────────────────
 
-export function holdingMV(h) { return h.qty * h.price }
-export function holdingCost(h) { return h.qty * h.avg }
+// พอร์ตหลักคำนวณเป็น USD, แต่บาง holding (เช่น กองทุนไทย) อาจ store เป็น THB
+// ในหน่วย native — เราแปลงกลับเป็น USD ณ ตอนคำนวณ mv/cost โดยใช้ FX rate
+// ล่าสุดที่ SummaryBar cache ไว้ใน localStorage. ถ้ายังไม่มี cache → ใช้ 33 (fallback)
+const FX_CACHE_KEY = 'usdThbRate.v1'
+const FX_FALLBACK = 33
+
+function readFxRate() {
+  try {
+    if (typeof localStorage === 'undefined') return FX_FALLBACK
+    const raw = localStorage.getItem(FX_CACHE_KEY)
+    if (!raw) return FX_FALLBACK
+    const p = JSON.parse(raw)
+    return p?.rate > 0 ? p.rate : FX_FALLBACK
+  } catch { return FX_FALLBACK }
+}
+
+// แปลงเป็น USD ถ้าเก็บเป็น THB (กองทุนไทย NAV เป็นบาท)
+function toUsd(nativeAmount, currency) {
+  if (currency === 'THB') return nativeAmount / readFxRate()
+  return nativeAmount // USD default
+}
+
+export function holdingMV(h) {
+  return toUsd((h.qty || 0) * (h.price || 0), h.currency)
+}
+export function holdingCost(h) {
+  return toUsd((h.qty || 0) * (h.avg || 0), h.currency)
+}
+// สำหรับ UI ที่อยากแสดงตัวเลข native (เช่น "฿12.34/หน่วย × 100 = ฿1,234")
+export function holdingMvNative(h) { return (h.qty || 0) * (h.price || 0) }
+export function holdingCostNative(h) { return (h.qty || 0) * (h.avg || 0) }
 
 // Returns aggregated market values and totals by category.
 //

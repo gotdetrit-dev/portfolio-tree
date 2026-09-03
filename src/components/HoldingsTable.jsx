@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { CATS, fmtPct, fmtPctPlain, fmtQty, fmtUsd, holdingCost, holdingMV, nextPlan } from '../data.js'
+import { CATS, fmtPct, fmtPctPlain, fmtQty, fmtUsd, holdingCost, holdingMV, holdingMvNative, nextPlan } from '../data.js'
+
+// ─── Formatter สำหรับ THB (กองทุนไทย) ──────────────────────────────────────
+const fmtThb = (n, frac = 2) => (n < 0 ? '-' : '') + '฿' + Math.abs(Number(n) || 0).toLocaleString('th-TH', {
+  minimumFractionDigits: frac, maximumFractionDigits: frac,
+})
+const fmtMoney = (n, currency, frac = 2) => currency === 'THB' ? fmtThb(n, frac) : fmtUsd(n, frac)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HoldingsTable — full table with all required columns, filterable by category
@@ -385,10 +391,14 @@ export default function HoldingsTable({ holdings, agg, targets, onAddTxn, onEdit
                   {/* จำนวน */}
                   <td className="mono" style={{ textAlign: 'right' }}>{fmtQty(r.qty)}</td>
 
-                  {/* ราคา — ปัจจุบัน + % เปลี่ยนแปลงวันนี้ */}
+                  {/* ราคา — ปัจจุบัน + % เปลี่ยนแปลงวันนี้ (native currency: $ หรือ ฿) */}
                   <td className="mono" style={{ textAlign: 'right' }}>
-                    <div className="font-semibold text-[13px] whitespace-nowrap">{fmtUsd(r.price)}</div>
-                    {typeof r.dayChangePct === 'number' ? (
+                    <div className="font-semibold text-[13px] whitespace-nowrap">{fmtMoney(r.price, r.currency)}</div>
+                    {r.currency === 'THB' || r.manualPrice ? (
+                      <div className="text-[10.5px] text-[#f7c948] mt-0.5" title="ราคานี้ระบบไม่ auto-update — กรอกเองเมื่ออยากอัพเดต">
+                        🖊 กรอกเอง
+                      </div>
+                    ) : typeof r.dayChangePct === 'number' ? (
                       <div
                         className="text-[10.5px] whitespace-nowrap mt-0.5"
                         style={{ color: r.dayChangePct > 0 ? '#9bffae' : r.dayChangePct < 0 ? '#ff8aa0' : 'var(--txt-dim)' }}
@@ -400,17 +410,22 @@ export default function HoldingsTable({ holdings, agg, targets, onAddTxn, onEdit
                     )}
                   </td>
 
-                  {/* ต้นทุน — ราคาเฉลี่ย */}
+                  {/* ต้นทุน — ราคาเฉลี่ย (native currency) */}
                   <td className="mono text-[var(--txt-dim)] whitespace-nowrap" style={{ textAlign: 'right' }}>
-                    {fmtUsd(r.avg)}
+                    {fmtMoney(r.avg, r.currency)}
                   </td>
 
-                  {/* มูลค่า */}
+                  {/* มูลค่า — USD equivalent (แปลงจาก THB ด้วย FX rate) + subtext native ถ้าเป็น THB */}
                   <td className="mono font-semibold whitespace-nowrap" style={{ textAlign: 'right' }}>
-                    {fmtUsd(r.mv, 0)}
+                    <div>{fmtUsd(r.mv, 0)}</div>
+                    {r.currency === 'THB' && (
+                      <div className="text-[10px] text-[var(--txt-faint)] mt-0.5">
+                        ≈ {fmtThb(holdingMvNative(r), 0)}
+                      </div>
+                    )}
                   </td>
 
-                  {/* กำไร/ขาดทุน — เงิน + เปอร์เซ็นต์ */}
+                  {/* กำไร/ขาดทุน — เงิน + เปอร์เซ็นต์ (USD equivalent) */}
                   <td className="mono" style={{ textAlign: 'right' }}>
                     <div className="text-[13.5px] font-semibold leading-tight whitespace-nowrap" style={{ color: plPos ? '#9bffae' : '#ff8aa0' }}>{fmtUsd(r.pl, 0)}</div>
                     <div className="text-[11px] whitespace-nowrap" style={{ color: plPos ? '#9bffae' : '#ff8aa0', opacity: 0.85 }}>{fmtPct(r.plPct, 1)}</div>

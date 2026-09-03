@@ -554,6 +554,8 @@ export default function App({ user, onSignOut }) {
     try {
       const results = await Promise.all(
         holdings.map(async (h) => {
+          // ข้าม manual-price holdings (กองทุนไทย ฯลฯ) — Finnhub ไม่มีข้อมูล
+          if (h.manualPrice || h.currency === 'THB') return h
           try {
             const q = await getQuoteFull(h.symbol)
             if (q && q.price > 0) {
