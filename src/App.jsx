@@ -562,28 +562,39 @@ export default function App({ user, onSignOut }) {
   }
 
   // Refresh the current price of every holding from the live stock API.
+  //
+  // Progressive UI: ราคาปรากฏทีละตัวใน UI ทันทีที่ Finnhub ตอบ (ไม่รอ batch ครบ)
+  // + persist ไป Supabase แบบ fire-and-forget (ไม่บล็อกปุ่ม refresh)
+  // เดิมใช้ Promise.all แล้ว setState ครั้งเดียว → ปุ่มดู "ค้าง" 5-10 วิ แม้ราคาส่วนใหญ่มาแล้ว
   async function refreshPrices() {
     if (!isStockApiConfigured || holdings.length === 0 || refreshingPrices) return
+    const targets = holdings.filter((h) => !h.manualPrice && h.currency !== 'THB')
+    if (targets.length === 0) return
     setRefreshingPrices(true)
+    const t0 = performance.now()
+    let done = 0
     try {
-      const results = await Promise.all(
-        holdings.map(async (h) => {
-          // ข้าม manual-price holdings (กองทุนไทย ฯลฯ) — Finnhub ไม่มีข้อมูล
-          if (h.manualPrice || h.currency === 'THB') return h
+      await Promise.all(
+        targets.map(async (h) => {
           try {
             const q = await getQuoteFull(h.symbol)
+            done += 1
             if (q && q.price > 0) {
-              return { ...h, price: q.price, dayChangePct: q.dayChangePct }
+              // Update UI ทันที (ทีละตัว) — ไม่รอ batch
+              setHoldings((curr) => curr.map((x) => (
+                x.id === h.id ? { ...x, price: q.price, dayChangePct: q.dayChangePct } : x
+              )))
+              // Persist ไป Supabase แบบ fire-and-forget — ไม่บล็อก UI
+              db.updateHolding({ ...h, price: q.price, dayChangePct: q.dayChangePct })
+                .catch((e) => console.warn('save price failed', h.symbol, e))
             }
-            return h
-          } catch {
-            return h
+          } catch (e) {
+            done += 1
+            console.warn('price fetch failed', h.symbol, e?.message)
           }
         }),
       )
-      const changed = results.filter((h, i) => h.price !== holdings[i].price)
-      setHoldings(results)
-      await Promise.all(changed.map((h) => db.updateHolding(h)))
+      console.log(`refreshPrices: ${done}/${targets.length} in ${((performance.now() - t0) / 1000).toFixed(2)}s`)
     } catch (e) {
       reportError(e)
     } finally {
