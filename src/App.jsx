@@ -569,6 +569,7 @@ export default function App({ user, onSignOut }) {
   async function refreshPrices() {
     if (!isStockApiConfigured || holdings.length === 0 || refreshingPrices) return
     const targets = holdings.filter((h) => !h.manualPrice && h.currency !== 'THB')
+    console.log(`[refresh] เริ่ม — ${holdings.length} holdings, จะยิง Finnhub ${targets.length} ตัว, ข้าม ${holdings.length - targets.length} ตัว`)
     if (targets.length === 0) return
     setRefreshingPrices(true)
     const t0 = performance.now()
@@ -576,25 +577,30 @@ export default function App({ user, onSignOut }) {
     try {
       await Promise.all(
         targets.map(async (h) => {
+          const tStart = performance.now()
           try {
             const q = await getQuoteFull(h.symbol)
+            const ms = Math.round(performance.now() - tStart)
             done += 1
             if (q && q.price > 0) {
-              // Update UI ทันที (ทีละตัว) — ไม่รอ batch
+              console.log(`[refresh] ✓ ${h.symbol}: ${h.price} → ${q.price} (${ms}ms)`)
               setHoldings((curr) => curr.map((x) => (
                 x.id === h.id ? { ...x, price: q.price, dayChangePct: q.dayChangePct } : x
               )))
-              // Persist ไป Supabase แบบ fire-and-forget — ไม่บล็อก UI
               db.updateHolding({ ...h, price: q.price, dayChangePct: q.dayChangePct })
-                .catch((e) => console.warn('save price failed', h.symbol, e))
+                .then(() => console.log(`[refresh] 💾 ${h.symbol} saved`))
+                .catch((e) => console.warn(`[refresh] ✗ ${h.symbol} save fail:`, e?.message || e))
+            } else {
+              console.warn(`[refresh] ⚠ ${h.symbol}: Finnhub ตอบว่างเปล่า (${ms}ms)`)
             }
           } catch (e) {
             done += 1
-            console.warn('price fetch failed', h.symbol, e?.message)
+            const ms = Math.round(performance.now() - tStart)
+            console.warn(`[refresh] ✗ ${h.symbol} fetch fail (${ms}ms):`, e?.message || e)
           }
         }),
       )
-      console.log(`refreshPrices: ${done}/${targets.length} in ${((performance.now() - t0) / 1000).toFixed(2)}s`)
+      console.log(`[refresh] เสร็จ ${done}/${targets.length} ใน ${((performance.now() - t0) / 1000).toFixed(2)} วินาที`)
     } catch (e) {
       reportError(e)
     } finally {
