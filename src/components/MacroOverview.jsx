@@ -12,6 +12,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createChart, LineSeries } from 'lightweight-charts'
 import { loadMacroOverview, saveMacroOverview } from '../db.js'
 
 // source: 'fred' = ใช้ FRED fredgraph.png (static image ฟรี, รองรับทุก FRED series)
@@ -19,16 +20,14 @@ import { loadMacroOverview, saveMacroOverview } from '../db.js'
 const SECTIONS = [
   {
     key: 'credit', title: 'Credit Spread', icon: '📊', tone: '#ff8aa0',
-    source: 'tv-combined',
-    combinedChart: {
-      symbol: 'FRED:BAMLH0A0HYM2',
-      mainColor: '#34e07a',     // HY = เขียว
-      compareSymbols: [
-        { symbol: 'FRED:BAMLC0A4CBBB', color: '#f7c948' },  // BBB = เหลือง
-        { symbol: 'FRED:BAMLH0A3HYC', color: '#ff4d6d' },   // CCC = แดง
-      ],
-      interval: 'D',
+    source: 'fred-multi',
+    multiChart: {
       height: 500,
+      series: [
+        { fredId: 'BAMLH0A0HYM2', color: '#34e07a', label: 'High Yield (HY)' },
+        { fredId: 'BAMLC0A4CBBB', color: '#f7c948', label: 'BBB' },
+        { fredId: 'BAMLH0A3HYC', color: '#ff4d6d', label: 'CCC & Lower' },
+      ],
     },
     legend: [
       { label: 'High Yield (HY)',   fredId: 'BAMLH0A0HYM2', color: '#34e07a' },
@@ -78,6 +77,136 @@ const SECTIONS = [
 // ─── FRED Chart ────────────────────────────────────────────────────────────
 // FRED fredgraph.png endpoint = static server-rendered PNG, ฟรี, รองรับทุก series
 // 5 ปีย้อนหลัง default range
+// ─── FRED Multi-line Chart (lightweight-charts) ──────────────────────────
+// ดึง CSV จาก FRED ผ่าน serverless proxy /api/fred → plot ด้วย lightweight-charts
+// รองรับหลาย series บนหลาย price scales + สีกำหนดเองได้ครบ
+function FredMultiLineChart({ series, height = 500 }) {
+  const containerRef = useRef(null)
+  const [status, setStatus] = useState('loading')
+  const [errMsg, setErrMsg] = useState('')
+  const seriesKey = JSON.stringify(series)
+
+  useEffect(() => {
+    if (!containerRef.current) return
+    const container = containerRef.current
+    container.innerHTML = ''
+    setStatus('loading'); setErrMsg('')
+
+    const chart = createChart(container, {
+      width: container.clientWidth,
+      height,
+      layout: {
+        background: { color: '#080B12' },
+        textColor: '#aaa',
+        fontFamily: 'inherit',
+        fontSize: 11,
+      },
+      grid: {
+        vertLines: { color: 'rgba(255,255,255,0.05)' },
+        horzLines: { color: 'rgba(255,255,255,0.05)' },
+      },
+      timeScale: {
+        timeVisible: false,
+        borderColor: 'rgba(255,255,255,0.1)',
+      },
+      rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' },
+      leftPriceScale: { visible: true, borderColor: 'rgba(255,255,255,0.1)' },
+      crosshair: { mode: 1 },
+      autoSize: false,
+    })
+
+    const fiveYrAgo = new Date()
+    fiveYrAgo.setFullYear(fiveYrAgo.getFullYear() - 5)
+    const cosd = fiveYrAgo.toISOString().slice(0, 10)
+
+    let cancelled = false
+
+    Promise.all(
+      series.map(async (s, i) => {
+        try {
+          const r = await fetch(`/api/fred?id=${encodeURIComponent(s.fredId)}&cosd=${cosd}`)
+          if (!r.ok) throw new Error(`${s.fredId} ${r.status}`)
+          const text = await r.text()
+          const data = text.trim().split('\n').slice(1)
+            .map((l) => {
+              const [date, val] = l.split(',')
+              const v = Number(val)
+              return isFinite(v) && v > 0 ? { time: date.trim(), value: v } : null
+            })
+            .filter(Boolean)
+          return { s, data, i }
+        } catch (e) {
+          return { s, error: e?.message || String(e), i }
+        }
+      }),
+    ).then((results) => {
+      if (cancelled) return
+      const allFailed = results.every((r) => r.error)
+      if (allFailed) {
+        setStatus('error')
+        setErrMsg(results[0]?.error || 'โหลดไม่สำเร็จ')
+        return
+      }
+
+      for (const { s, data, i } of results) {
+        if (!data) continue
+        const scaleId = i === 0 ? 'right' : i === 1 ? 'left' : `overlay-${i}`
+        const line = chart.addSeries(LineSeries, {
+          color: s.color,
+          lineWidth: 2,
+          priceScaleId: scaleId,
+          title: s.label,
+          lastValueVisible: true,
+          priceLineVisible: false,
+        })
+        if (i > 1) {
+          chart.priceScale(scaleId).applyOptions({
+            scaleMargins: { top: 0.1, bottom: 0.1 },
+          })
+        }
+        line.setData(data)
+      }
+      chart.timeScale().fitContent()
+      setStatus('ready')
+    })
+
+    const ro = new ResizeObserver(() => {
+      if (container) chart.applyOptions({ width: container.clientWidth })
+    })
+    ro.observe(container)
+
+    return () => {
+      cancelled = true
+      ro.disconnect()
+      chart.remove()
+    }
+  }, [seriesKey, height])
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height, background: '#080B12', borderRadius: 8 }}>
+      <div ref={containerRef} style={{ width: '100%', height }} />
+      {status === 'loading' && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: 'var(--txt-dim)', fontSize: 12, pointerEvents: 'none',
+        }}>
+          กำลังโหลดข้อมูลจาก FRED…
+        </div>
+      )}
+      {status === 'error' && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#ff4d6d', fontSize: 12,
+        }}>
+          โหลดไม่สำเร็จ: {errMsg}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function FredChart({ fredId, height = 300 }) {
   const today = new Date()
   const start = new Date(today)
@@ -743,41 +872,38 @@ export default function MacroOverview({ user }) {
               <span className="text-[10.5px] text-[var(--txt-faint)]">
                 · {section.source === 'fred'
                     ? 'FRED Embedded Chart'
-                    : section.source === 'tv-combined'
-                      ? 'TradingView Combined Chart'
+                    : section.source === 'fred-multi'
+                      ? 'FRED Multi-line Chart (custom colors)'
                       : 'TradingView Widget'}
               </span>
               <span className="ml-auto text-[10.5px] text-[var(--txt-faint)]">
-                {section.source === 'tv-combined' ? `${1 + (section.combinedChart.compareSymbols?.length || 0)} series` : `${section.metrics.length} รายการ`}
+                {section.source === 'fred-multi' ? `${section.multiChart.series.length} series` : `${section.metrics.length} รายการ`}
               </span>
             </div>
 
-            {/* tv-combined: ชาร์ท 1 อันรวม compareSymbols */}
-            {section.source === 'tv-combined' && section.combinedChart && (
+            {/* fred-multi: ชาร์ท 1 อัน plot หลาย FRED series สีกำหนดเอง */}
+            {section.source === 'fred-multi' && section.multiChart && (
               <div className="px-4 pt-3 pb-4">
                 {section.legend && (
                   <div className="flex items-center gap-3 flex-wrap mb-2 text-[11px]">
                     {section.legend.map((lg) => (
                       <div key={lg.fredId} className="flex items-center gap-1.5">
-                        <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: lg.color }} />
+                        <span style={{ display: 'inline-block', width: 14, height: 3, borderRadius: 1, background: lg.color, boxShadow: `0 0 6px ${lg.color}88` }} />
                         <span style={{ color: 'var(--txt-dim)' }}>{lg.label}</span>
                         <span className="font-mono text-[9.5px] text-[var(--txt-faint)]">{lg.fredId}</span>
                       </div>
                     ))}
                   </div>
                 )}
-                <TradingViewAdvanced
-                  symbol={section.combinedChart.symbol}
-                  compareSymbols={section.combinedChart.compareSymbols}
-                  mainColor={section.combinedChart.mainColor}
-                  interval={section.combinedChart.interval || 'D'}
-                  height={section.combinedChart.height || 500}
+                <FredMultiLineChart
+                  series={section.multiChart.series}
+                  height={section.multiChart.height || 500}
                 />
               </div>
             )}
 
             {/* FRED หรือ TradingView mini แยกต่อ metric */}
-            {section.source !== 'tv-combined' && (
+            {section.source !== 'fred-multi' && (
               <div className="divide-y divide-[var(--line)]">
                 {section.metrics.map((m, mi) => (
                   <div key={m.key} className="px-4 pt-3 pb-4">
