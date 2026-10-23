@@ -30,8 +30,10 @@ const SECTIONS = [
     key: 'inflation', title: 'US-Inflation', icon: '📈', tone: '#f7c948',
     chartOnly: true,
     metrics: [
-      { key: 'us_inflation_rate',     label: 'US-Inflation Rate',           unit: '%', tv: 'ECONOMICS:USIRYY' },
-      { key: 'us_core_inflation_mom', label: 'US-Core Inflation Rate MoM',  unit: '%', tv: 'ECONOMICS:USCCPIM' },
+      // CPIAUCSL = Headline CPI index (ระดับราคาสะสม) — เส้นค่อยๆ ขึ้น เห็น trend เงินเฟ้อ
+      { key: 'us_inflation_rate',     label: 'US CPI (CPIAUCSL)',             unit: '', tv: 'FRED:CPIAUCSL' },
+      // Atlanta Fed Sticky Core CPI, Month-over-Month Annualized Rate — เป็น rate% จริง
+      { key: 'us_core_inflation_mom', label: 'Core Sticky CPI MoM% (annualized)', unit: '%', tv: 'FRED:CORESTICKM159SFRBATL' },
     ],
   },
   {
