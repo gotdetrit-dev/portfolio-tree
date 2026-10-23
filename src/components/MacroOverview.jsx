@@ -20,19 +20,17 @@ import { loadMacroOverview, saveMacroOverview } from '../db.js'
 const SECTIONS = [
   {
     key: 'credit', title: 'Credit Spread', icon: '📊', tone: '#ff8aa0',
-    source: 'fred-multi',
-    multiChart: {
+    source: 'tv-combined',
+    combinedChart: {
+      symbol: 'FRED:BAMLH0A0HYM2',
+      compareSymbols: ['FRED:BAMLC0A4CBBB', 'FRED:BAMLH0A3HYC'],
+      interval: 'D',
       height: 500,
-      series: [
-        { fredId: 'BAMLH0A0HYM2', color: '#34e07a', label: 'High Yield (HY)' },
-        { fredId: 'BAMLC0A4CBBB', color: '#f7c948', label: 'BBB' },
-        { fredId: 'BAMLH0A3HYC', color: '#ff4d6d', label: 'CCC & Lower' },
-      ],
     },
     legend: [
-      { label: 'High Yield (HY)',   fredId: 'BAMLH0A0HYM2', color: '#34e07a' },
-      { label: 'BBB',               fredId: 'BAMLC0A4CBBB', color: '#f7c948' },
-      { label: 'CCC & Lower',       fredId: 'BAMLH0A3HYC', color: '#ff4d6d' },
+      { label: 'High Yield (HY)',   fredId: 'BAMLH0A0HYM2' },
+      { label: 'BBB',               fredId: 'BAMLC0A4CBBB' },
+      { label: 'CCC & Lower',       fredId: 'BAMLH0A3HYC' },
     ],
   },
   {
@@ -260,24 +258,20 @@ function FredChart({ fredId, height = 300 }) {
 // Advanced chart overlay หลาย symbols บน scale แยก
 // ไม่ใช้ autosize เพราะ TradingView widget ไม่คำนวณขนาด React container ถูก
 // แทนที่ด้วย width/height เป็นเลขตรงๆ ให้ widget รู้ขนาดชัดเจน
-function TradingViewAdvanced({ symbol, compareSymbols = [], mainColor, interval = 'D', height = 500 }) {
+function TradingViewAdvanced({ symbol, compareSymbols = [], interval = 'D', height = 500 }) {
   const containerRef = useRef(null)
-  // compareSymbols อาจเป็น string[] (ไม่มีสี) หรือ object[] { symbol, color }
-  const normCompare = compareSymbols.map((s) => (typeof s === 'string' ? { symbol: s } : s))
-  const compareKey = normCompare.map((s) => `${s.symbol}|${s.color || ''}`).join(',')
+  const compareKey = compareSymbols.join(',')
 
   useEffect(() => {
     if (!containerRef.current || !symbol) return
     const container = containerRef.current
-    container.innerHTML = `<div class="tradingview-widget-container__widget" style="width:100%;height:${height}px"></div>`
+    container.innerHTML = '<div class="tradingview-widget-container__widget" style="width:100%;height:100%"></div>'
     const script = document.createElement('script')
     script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js'
     script.type = 'text/javascript'
     script.async = true
-
-    const cfg = {
-      width: '100%',
-      height,
+    script.innerHTML = JSON.stringify({
+      autosize: true,
       symbol,
       interval,
       timezone: 'America/New_York',
@@ -290,24 +284,16 @@ function TradingViewAdvanced({ symbol, compareSymbols = [], mainColor, interval 
       withdateranges: true,
       hide_side_toolbar: true,
       allow_symbol_change: false,
-      compareSymbols: normCompare.map((s) => ({
-        symbol: s.symbol,
+      compareSymbols: compareSymbols.map((s) => ({
+        symbol: s,
         position: 'NewPriceScale',
-        ...(s.color && { color: s.color }),
       })),
-    }
-    // สี main series ผ่าน overrides
-    if (mainColor) {
-      cfg.overrides = {
-        'mainSeriesProperties.lineStyle.color': mainColor,
-      }
-    }
-    script.innerHTML = JSON.stringify(cfg)
+    })
     container.appendChild(script)
     return () => {
       try { container.innerHTML = '' } catch { /* ignore */ }
     }
-  }, [symbol, compareKey, mainColor, interval, height]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [symbol, compareKey, interval, height]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div
       className="tradingview-widget-container"
@@ -894,38 +880,41 @@ export default function MacroOverview({ user }) {
               <span className="text-[10.5px] text-[var(--txt-faint)]">
                 · {section.source === 'fred'
                     ? 'FRED Embedded Chart'
-                    : section.source === 'fred-multi'
-                      ? 'FRED Multi-line Chart (custom colors)'
+                    : section.source === 'tv-combined'
+                      ? 'TradingView Combined Chart'
                       : 'TradingView Widget'}
               </span>
               <span className="ml-auto text-[10.5px] text-[var(--txt-faint)]">
-                {section.source === 'fred-multi' ? `${section.multiChart.series.length} series` : `${section.metrics.length} รายการ`}
+                {section.source === 'tv-combined'
+                  ? `${1 + (section.combinedChart.compareSymbols?.length || 0)} series`
+                  : `${section.metrics.length} รายการ`}
               </span>
             </div>
 
-            {/* fred-multi: ชาร์ท 1 อัน plot หลาย FRED series สีกำหนดเอง */}
-            {section.source === 'fred-multi' && section.multiChart && (
+            {/* tv-combined: TradingView advanced-chart ที่ compare หลาย symbols */}
+            {section.source === 'tv-combined' && section.combinedChart && (
               <div className="px-4 pt-3 pb-4">
                 {section.legend && (
                   <div className="flex items-center gap-3 flex-wrap mb-2 text-[11px]">
                     {section.legend.map((lg) => (
                       <div key={lg.fredId} className="flex items-center gap-1.5">
-                        <span style={{ display: 'inline-block', width: 14, height: 3, borderRadius: 1, background: lg.color, boxShadow: `0 0 6px ${lg.color}88` }} />
                         <span style={{ color: 'var(--txt-dim)' }}>{lg.label}</span>
                         <span className="font-mono text-[9.5px] text-[var(--txt-faint)]">{lg.fredId}</span>
                       </div>
                     ))}
                   </div>
                 )}
-                <FredMultiLineChart
-                  series={section.multiChart.series}
-                  height={section.multiChart.height || 500}
+                <TradingViewAdvanced
+                  symbol={section.combinedChart.symbol}
+                  compareSymbols={section.combinedChart.compareSymbols}
+                  interval={section.combinedChart.interval || 'D'}
+                  height={section.combinedChart.height || 500}
                 />
               </div>
             )}
 
-            {/* FRED หรือ TradingView mini แยกต่อ metric */}
-            {section.source !== 'fred-multi' && (
+            {/* FRED img หรือ TradingView mini แยกต่อ metric */}
+            {section.source !== 'tv-combined' && (
               <div className="divide-y divide-[var(--line)]">
                 {section.metrics.map((m, mi) => (
                   <div key={m.key} className="px-4 pt-3 pb-4">
