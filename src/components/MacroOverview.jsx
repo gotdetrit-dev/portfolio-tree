@@ -121,21 +121,43 @@ function FredMultiLineChart({ series, height = 500 }) {
 
     let cancelled = false
 
+    // ลอง direct FRED ก่อน (CORS ของ FRED อนุญาต) → fallback proxy
+    const fetchCsv = async (fredId) => {
+      const urls = [
+        `https://fred.stlouisfed.org/graph/fredgraph.csv?id=${encodeURIComponent(fredId)}&cosd=${cosd}`,
+        `/api/fred?id=${encodeURIComponent(fredId)}&cosd=${cosd}`,
+      ]
+      let lastErr
+      for (const url of urls) {
+        try {
+          const r = await fetch(url)
+          if (!r.ok) { lastErr = new Error(`${fredId} ${r.status}`); continue }
+          return await r.text()
+        } catch (e) { lastErr = e }
+      }
+      throw lastErr || new Error('fetch failed')
+    }
+
     Promise.all(
       series.map(async (s, i) => {
         try {
-          const r = await fetch(`/api/fred?id=${encodeURIComponent(s.fredId)}&cosd=${cosd}`)
-          if (!r.ok) throw new Error(`${s.fredId} ${r.status}`)
-          const text = await r.text()
-          const data = text.trim().split('\n').slice(1)
+          const text = await fetchCsv(s.fredId)
+          // CSV อาจมี \r\n → ใช้ regex split; filter non-numeric (FRED ใช้ '.' เป็น missing)
+          const lines = text.trim().split(/\r?\n/).slice(1)
+          const data = lines
             .map((l) => {
-              const [date, val] = l.split(',')
-              const v = Number(val)
-              return isFinite(v) && v > 0 ? { time: date.trim(), value: v } : null
+              const parts = l.split(',')
+              if (parts.length < 2) return null
+              const date = parts[0].trim()
+              const val = Number(parts[1].trim())
+              if (!date || !isFinite(val) || val <= 0) return null
+              return { time: date, value: val }
             })
             .filter(Boolean)
+          console.log(`[FRED] ${s.fredId}: ${data.length} points`)
           return { s, data, i }
         } catch (e) {
+          console.warn(`[FRED] ${s.fredId} failed:`, e?.message || e)
           return { s, error: e?.message || String(e), i }
         }
       }),
