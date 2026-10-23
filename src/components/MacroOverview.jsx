@@ -22,14 +22,18 @@ const SECTIONS = [
     source: 'tv-combined',
     combinedChart: {
       symbol: 'FRED:BAMLH0A0HYM2',
-      compareSymbols: ['FRED:BAMLC0A4CBBB', 'FRED:BAMLH0A3HYC'],
+      mainColor: '#34e07a',     // HY = เขียว
+      compareSymbols: [
+        { symbol: 'FRED:BAMLC0A4CBBB', color: '#f7c948' },  // BBB = เหลือง
+        { symbol: 'FRED:BAMLH0A3HYC', color: '#ff4d6d' },   // CCC = แดง
+      ],
       interval: 'D',
       height: 500,
     },
     legend: [
-      { label: 'High Yield (HY)',     fredId: 'BAMLH0A0HYM2', color: '#2962FF' },
-      { label: 'BBB',                  fredId: 'BAMLC0A4CBBB', color: '#9C27B0' },
-      { label: 'CCC & Lower',          fredId: 'BAMLH0A3HYC', color: '#FF9800' },
+      { label: 'High Yield (HY)',   fredId: 'BAMLH0A0HYM2', color: '#34e07a' },
+      { label: 'BBB',               fredId: 'BAMLC0A4CBBB', color: '#f7c948' },
+      { label: 'CCC & Lower',       fredId: 'BAMLH0A3HYC', color: '#ff4d6d' },
     ],
   },
   {
@@ -105,8 +109,12 @@ function FredChart({ fredId, height = 300 }) {
 // Advanced chart overlay หลาย symbols บน scale แยก
 // ไม่ใช้ autosize เพราะ TradingView widget ไม่คำนวณขนาด React container ถูก
 // แทนที่ด้วย width/height เป็นเลขตรงๆ ให้ widget รู้ขนาดชัดเจน
-function TradingViewAdvanced({ symbol, compareSymbols = [], interval = 'D', height = 500 }) {
+function TradingViewAdvanced({ symbol, compareSymbols = [], mainColor, interval = 'D', height = 500 }) {
   const containerRef = useRef(null)
+  // compareSymbols อาจเป็น string[] (ไม่มีสี) หรือ object[] { symbol, color }
+  const normCompare = compareSymbols.map((s) => (typeof s === 'string' ? { symbol: s } : s))
+  const compareKey = normCompare.map((s) => `${s.symbol}|${s.color || ''}`).join(',')
+
   useEffect(() => {
     if (!containerRef.current || !symbol) return
     const container = containerRef.current
@@ -115,14 +123,15 @@ function TradingViewAdvanced({ symbol, compareSymbols = [], interval = 'D', heig
     script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js'
     script.type = 'text/javascript'
     script.async = true
-    script.innerHTML = JSON.stringify({
+
+    const cfg = {
       width: '100%',
-      height,                                 // explicit px — widget ใช้ค่านี้แทน autosize
+      height,
       symbol,
       interval,
       timezone: 'America/New_York',
       theme: 'dark',
-      style: '2',                             // 2 = line
+      style: '2',
       locale: 'en',
       backgroundColor: '#080B12',
       gridColor: 'rgba(255,255,255,0.05)',
@@ -130,13 +139,24 @@ function TradingViewAdvanced({ symbol, compareSymbols = [], interval = 'D', heig
       withdateranges: true,
       hide_side_toolbar: true,
       allow_symbol_change: false,
-      compareSymbols: compareSymbols.map((s) => ({ symbol: s, position: 'NewPriceScale' })),
-    })
+      compareSymbols: normCompare.map((s) => ({
+        symbol: s.symbol,
+        position: 'NewPriceScale',
+        ...(s.color && { color: s.color }),
+      })),
+    }
+    // สี main series ผ่าน overrides
+    if (mainColor) {
+      cfg.overrides = {
+        'mainSeriesProperties.lineStyle.color': mainColor,
+      }
+    }
+    script.innerHTML = JSON.stringify(cfg)
     container.appendChild(script)
     return () => {
       try { container.innerHTML = '' } catch { /* ignore */ }
     }
-  }, [symbol, compareSymbols.join('|'), interval, height]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [symbol, compareKey, mainColor, interval, height]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div
       className="tradingview-widget-container"
@@ -749,6 +769,7 @@ export default function MacroOverview({ user }) {
                 <TradingViewAdvanced
                   symbol={section.combinedChart.symbol}
                   compareSymbols={section.combinedChart.compareSymbols}
+                  mainColor={section.combinedChart.mainColor}
                   interval={section.combinedChart.interval || 'D'}
                   height={section.combinedChart.height || 500}
                 />
