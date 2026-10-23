@@ -11,6 +11,7 @@ import HoldingsTable from './components/HoldingsTable.jsx'
 import TradeJournal from './components/TradeJournal.jsx'
 import WatchingList from './components/WatchingList.jsx'
 import MoneyMarket from './components/MoneyMarket.jsx'
+import MacroOverview from './components/MacroOverview.jsx'
 import { ArticleAddModal, CashModal, HistoryModal, HoldingModal, JournalAddModal, PricePlanModal, TargetsModal, TransactionEditModal, TransactionModal } from './components/Modals.jsx'
 import { makeWatchingRecord } from './watchingList.js'
 
@@ -739,16 +740,8 @@ export default function App({ user, onSignOut }) {
         </section>
       )}
 
-      {/* Macro-Overview — ยังไม่มีเนื้อหา */}
-      {section === 'macro' && (
-        <section className="px-4 lg:px-10 mt-6">
-          <div className="panel rounded-2xl px-6 py-16 text-center">
-            <div className="text-[36px] mb-2">🌍</div>
-            <div className="text-[18px] font-semibold mb-1">Macro-Overview</div>
-            <div className="text-[13px] text-[var(--txt-dim)]">กำลังพัฒนา — ยังไม่พร้อมใช้งาน</div>
-          </div>
-        </section>
-      )}
+      {/* Macro-Overview — manual tracker */}
+      {section === 'macro' && <MacroOverview user={user} />}
 
       {/* Sub-nav ของหมวด "ตลาดหุ้นอเมริกา" — แดชบอร์ด / รายการเฝ้าติดตาม / แหล่งข่าว */}
       {section === 'us-stocks' && (

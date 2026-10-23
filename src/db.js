@@ -366,6 +366,40 @@ export async function migrateMoneyMarketFromLocal(userId, { balance, positions, 
   }
 }
 
+// ─── Macro-Overview ──────────────────────────────────────────────────────────
+
+// โหลด row เดียวของ user. ถ้ายังไม่มี row → return ค่าว่าง (จะถูกสร้างตอน save ครั้งแรก)
+// ถ้า table ยังไม่ได้ migrate → return missingTable:true ให้ UI แสดงคำแนะนำ
+export async function loadMacroOverview(userId) {
+  const { data, error } = await supabase
+    .from('macro_overview')
+    .select('data, summary, updated_at')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) {
+    // 42P01 = table doesn't exist; PGRST116 = row not found (handled by maybeSingle)
+    if (error.code === '42P01' || /relation.*does not exist/i.test(error.message || '')) {
+      return { missingTable: true }
+    }
+    throw error
+  }
+  return {
+    data: (data && data.data) || {},
+    summary: (data && data.summary) || '',
+    updatedAt: data?.updated_at || null,
+  }
+}
+
+export async function saveMacroOverview(userId, patch) {
+  const row = { user_id: userId, updated_at: new Date().toISOString() }
+  if ('data' in patch) row.data = patch.data
+  if ('summary' in patch) row.summary = patch.summary
+  const { error } = await supabase
+    .from('macro_overview')
+    .upsert(row, { onConflict: 'user_id' })
+  if (error) throw error
+}
+
 // ─── Sample data ──────────────────────────────────────────────────────────────
 
 // One-time helper to fill an empty account with the demo portfolio.
