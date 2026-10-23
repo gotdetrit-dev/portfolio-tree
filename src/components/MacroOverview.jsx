@@ -339,30 +339,32 @@ export default function MacroOverview({ user }) {
                   >
                     <div className="pt-1.5">
                       <div className="text-[13px] text-[var(--txt-dim)]">{row.label}</div>
-                      {/* Color picker — 3 dots */}
-                      <div className="flex items-center gap-1.5 mt-2">
-                        {['red', 'white', 'green'].map((c) => {
-                          const active = entry.color === c
-                          return (
-                            <button
-                              key={c}
-                              onClick={() => { setAssessment(row.key, { color: c }); flush() }}
-                              title={c === 'red' ? 'เสี่ยง / Bearish' : c === 'green' ? 'ดี / Bullish' : 'กลางๆ / Neutral'}
-                              className="transition-all"
-                              style={{
-                                width: active ? 16 : 12,
-                                height: active ? 16 : 12,
-                                borderRadius: '50%',
-                                background: COLOR_MAP[c].dot,
-                                border: active ? '2px solid rgba(255,255,255,0.9)' : '1px solid rgba(255,255,255,0.15)',
-                                boxShadow: active ? `0 0 8px ${COLOR_MAP[c].dot}` : 'none',
-                                cursor: 'pointer',
-                                padding: 0,
-                              }}
-                            />
-                          )
-                        })}
-                      </div>
+                      {/* Color picker — แสดงเฉพาะเมื่อมีข้อความแล้ว */}
+                      {entry.text.trim() && (
+                        <div className="flex items-center gap-1.5 mt-2">
+                          {['red', 'white', 'green'].map((c) => {
+                            const active = entry.color === c
+                            return (
+                              <button
+                                key={c}
+                                onClick={() => { setAssessment(row.key, { color: c }); flush() }}
+                                title={c === 'red' ? 'เสี่ยง / Bearish' : c === 'green' ? 'ดี / Bullish' : 'กลางๆ / Neutral'}
+                                className="transition-all"
+                                style={{
+                                  width: active ? 16 : 12,
+                                  height: active ? 16 : 12,
+                                  borderRadius: '50%',
+                                  background: COLOR_MAP[c].dot,
+                                  border: active ? '2px solid rgba(255,255,255,0.9)' : '1px solid rgba(255,255,255,0.15)',
+                                  boxShadow: active ? `0 0 8px ${COLOR_MAP[c].dot}` : 'none',
+                                  cursor: 'pointer',
+                                  padding: 0,
+                                }}
+                              />
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
                     <textarea
                       rows={1}
