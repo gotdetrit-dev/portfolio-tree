@@ -109,36 +109,82 @@ function TradingViewAdvanced({ symbol, compare = [], height = 380 }) {
   )
 }
 
-// ลูกโลกหมุน — cross-fade 🌍 → 🌎 → 🌏 ให้เหมือนโลกหมุน smooth
-function SpinningGlobe({ size = 320 }) {
-  const [i, setI] = useState(0)
-  useEffect(() => {
-    const t = setInterval(() => setI((n) => (n + 1) % 3), 1500)
-    return () => clearInterval(t)
-  }, [])
-  const emojis = ['🌍', '🌎', '🌏']
+// ลูกโลก 3D หมุน — pure CSS (ocean + continents scroll + highlight)
+function SpinningGlobe({ size = 340 }) {
   return (
-    <div className="relative flex items-center justify-center" style={{ width: size + 60, height: size + 60 }}>
-      {emojis.map((emoji, idx) => (
+    <>
+      <style>{`
+        @keyframes macro-earth-spin {
+          from { background-position: 0% 50%; }
+          to { background-position: -200% 50%; }
+        }
+      `}</style>
+      <div
+        className="relative"
+        style={{
+          width: size,
+          height: size,
+          borderRadius: '50%',
+          // Ocean sphere with 3D shading
+          background: 'radial-gradient(circle at 32% 30%, #5aa9e6 0%, #2063a3 55%, #0a2a4e 100%)',
+          boxShadow: `
+            inset -${size * 0.13}px -${size * 0.14}px ${size * 0.28}px rgba(0,0,0,0.75),
+            inset ${size * 0.08}px ${size * 0.08}px ${size * 0.17}px rgba(255,255,255,0.18),
+            0 0 ${size * 0.22}px rgba(52,224,122,0.5),
+            0 ${size * 0.05}px ${size * 0.15}px rgba(0,0,0,0.6)
+          `,
+          overflow: 'hidden',
+        }}
+      >
+        {/* Continents layer — stripes หมุนตามแนวนอน */}
         <div
-          key={idx}
           style={{
             position: 'absolute',
             inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: size,
-            lineHeight: 1,
-            opacity: i === idx ? 1 : 0,
-            transition: 'opacity 1.4s ease-in-out',
-            filter: 'drop-shadow(0 0 50px rgba(52,224,122,0.5))',
+            borderRadius: '50%',
+            background: `repeating-linear-gradient(92deg,
+              transparent 0 ${size * 0.14}px,
+              rgba(55, 145, 80, 0.75) ${size * 0.15}px ${size * 0.3}px,
+              transparent ${size * 0.31}px ${size * 0.5}px,
+              rgba(85, 165, 105, 0.8) ${size * 0.51}px ${size * 0.68}px,
+              transparent ${size * 0.69}px ${size * 0.95}px,
+              rgba(70, 155, 95, 0.7) ${size * 0.96}px ${size * 1.1}px,
+              transparent ${size * 1.11}px ${size * 1.4}px
+            )`,
+            backgroundSize: '200% 100%',
+            animation: 'macro-earth-spin 18s linear infinite',
+            maskImage: 'radial-gradient(circle at 50% 50%, black 92%, transparent 100%)',
+            WebkitMaskImage: 'radial-gradient(circle at 50% 50%, black 92%, transparent 100%)',
           }}
-        >
-          {emoji}
-        </div>
-      ))}
-    </div>
+        />
+        {/* Equatorial dim band — เพิ่มมิติ 3D */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: '50%',
+            background: `linear-gradient(180deg,
+              rgba(0,0,0,0) 0%,
+              rgba(0,0,0,0) 30%,
+              rgba(0,0,0,0.15) 50%,
+              rgba(0,0,0,0) 70%,
+              rgba(0,0,0,0) 100%
+            )`,
+            pointerEvents: 'none',
+          }}
+        />
+        {/* Glossy highlight — ด้านบนซ้าย */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: '50%',
+            background: 'radial-gradient(ellipse at 32% 25%, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.08) 25%, transparent 55%)',
+            pointerEvents: 'none',
+          }}
+        />
+      </div>
+    </>
   )
 }
 
@@ -408,8 +454,8 @@ export default function MacroOverview({ user }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-6 items-start max-w-[1200px]">
         {/* ── Globe (ซ้าย) ──────────────────────────────────────────── */}
-        <div className="lg:w-[380px] lg:sticky lg:top-4 flex justify-center">
-          <SpinningGlobe size={320} />
+        <div className="lg:w-[380px] lg:sticky lg:top-4 flex justify-center items-center" style={{ minHeight: 360 }}>
+          <SpinningGlobe size={340} />
         </div>
 
         {/* ── Macro-Overview panel (ขวา) ────────────────────────────── */}
