@@ -15,50 +15,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createChart, LineSeries } from 'lightweight-charts'
 import { loadMacroOverview, saveMacroOverview } from '../db.js'
 
-// source: 'fred' = ใช้ FRED fredgraph.png (static image ฟรี, รองรับทุก FRED series)
-//         'tv'   = TradingView mini widget (stocks/ETF/forex ที่มี widget license)
+// เหลือแค่ Overview Index And Price (TradingView mini widget 8 รายการ)
+// แสดงใน 2 คอลัมน์
 const SECTIONS = [
-  {
-    key: 'credit', title: 'Credit Spread', icon: '📊', tone: '#ff8aa0',
-    source: 'tv-combined',
-    combinedChart: {
-      symbol: 'FRED:BAMLH0A0HYM2',
-      compareSymbols: ['FRED:BAMLC0A4CBBB', 'FRED:BAMLH0A3HYC'],
-      interval: 'D',
-      height: 620,
-    },
-    legend: [
-      { label: 'High Yield (HY)',   fredId: 'BAMLH0A0HYM2' },
-      { label: 'BBB',               fredId: 'BAMLC0A4CBBB' },
-      { label: 'CCC & Lower',       fredId: 'BAMLH0A3HYC' },
-    ],
-  },
-  {
-    key: 'inflation', title: 'CPI / Core CPI', icon: '📈', tone: '#f7c948',
-    source: 'fred',
-    metrics: [
-      { key: 'sticky_cpi',       label: 'US Sticky CPI YoY% (STICKCPIM679SFRBATL)',       fredId: 'STICKCPIM679SFRBATL' },
-      { key: 'core_sticky_mom',  label: 'Core Sticky CPI MoM% ann. (CORESTICKM159SFRBATL)', fredId: 'CORESTICKM159SFRBATL' },
-    ],
-  },
-  {
-    key: 'realyield', title: 'Real Yield', icon: '💰', tone: '#9bffae',
-    source: 'fred',
-    metrics: [
-      { key: 'dfii10', label: '10-Year Real Yield (DFII10)  ·  Daily (1D)', fredId: 'DFII10' },
-    ],
-  },
-  {
-    key: 'volatility', title: 'VIX / VXN', icon: '🌪', tone: '#7bd1ff',
-    source: 'fred',
-    metrics: [
-      { key: 'vix', label: 'VIX — S&P 500 Volatility (VIXCLS)',    fredId: 'VIXCLS' },
-      { key: 'vxn', label: 'VXN — NASDAQ-100 Volatility (VXNCLS)', fredId: 'VXNCLS' },
-    ],
-  },
   {
     key: 'overview', title: 'Overview Index And Price', icon: '🔭', tone: '#c9a9ff',
     source: 'tv',
+    twoColumn: true,
     metrics: [
       { key: 'usdthb', label: 'USD/THB',                 tv: 'FX_IDC:USDTHB' },
       { key: 'usoil',  label: 'USOIL',                   tv: 'TVC:USOIL' },
@@ -917,9 +880,16 @@ export default function MacroOverview({ user }) {
 
             {/* FRED img หรือ TradingView mini แยกต่อ metric */}
             {section.source !== 'tv-combined' && (
-              <div className="divide-y divide-[var(--line)]">
+              <div className={section.twoColumn
+                ? 'p-3 grid grid-cols-1 md:grid-cols-2 gap-3'
+                : 'divide-y divide-[var(--line)]'}
+              >
                 {section.metrics.map((m, mi) => (
-                  <div key={m.key} className="px-4 pt-3 pb-4">
+                  <div
+                    key={m.key}
+                    className={section.twoColumn ? 'rounded-lg p-3 hairline' : 'px-4 pt-3 pb-4'}
+                    style={section.twoColumn ? { background: 'rgba(255,255,255,0.015)' } : undefined}
+                  >
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <span className="text-[10.5px] text-[var(--txt-faint)] font-mono">{si + 1}.{mi + 1}</span>
                       <span className="text-[12.5px] font-medium" style={{ color: 'var(--txt-bright)' }}>
@@ -931,7 +901,7 @@ export default function MacroOverview({ user }) {
                     )}
                     {section.source === 'tv' && m.tv && (
                       <div className="rounded-lg overflow-hidden" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--line)' }}>
-                        <TradingViewMini symbol={m.tv} height={240} />
+                        <TradingViewMini symbol={m.tv} height={220} />
                       </div>
                     )}
                   </div>
