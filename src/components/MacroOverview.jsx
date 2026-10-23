@@ -109,26 +109,35 @@ function TradingViewAdvanced({ symbol, compare = [], height = 380 }) {
   )
 }
 
-// ลูกโลกหมุน — cycle 🌍 → 🌎 → 🌏 ให้เหมือนโลกหมุน
-function SpinningGlobe({ size = 180 }) {
+// ลูกโลกหมุน — cross-fade 🌍 → 🌎 → 🌏 ให้เหมือนโลกหมุน smooth
+function SpinningGlobe({ size = 320 }) {
   const [i, setI] = useState(0)
   useEffect(() => {
-    const t = setInterval(() => setI((n) => (n + 1) % 3), 420)
+    const t = setInterval(() => setI((n) => (n + 1) % 3), 1500)
     return () => clearInterval(t)
   }, [])
-  const emoji = ['🌍', '🌎', '🌏'][i]
+  const emojis = ['🌍', '🌎', '🌏']
   return (
-    <div className="flex justify-center items-center" style={{ minHeight: size + 40 }}>
-      <div
-        style={{
-          fontSize: size,
-          lineHeight: 1,
-          filter: 'drop-shadow(0 0 40px rgba(52,224,122,0.45))',
-          transition: 'filter 400ms',
-        }}
-      >
-        {emoji}
-      </div>
+    <div className="relative flex items-center justify-center" style={{ width: size + 60, height: size + 60 }}>
+      {emojis.map((emoji, idx) => (
+        <div
+          key={idx}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: size,
+            lineHeight: 1,
+            opacity: i === idx ? 1 : 0,
+            transition: 'opacity 1.4s ease-in-out',
+            filter: 'drop-shadow(0 0 50px rgba(52,224,122,0.5))',
+          }}
+        >
+          {emoji}
+        </div>
+      ))}
     </div>
   )
 }
@@ -397,10 +406,10 @@ export default function MacroOverview({ user }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-6 items-start max-w-5xl">
+      <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-6 items-start max-w-[1200px]">
         {/* ── Globe (ซ้าย) ──────────────────────────────────────────── */}
-        <div className="lg:w-[260px] lg:sticky lg:top-4">
-          <SpinningGlobe size={200} />
+        <div className="lg:w-[380px] lg:sticky lg:top-4 flex justify-center">
+          <SpinningGlobe size={320} />
         </div>
 
         {/* ── Macro-Overview panel (ขวา) ────────────────────────────── */}
