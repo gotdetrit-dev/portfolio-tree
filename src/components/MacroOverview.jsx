@@ -109,12 +109,56 @@ function TradingViewAdvanced({ symbol, compare = [], height = 380 }) {
   )
 }
 
-// ลูกโลก 3D หมุน — ใช้ SVG world strip (equirectangular 2:1) + scroll ให้โลกหมุน
-// Sphere ทำหน้าที่เป็น window มองผ่าน ครั้งละ 1 hemisphere; strip scroll ซ้ายทำให้ทวีปเลื่อนผ่าน
+// SVG ธงไทย (3:2 ratio) — แดง/ขาว/น้ำเงิน/ขาว/แดง
+const THAI_FLAG_SVG = `
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 6 4' preserveAspectRatio='xMidYMid slice'>
+  <rect width='6' height='4' fill='#A51931'/>
+  <rect y='0.667' width='6' height='2.667' fill='#F4F5F8'/>
+  <rect y='1.333' width='6' height='1.333' fill='#2D2A4A'/>
+  <rect y='2.667' width='6' height='0.667' fill='#F4F5F8'/>
+  <rect y='3.333' width='6' height='0.667' fill='#A51931'/>
+</svg>`.replace(/\s+/g, ' ').trim()
+
+// SVG ธงอเมริกา (19:10 ratio) — 13 stripes + blue canton พร้อม stars เป็น dots
+const US_FLAG_SVG = `
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 190 100' preserveAspectRatio='xMidYMid slice'>
+  <rect width='190' height='100' fill='#F5F5F5'/>
+  <g fill='#B22234'>
+    <rect y='0'    width='190' height='7.7'/>
+    <rect y='15.4' width='190' height='7.7'/>
+    <rect y='30.8' width='190' height='7.7'/>
+    <rect y='46.2' width='190' height='7.7'/>
+    <rect y='61.5' width='190' height='7.7'/>
+    <rect y='76.9' width='190' height='7.7'/>
+    <rect y='92.3' width='190' height='7.7'/>
+  </g>
+  <rect width='76' height='53.8' fill='#3C3B6E'/>
+  <g fill='#F5F5F5'>
+    ${(() => {
+      const dots = []
+      // 9 rows of alternating 6/5 stars ≈ 50 stars
+      for (let r = 0; r < 9; r++) {
+        const y = 4.8 + r * 5.4
+        const isLong = r % 2 === 0
+        const n = isLong ? 6 : 5
+        const xOffset = isLong ? 5.5 : 11.5
+        for (let c = 0; c < n; c++) {
+          const x = xOffset + c * 12
+          dots.push(`<circle cx='${x.toFixed(2)}' cy='${y.toFixed(2)}' r='1.6'/>`)
+        }
+      }
+      return dots.join('')
+    })()}
+  </g>
+</svg>`.replace(/\s+/g, ' ').trim()
+
+const THAI_BG = `url("data:image/svg+xml;utf8,${encodeURIComponent(THAI_FLAG_SVG)}")`
+const US_BG = `url("data:image/svg+xml;utf8,${encodeURIComponent(US_FLAG_SVG)}")`
+
+// ลูกโลก 3D หมุน — 2 หน้า: ไทย ⟷ อเมริกา (rotateY coin-flip)
 function SpinningGlobe({ size = 340 }) {
-  // World map strip 1360x680 (2:1 ratio). Continents โดยประมาณ Mercator-ish
-  // สี style ตามรูปอ้างอิง: ทะเลฟ้า + ทวีปเขียวเข้ม + outline soft
-  const svg = `
+  // (unused world map SVG — kept for ref) ↓↓↓
+  const _unusedWorldSvg = `
 <svg xmlns='http://www.w3.org/2000/svg' width='1360' height='680' viewBox='0 0 1360 680'>
   <g fill='#4ea764'>
     <!-- North America (ซ้ายบน) -->
@@ -158,68 +202,81 @@ function SpinningGlobe({ size = 340 }) {
     <path d='M40,645 Q400,635 800,640 Q1150,635 1320,650 Q1320,675 800,678 Q360,676 40,678 Z' opacity='0.65'/>
   </g>
 </svg>`.replace(/\s+/g, ' ').trim()
-  const earthBg = `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`
+  void _unusedWorldSvg // mark used
+
+  // Face สองด้าน: ไทย = front (0°), อเมริกา = back (180°)
+  // หมุนรอบ Y-axis ต่อเนื่อง → เห็นสลับไปมา เหมือนเหรียญหมุน
+  const face = {
+    position: 'absolute',
+    inset: 0,
+    borderRadius: '50%',
+    overflow: 'hidden',
+    backfaceVisibility: 'hidden',
+    WebkitBackfaceVisibility: 'hidden',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    boxShadow: `
+      inset -${size * 0.13}px -${size * 0.14}px ${size * 0.28}px rgba(0,0,0,0.55),
+      inset ${size * 0.07}px ${size * 0.07}px ${size * 0.14}px rgba(255,255,255,0.2)
+    `,
+  }
 
   return (
     <>
       <style>{`
-        @keyframes macro-earth-rotate {
-          from { background-position: 0 50%; }
-          to { background-position: -${size * 2}px 50%; }
+        @keyframes macro-coin-spin {
+          from { transform: rotateY(0deg); }
+          to   { transform: rotateY(360deg); }
         }
       `}</style>
+      {/* Container glow + drop shadow (ไม่หมุน) */}
       <div
-        className="relative"
         style={{
           width: size,
           height: size,
           borderRadius: '50%',
-          // ทะเลสีฟ้า + 3D shading
-          background: 'radial-gradient(circle at 32% 28%, #70bce8 0%, #3486c4 45%, #0e3869 100%)',
-          boxShadow: `
-            inset -${size * 0.13}px -${size * 0.14}px ${size * 0.28}px rgba(0,0,0,0.6),
-            inset ${size * 0.07}px ${size * 0.07}px ${size * 0.14}px rgba(255,255,255,0.2),
-            0 0 ${size * 0.22}px rgba(52,224,122,0.45),
-            0 ${size * 0.05}px ${size * 0.15}px rgba(0,0,0,0.55)
-          `,
-          overflow: 'hidden',
+          perspective: '1600px',
+          filter: `drop-shadow(0 0 ${size * 0.1}px rgba(52,224,122,0.5)) drop-shadow(0 ${size * 0.04}px ${size * 0.1}px rgba(0,0,0,0.5))`,
         }}
       >
-        {/* World map strip — scroll ซ้ายต่อเนื่อง (seamless loop) */}
+        {/* Rotating 3D core */}
         <div
           style={{
-            position: 'absolute',
-            inset: 0,
-            borderRadius: '50%',
-            backgroundImage: earthBg,
-            backgroundRepeat: 'repeat-x',
-            backgroundSize: `${size * 2}px ${size}px`, // 2:1 aspect
-            backgroundPosition: '0 50%',
-            animation: 'macro-earth-rotate 30s linear infinite',
-            maskImage: 'radial-gradient(circle at 50% 50%, black 75%, rgba(0,0,0,0.5) 92%, transparent 100%)',
-            WebkitMaskImage: 'radial-gradient(circle at 50% 50%, black 75%, rgba(0,0,0,0.5) 92%, transparent 100%)',
+            position: 'relative',
+            width: '100%',
+            height: '100%',
+            transformStyle: 'preserve-3d',
+            animation: 'macro-coin-spin 7s linear infinite',
           }}
-        />
-        {/* Shadow ด้านมืด (hemisphere) — ให้ดู 3D */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle at 70% 72%, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.18) 40%, transparent 70%)',
-            pointerEvents: 'none',
-          }}
-        />
-        {/* Glossy highlight — ด้านบนซ้าย */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            borderRadius: '50%',
-            background: 'radial-gradient(ellipse at 30% 22%, rgba(255,255,255,0.32) 0%, rgba(255,255,255,0.08) 22%, transparent 50%)',
-            pointerEvents: 'none',
-          }}
-        />
+        >
+          {/* หน้าธงไทย (front) */}
+          <div
+            style={{
+              ...face,
+              backgroundImage: THAI_BG,
+            }}
+          />
+          {/* หน้าธงอเมริกา (back, rotated 180°) */}
+          <div
+            style={{
+              ...face,
+              backgroundImage: US_BG,
+              transform: 'rotateY(180deg)',
+            }}
+          />
+          {/* Overlay 3D shading (ยึดกับแกนหมุน) */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: '50%',
+              background: 'radial-gradient(ellipse at 30% 22%, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.08) 25%, transparent 55%)',
+              pointerEvents: 'none',
+              mixBlendMode: 'screen',
+              transform: 'translateZ(1px)', // อยู่หน้าสุด
+            }}
+          />
+        </div>
       </div>
     </>
   )
