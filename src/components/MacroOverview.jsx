@@ -28,6 +28,7 @@ const SECTIONS = [
   },
   {
     key: 'inflation', title: 'US-Inflation', icon: '📈', tone: '#f7c948',
+    chartOnly: true,
     metrics: [
       { key: 'us_inflation_rate',     label: 'US-Inflation Rate',           unit: '%', tv: 'ECONOMICS:USIRYY' },
       { key: 'us_core_inflation_mom', label: 'US-Core Inflation Rate MoM',  unit: '%', tv: 'ECONOMICS:USCCPIM' },
@@ -35,12 +36,14 @@ const SECTIONS = [
   },
   {
     key: 'realyield', title: 'Real-Yield', icon: '💰', tone: '#9bffae',
+    chartOnly: true,
     metrics: [
       { key: 'dfii10', label: 'Real-Yield (DFII10)', unit: '%', tv: 'FRED:DFII10' },
     ],
   },
   {
     key: 'volatility', title: 'Market Volatility', icon: '🌪', tone: '#7bd1ff',
+    chartOnly: true,
     metrics: [
       { key: 'vix_spx', label: 'VIX-S&P500',  unit: '', tv: 'CBOE:VIX' },
       { key: 'vix_ndx', label: 'VIX-NASDAQ',  unit: '', tv: 'CBOE:VXN' },
@@ -48,6 +51,7 @@ const SECTIONS = [
   },
   {
     key: 'overview', title: 'Overview Index And Price', icon: '🔭', tone: '#c9a9ff',
+    chartOnly: true,
     metrics: [
       { key: 'usdthb', label: 'USD/THB',      unit: '฿', tv: 'FX_IDC:USDTHB' },
       { key: 'usoil',  label: 'USOIL',        unit: '$', tv: 'TVC:USOIL' },
