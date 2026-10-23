@@ -45,22 +45,25 @@ const SECTIONS = [
     key: 'volatility', title: 'Market Volatility', icon: '🌪', tone: '#7bd1ff',
     chartOnly: true,
     metrics: [
-      { key: 'vix_spx', label: 'VIX-S&P500',  unit: '', tv: 'CBOE:VIX' },
-      { key: 'vix_ndx', label: 'VIX-NASDAQ',  unit: '', tv: 'CBOE:VXN' },
+      // VIX ETF (ProShares VIX Short-Term) ใช้แทน CBOE:VIX ที่ widget ปิด data
+      { key: 'vix_spx', label: 'VIX-S&P500 (VIXY ETF)',  unit: '', tv: 'AMEX:VIXY' },
+      // VXX = iPath VIX Short-Term Futures ETN — proxy สำหรับ volatility ของ Nasdaq ด้วย
+      { key: 'vix_ndx', label: 'VIX-NASDAQ (VXX ETN)',   unit: '', tv: 'AMEX:VXX' },
     ],
   },
   {
     key: 'overview', title: 'Overview Index And Price', icon: '🔭', tone: '#c9a9ff',
     chartOnly: true,
     metrics: [
-      { key: 'usdthb', label: 'USD/THB',      unit: '฿', tv: 'FX_IDC:USDTHB' },
-      { key: 'usoil',  label: 'USOIL',        unit: '$', tv: 'TVC:USOIL' },
-      { key: 'gold',   label: 'GOLD',         unit: '$', tv: 'TVC:GOLD' },
-      { key: 'btc',    label: 'BTC',          unit: '$', tv: 'BINANCE:BTCUSDT' },
-      { key: 'spx',    label: 'S&P500',       unit: '',  tv: 'SP:SPX' },
-      { key: 'ndx',    label: 'NASDAQ',       unit: '',  tv: 'NASDAQ:IXIC' },
-      { key: 'dji',    label: 'Dow Jones',    unit: '',  tv: 'DJ:DJI' },
-      { key: 'rut',    label: 'Russell 2000', unit: '',  tv: 'TVC:RUT' },
+      { key: 'usdthb', label: 'USD/THB',               unit: '฿', tv: 'FX_IDC:USDTHB' },
+      { key: 'usoil',  label: 'USOIL',                 unit: '$', tv: 'TVC:USOIL' },
+      { key: 'gold',   label: 'GOLD',                  unit: '$', tv: 'TVC:GOLD' },
+      { key: 'btc',    label: 'BTC',                   unit: '$', tv: 'BINANCE:BTCUSDT' },
+      // ETF proxies — track index 99.9% identical แต่ widget มี data license
+      { key: 'spx',    label: 'S&P500 (SPY ETF)',        unit: '', tv: 'AMEX:SPY' },
+      { key: 'ndx',    label: 'NASDAQ-100 (QQQ ETF)',    unit: '', tv: 'NASDAQ:QQQ' },
+      { key: 'dji',    label: 'Dow Jones (DIA ETF)',     unit: '', tv: 'AMEX:DIA' },
+      { key: 'rut',    label: 'Russell 2000 (IWM ETF)',  unit: '', tv: 'AMEX:IWM' },
     ],
   },
 ]
