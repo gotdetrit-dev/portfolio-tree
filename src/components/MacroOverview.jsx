@@ -373,83 +373,12 @@ export default function MacroOverview({ user }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-4">
-        {/* ── ด้านซ้าย: Sections ────────────────────────────────────────── */}
-        <div className="space-y-4">
-          {SECTIONS.map((section, si) => (
-            <div
-              key={section.key}
-              className="panel rounded-2xl overflow-hidden"
-              style={{ borderColor: section.tone + '33' }}
-            >
-              <div
-                className="px-5 py-3 flex items-center gap-2 border-b flex-wrap"
-                style={{ background: section.tone + '0d', borderBottomColor: section.tone + '22' }}
-              >
-                <span className="text-[18px]" style={{ filter: `drop-shadow(0 0 6px ${section.tone}88)` }}>
-                  {section.icon}
-                </span>
-                <span className="text-[11px] text-[var(--txt-faint)] font-mono">{si + 1}.</span>
-                <span className="text-[14px] font-semibold" style={{ color: section.tone }}>
-                  {section.title}
-                </span>
-                <span className="ml-auto text-[10.5px] text-[var(--txt-faint)]">{section.metrics.length} รายการ</span>
-              </div>
-
-              <div className="p-4 space-y-3">
-                {section.metrics.map((m, mi) => {
-                  const entry = data[m.key] || {}
-                  return (
-                    <div
-                      key={m.key}
-                      className="hairline rounded-xl p-3"
-                      style={{ background: 'rgba(255,255,255,0.015)' }}
-                    >
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <span className="text-[10.5px] text-[var(--txt-faint)] font-mono">{si + 1}.{mi + 1}</span>
-                        <span className="text-[13px] font-medium" style={{ color: 'var(--txt-bright)' }}>
-                          {m.label}
-                        </span>
-                        {entry.updatedAt && (
-                          <span className="ml-auto text-[9.5px] text-[var(--txt-faint)]">
-                            แก้ไข {fmtTime(entry.updatedAt)}
-                          </span>
-                        )}
-                      </div>
-                      {/* ราคา + % เปลี่ยนแปลง (auto จาก TradingView ticker widget) */}
-                      {m.tv && (
-                        <div className="mb-2 rounded-lg overflow-hidden" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--line)' }}>
-                          <TradingViewTicker symbol={m.tv} />
-                        </div>
-                      )}
-                      {/* บทวิเคราะห์ */}
-                      <div>
-                        <label className="block text-[10px] uppercase tracking-wider text-[var(--txt-faint)] mb-1">
-                          บทวิเคราะห์
-                        </label>
-                        <textarea
-                          rows={2}
-                          className="field w-full"
-                          value={entry.analysis || ''}
-                          onChange={(e) => setMetric(m.key, { analysis: e.target.value })}
-                          onBlur={flush}
-                          placeholder="เช่น spread กำลังขยายตัว แสดงความกังวลด้าน credit..."
-                          style={{ resize: 'vertical', minHeight: 48 }}
-                        />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* ── ด้านขวา: Market Regime Assessment (sticky) ────────────────── */}
-        <div className="lg:sticky lg:top-4 lg:self-start">
+      <div>
+        {/* ── Macro-Economic (เต็มกว้าง) ──────────────────────────────── */}
+        <div>
           <div className="panel rounded-2xl overflow-hidden">
             <div className="px-5 pt-4 pb-3 border-b border-[var(--line)]">
-              <div className="text-[18px] font-semibold text-white">Market Regime Assessment</div>
+              <div className="text-[18px] font-semibold text-white">Macro-Overview</div>
               <div className="text-[11px] text-[var(--txt-dim)] mt-1">
                 {thaiDateCE(new Date())} • จากข้อมูลที่ตรวจสอบได้
               </div>
