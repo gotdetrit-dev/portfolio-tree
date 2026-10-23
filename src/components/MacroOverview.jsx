@@ -19,11 +19,7 @@ import { loadMacroOverview, saveMacroOverview } from '../db.js'
 const SECTIONS = [
   {
     key: 'credit', title: 'US-Credit Spread', icon: '📊', tone: '#ff8aa0',
-    combinedChart: {
-      primary: 'FRED:BAMLH0A0HYM2',
-      compare: ['FRED:BAMLC0A4CBBB', 'FRED:BAMLH0A3HYC'],
-      label: 'ดู HY / BBB / CCC ซ้อนทับ',
-    },
+    chartOnly: true,  // แสดงแค่ชาร์ท 3 ตัวต่อกัน ไม่มีช่องกรอกตัวเลข/บทวิเคราะห์
     metrics: [
       { key: 'hy_spread',  label: 'High Yield Credit Spread',  unit: '%', tv: 'FRED:BAMLH0A0HYM2' },
       { key: 'bbb_spread', label: 'BBB Yield Credit Spread',   unit: '%', tv: 'FRED:BAMLC0A4CBBB' },
@@ -365,34 +361,29 @@ export default function MacroOverview({ user }) {
                   {section.title}
                 </span>
                 <span className="ml-auto text-[10.5px] text-[var(--txt-faint)]">{section.metrics.length} รายการ</span>
-                {section.combinedChart && (
-                  <button
-                    onClick={() => toggleCombined(section.key)}
-                    className="text-[10.5px] px-2 py-0.5 rounded transition-colors whitespace-nowrap ml-2"
-                    style={{
-                      background: openCombined.has(section.key) ? section.tone + '26' : 'rgba(255,255,255,0.04)',
-                      color: openCombined.has(section.key) ? section.tone : 'var(--txt-dim)',
-                      border: `1px solid ${openCombined.has(section.key) ? section.tone + '66' : 'var(--line)'}`,
-                    }}
-                    title={section.combinedChart.label}
-                  >
-                    {openCombined.has(section.key) ? '📊 ซ่อนกราฟรวม' : '📊 กราฟรวม'}
-                  </button>
-                )}
               </div>
-              {/* Combined chart (section-level) — overlay หลาย symbols */}
-              {section.combinedChart && openCombined.has(section.key) && (
-                <div style={{ background: 'rgba(0,0,0,0.4)', borderBottom: '1px solid var(--line)' }}>
-                  <TradingViewAdvanced
-                    symbol={section.combinedChart.primary}
-                    compare={section.combinedChart.compare}
-                    height={420}
-                  />
-                  <div className="text-[9.5px] text-[var(--txt-faint)] text-center py-1 px-3">
-                    {[section.combinedChart.primary, ...section.combinedChart.compare].join('  ·  ')}
-                  </div>
+
+              {/* chartOnly sections: แสดงแค่ chart ต่อกัน ไม่มีช่องกรอก */}
+              {section.chartOnly ? (
+                <div className="divide-y divide-[var(--line)]">
+                  {section.metrics.map((m) => (
+                    <div key={m.key} className="px-3 pt-2 pb-1">
+                      <div className="flex items-center gap-2 px-2">
+                        <span className="text-[12px] font-medium" style={{ color: 'var(--txt-bright)' }}>{m.label}</span>
+                        <span className="text-[10px] text-[var(--txt-faint)] font-mono">{m.tv}</span>
+                        <a
+                          href={`https://www.tradingview.com/symbols/${encodeURIComponent(m.tv.split(':').pop())}/`}
+                          target="_blank" rel="noreferrer"
+                          className="ml-auto text-[10px] text-[var(--txt-faint)] hover:text-[#7bd1ff] underline"
+                        >
+                          เปิดใน TradingView ↗
+                        </a>
+                      </div>
+                      <TradingViewMini symbol={m.tv} height={220} />
+                    </div>
+                  ))}
                 </div>
-              )}
+              ) : (
               <div className="p-4 space-y-3">
                 {section.metrics.map((m, mi) => {
                   const entry = data[m.key] || {}
@@ -474,6 +465,7 @@ export default function MacroOverview({ user }) {
                   )
                 })}
               </div>
+              )}
             </div>
           ))}
         </div>
