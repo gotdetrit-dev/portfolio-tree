@@ -154,13 +154,28 @@ export default function MacroOverview({ user }) {
   }
 
   // Assessment ด้านขวา — เก็บใน data._assessment (ไม่ต้องแก้ schema)
+  // Shape ใหม่: { text, color } ต่อ key
+  // Backward compat: ถ้าเจอ string เก่า → treat เป็น { text: str, color: 'red' }
   const assessment = data._assessment || {}
-  function setAssessment(key, text) {
-    setData((d) => ({
-      ...d,
-      _assessment: { ...(d._assessment || {}), [key]: text },
-    }))
+  const getEntry = (key) => {
+    const raw = assessment[key]
+    if (!raw) return { text: '', color: 'red' }
+    if (typeof raw === 'string') return { text: raw, color: 'red' }
+    return { text: raw.text || '', color: raw.color || 'red' }
+  }
+  function setAssessment(key, patch) {
+    setData((d) => {
+      const prev = getEntry(key)
+      const next = { ...prev, ...patch }
+      return { ...d, _assessment: { ...(d._assessment || {}), [key]: next } }
+    })
     scheduleSave()
+  }
+
+  const COLOR_MAP = {
+    red:   { ink: '#ff6a3d', border: 'rgba(255,106,61,0.3)', dot: '#ff4d4f' },
+    white: { ink: '#f5f5f5', border: 'rgba(255,255,255,0.3)', dot: '#ffffff' },
+    green: { ink: '#9bffae', border: 'rgba(155,255,174,0.3)', dot: '#34e07a' },
   }
 
   // ── Loading / migration / error ─────────────────────────────────────────
@@ -313,35 +328,63 @@ export default function MacroOverview({ user }) {
               </div>
             </div>
             <div className="p-2">
-              {ASSESSMENT.map((row, i) => (
-                <div
-                  key={row.key}
-                  className="grid grid-cols-[130px_1fr] gap-3 items-start px-3 py-3"
-                  style={{
-                    borderTop: i === 0 ? 'none' : '1px solid var(--line)',
-                  }}
-                >
-                  <div className="text-[13px] text-[var(--txt-dim)] pt-1.5">{row.label}</div>
-                  <textarea
-                    rows={1}
-                    className="field w-full"
-                    value={assessment[row.key] || ''}
-                    onChange={(e) => setAssessment(row.key, e.target.value)}
-                    onBlur={flush}
-                    placeholder="—"
-                    style={{
-                      color: '#ff6a3d',
-                      fontWeight: 600,
-                      fontSize: 13.5,
-                      lineHeight: 1.5,
-                      resize: 'vertical',
-                      minHeight: 36,
-                      background: 'transparent',
-                      border: '1px dashed rgba(255,106,61,0.25)',
-                    }}
-                  />
-                </div>
-              ))}
+              {ASSESSMENT.map((row, i) => {
+                const entry = getEntry(row.key)
+                const palette = COLOR_MAP[entry.color] || COLOR_MAP.red
+                return (
+                  <div
+                    key={row.key}
+                    className="grid grid-cols-[130px_1fr] gap-3 items-start px-3 py-3"
+                    style={{ borderTop: i === 0 ? 'none' : '1px solid var(--line)' }}
+                  >
+                    <div className="pt-1.5">
+                      <div className="text-[13px] text-[var(--txt-dim)]">{row.label}</div>
+                      {/* Color picker — 3 dots */}
+                      <div className="flex items-center gap-1.5 mt-2">
+                        {['red', 'white', 'green'].map((c) => {
+                          const active = entry.color === c
+                          return (
+                            <button
+                              key={c}
+                              onClick={() => { setAssessment(row.key, { color: c }); flush() }}
+                              title={c === 'red' ? 'เสี่ยง / Bearish' : c === 'green' ? 'ดี / Bullish' : 'กลางๆ / Neutral'}
+                              className="transition-all"
+                              style={{
+                                width: active ? 16 : 12,
+                                height: active ? 16 : 12,
+                                borderRadius: '50%',
+                                background: COLOR_MAP[c].dot,
+                                border: active ? '2px solid rgba(255,255,255,0.9)' : '1px solid rgba(255,255,255,0.15)',
+                                boxShadow: active ? `0 0 8px ${COLOR_MAP[c].dot}` : 'none',
+                                cursor: 'pointer',
+                                padding: 0,
+                              }}
+                            />
+                          )
+                        })}
+                      </div>
+                    </div>
+                    <textarea
+                      rows={1}
+                      className="field w-full"
+                      value={entry.text}
+                      onChange={(e) => setAssessment(row.key, { text: e.target.value })}
+                      onBlur={flush}
+                      placeholder="—"
+                      style={{
+                        color: palette.ink,
+                        fontWeight: 600,
+                        fontSize: 13.5,
+                        lineHeight: 1.5,
+                        resize: 'vertical',
+                        minHeight: 36,
+                        background: 'transparent',
+                        border: `1px dashed ${palette.border}`,
+                      }}
+                    />
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>
