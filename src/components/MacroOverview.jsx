@@ -19,11 +19,17 @@ import { loadMacroOverview, saveMacroOverview } from '../db.js'
 const SECTIONS = [
   {
     key: 'credit', title: 'Credit Spread', icon: '📊', tone: '#ff8aa0',
-    source: 'fred',
-    metrics: [
-      { key: 'hy_spread',  label: 'High Yield Credit Spread (BAMLH0A0HYM2)',  fredId: 'BAMLH0A0HYM2' },
-      { key: 'bbb_spread', label: 'BBB Credit Spread (BAMLC0A4CBBB)',          fredId: 'BAMLC0A4CBBB' },
-      { key: 'ccc_spread', label: 'CCC & Lower Credit Spread (BAMLH0A3HYC)',   fredId: 'BAMLH0A3HYC' },
+    source: 'tv-combined',
+    combinedChart: {
+      symbol: 'FRED:BAMLH0A0HYM2',
+      compareSymbols: ['FRED:BAMLC0A4CBBB', 'FRED:BAMLH0A3HYC'],
+      interval: 'D',
+      height: 500,
+    },
+    legend: [
+      { label: 'High Yield (HY)',     fredId: 'BAMLH0A0HYM2', color: '#2962FF' },
+      { label: 'BBB',                  fredId: 'BAMLC0A4CBBB', color: '#9C27B0' },
+      { label: 'CCC & Lower',          fredId: 'BAMLH0A3HYC', color: '#FF9800' },
     ],
   },
   {
@@ -96,13 +102,13 @@ function FredChart({ fredId, height = 300 }) {
 // ─── TradingView Mini Chart ──────────────────────────────────────────────────
 // embed TradingView mini-symbol-overview widget (ฟรี, ไม่ต้องมี key)
 // StrictMode-safe: cleanup innerHTML เมื่อ unmount/symbol เปลี่ยน
-// Advanced chart ที่ overlay หลาย symbols — ใช้สำหรับ combined chart ที่ section header
-function TradingViewAdvanced({ symbol, compare = [], height = 380 }) {
+// Advanced chart overlay หลาย symbols บน scale แยก — ตาม config ที่คุณหมอให้มา
+function TradingViewAdvanced({ symbol, compareSymbols = [], interval = 'D', height = 500 }) {
   const containerRef = useRef(null)
   useEffect(() => {
     if (!containerRef.current || !symbol) return
     const container = containerRef.current
-    container.innerHTML = '<div class="tradingview-widget-container__widget"></div>'
+    container.innerHTML = '<div class="tradingview-widget-container__widget" style="width:100%;height:100%"></div>'
     const script = document.createElement('script')
     script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js'
     script.type = 'text/javascript'
@@ -110,28 +116,31 @@ function TradingViewAdvanced({ symbol, compare = [], height = 380 }) {
     script.innerHTML = JSON.stringify({
       autosize: true,
       symbol,
-      interval: 'W',
-      timezone: 'Etc/UTC',
+      interval,
+      timezone: 'America/New_York',
       theme: 'dark',
       style: '2',                           // 2 = line
       locale: 'en',
-      backgroundColor: 'rgba(0,0,0,0)',
+      backgroundColor: '#080B12',
+      gridColor: 'rgba(255,255,255,0.05)',
+      hide_volume: true,
+      withdateranges: true,
       hide_side_toolbar: true,
-      hide_top_toolbar: false,
-      hide_legend: false,
       allow_symbol_change: false,
-      save_image: false,
-      compare_symbols: compare.map((s) => ({ symbol: s, position: 'SameScale' })),
-      support_host: 'https://www.tradingview.com',
+      compareSymbols: compareSymbols.map((s) => ({ symbol: s, position: 'NewPriceScale' })),
     })
     container.appendChild(script)
     return () => {
       try { container.innerHTML = '' } catch { /* ignore */ }
     }
-  }, [symbol, compare.join('|'), height]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [symbol, compareSymbols.join('|'), interval, height]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div className="tradingview-widget-container" ref={containerRef} style={{ height, minHeight: height }}>
-      <div className="tradingview-widget-container__widget" style={{ height: '100%' }} />
+    <div
+      className="tradingview-widget-container"
+      ref={containerRef}
+      style={{ width: '100%', height, minHeight: height }}
+    >
+      <div className="tradingview-widget-container__widget" style={{ width: '100%', height: '100%' }} />
     </div>
   )
 }
@@ -711,30 +720,63 @@ export default function MacroOverview({ user }) {
                 {section.title}
               </span>
               <span className="text-[10.5px] text-[var(--txt-faint)]">
-                · {section.source === 'fred' ? 'FRED Embedded Chart' : 'TradingView Widget'}
+                · {section.source === 'fred'
+                    ? 'FRED Embedded Chart'
+                    : section.source === 'tv-combined'
+                      ? 'TradingView Combined Chart'
+                      : 'TradingView Widget'}
               </span>
-              <span className="ml-auto text-[10.5px] text-[var(--txt-faint)]">{section.metrics.length} รายการ</span>
+              <span className="ml-auto text-[10.5px] text-[var(--txt-faint)]">
+                {section.source === 'tv-combined' ? `${1 + (section.combinedChart.compareSymbols?.length || 0)} series` : `${section.metrics.length} รายการ`}
+              </span>
             </div>
-            <div className="divide-y divide-[var(--line)]">
-              {section.metrics.map((m, mi) => (
-                <div key={m.key} className="px-4 pt-3 pb-4">
-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    <span className="text-[10.5px] text-[var(--txt-faint)] font-mono">{si + 1}.{mi + 1}</span>
-                    <span className="text-[12.5px] font-medium" style={{ color: 'var(--txt-bright)' }}>
-                      {m.label}
-                    </span>
+
+            {/* tv-combined: ชาร์ท 1 อันรวม compareSymbols */}
+            {section.source === 'tv-combined' && section.combinedChart && (
+              <div className="px-4 pt-3 pb-4">
+                {section.legend && (
+                  <div className="flex items-center gap-3 flex-wrap mb-2 text-[11px]">
+                    {section.legend.map((lg) => (
+                      <div key={lg.fredId} className="flex items-center gap-1.5">
+                        <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: lg.color }} />
+                        <span style={{ color: 'var(--txt-dim)' }}>{lg.label}</span>
+                        <span className="font-mono text-[9.5px] text-[var(--txt-faint)]">{lg.fredId}</span>
+                      </div>
+                    ))}
                   </div>
-                  {section.source === 'fred' && m.fredId && (
-                    <FredChart fredId={m.fredId} height={300} />
-                  )}
-                  {section.source === 'tv' && m.tv && (
-                    <div className="rounded-lg overflow-hidden" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--line)' }}>
-                      <TradingViewMini symbol={m.tv} height={240} />
+                )}
+                <TradingViewAdvanced
+                  symbol={section.combinedChart.symbol}
+                  compareSymbols={section.combinedChart.compareSymbols}
+                  interval={section.combinedChart.interval || 'D'}
+                  height={section.combinedChart.height || 500}
+                />
+              </div>
+            )}
+
+            {/* FRED หรือ TradingView mini แยกต่อ metric */}
+            {section.source !== 'tv-combined' && (
+              <div className="divide-y divide-[var(--line)]">
+                {section.metrics.map((m, mi) => (
+                  <div key={m.key} className="px-4 pt-3 pb-4">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <span className="text-[10.5px] text-[var(--txt-faint)] font-mono">{si + 1}.{mi + 1}</span>
+                      <span className="text-[12.5px] font-medium" style={{ color: 'var(--txt-bright)' }}>
+                        {m.label}
+                      </span>
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
+                    {section.source === 'fred' && m.fredId && (
+                      <FredChart fredId={m.fredId} height={300} />
+                    )}
+                    {section.source === 'tv' && m.tv && (
+                      <div className="rounded-lg overflow-hidden" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--line)' }}>
+                        <TradingViewMini symbol={m.tv} height={240} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>
