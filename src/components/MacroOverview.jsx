@@ -25,7 +25,7 @@ const SECTIONS = [
       symbol: 'FRED:BAMLH0A0HYM2',
       compareSymbols: ['FRED:BAMLC0A4CBBB', 'FRED:BAMLH0A3HYC'],
       interval: 'D',
-      height: 500,
+      height: 620,
     },
     legend: [
       { label: 'High Yield (HY)',   fredId: 'BAMLH0A0HYM2' },
@@ -265,13 +265,15 @@ function TradingViewAdvanced({ symbol, compareSymbols = [], interval = 'D', heig
   useEffect(() => {
     if (!containerRef.current || !symbol) return
     const container = containerRef.current
-    container.innerHTML = '<div class="tradingview-widget-container__widget" style="width:100%;height:100%"></div>'
+    // Inner widget div ต้องมี height px ชัดเจน (TradingView autosize ไม่ตอบ React container)
+    container.innerHTML = `<div class="tradingview-widget-container__widget" style="width:100%;height:${height}px"></div>`
     const script = document.createElement('script')
     script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js'
     script.type = 'text/javascript'
     script.async = true
     script.innerHTML = JSON.stringify({
-      autosize: true,
+      width: '100%',
+      height,                                 // explicit px ให้ widget รู้ขนาดจริง
       symbol,
       interval,
       timezone: 'America/New_York',
@@ -298,7 +300,7 @@ function TradingViewAdvanced({ symbol, compareSymbols = [], interval = 'D', heig
     <div
       className="tradingview-widget-container"
       ref={containerRef}
-      style={{ width: '100%', height }}
+      style={{ width: '100%', height, minHeight: height }}
     />
   )
 }
