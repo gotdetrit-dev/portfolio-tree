@@ -102,24 +102,27 @@ function FredChart({ fredId, height = 300 }) {
 // ─── TradingView Mini Chart ──────────────────────────────────────────────────
 // embed TradingView mini-symbol-overview widget (ฟรี, ไม่ต้องมี key)
 // StrictMode-safe: cleanup innerHTML เมื่อ unmount/symbol เปลี่ยน
-// Advanced chart overlay หลาย symbols บน scale แยก — ตาม config ที่คุณหมอให้มา
+// Advanced chart overlay หลาย symbols บน scale แยก
+// ไม่ใช้ autosize เพราะ TradingView widget ไม่คำนวณขนาด React container ถูก
+// แทนที่ด้วย width/height เป็นเลขตรงๆ ให้ widget รู้ขนาดชัดเจน
 function TradingViewAdvanced({ symbol, compareSymbols = [], interval = 'D', height = 500 }) {
   const containerRef = useRef(null)
   useEffect(() => {
     if (!containerRef.current || !symbol) return
     const container = containerRef.current
-    container.innerHTML = '<div class="tradingview-widget-container__widget" style="width:100%;height:100%"></div>'
+    container.innerHTML = `<div class="tradingview-widget-container__widget" style="width:100%;height:${height}px"></div>`
     const script = document.createElement('script')
     script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js'
     script.type = 'text/javascript'
     script.async = true
     script.innerHTML = JSON.stringify({
-      autosize: true,
+      width: '100%',
+      height,                                 // explicit px — widget ใช้ค่านี้แทน autosize
       symbol,
       interval,
       timezone: 'America/New_York',
       theme: 'dark',
-      style: '2',                           // 2 = line
+      style: '2',                             // 2 = line
       locale: 'en',
       backgroundColor: '#080B12',
       gridColor: 'rgba(255,255,255,0.05)',
@@ -138,10 +141,8 @@ function TradingViewAdvanced({ symbol, compareSymbols = [], interval = 'D', heig
     <div
       className="tradingview-widget-container"
       ref={containerRef}
-      style={{ width: '100%', height, minHeight: height }}
-    >
-      <div className="tradingview-widget-container__widget" style={{ width: '100%', height: '100%' }} />
-    </div>
+      style={{ width: '100%', height }}
+    />
   )
 }
 
