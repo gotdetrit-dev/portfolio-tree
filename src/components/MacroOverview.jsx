@@ -14,49 +14,89 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { loadMacroOverview, saveMacroOverview } from '../db.js'
 
+// tv = symbol บน TradingView (ใช้กับ mini chart widget) — ปล่อยว่างถ้าไม่มี chart
 const SECTIONS = [
   {
     key: 'credit', title: 'US-Credit Spread', icon: '📊', tone: '#ff8aa0',
     metrics: [
-      { key: 'hy_spread',  label: 'High Yield Credit Spread',  unit: '%' },
-      { key: 'bbb_spread', label: 'BBB Yield Credit Spread',   unit: '%' },
-      { key: 'ccc_spread', label: 'CCC Yield Credit Spread',   unit: '%' },
+      { key: 'hy_spread',  label: 'High Yield Credit Spread',  unit: '%', tv: 'FRED:BAMLH0A0HYM2' },
+      { key: 'bbb_spread', label: 'BBB Yield Credit Spread',   unit: '%', tv: 'FRED:BAMLC0A4CBBB' },
+      { key: 'ccc_spread', label: 'CCC Yield Credit Spread',   unit: '%', tv: 'FRED:BAMLH0A3HYC' },
     ],
   },
   {
     key: 'inflation', title: 'US-Inflation', icon: '📈', tone: '#f7c948',
     metrics: [
-      { key: 'us_inflation_rate',     label: 'US-Inflation Rate',           unit: '%' },
-      { key: 'us_core_inflation_mom', label: 'US-Core Inflation Rate MoM',  unit: '%' },
+      { key: 'us_inflation_rate',     label: 'US-Inflation Rate',           unit: '%', tv: 'ECONOMICS:USIRYY' },
+      { key: 'us_core_inflation_mom', label: 'US-Core Inflation Rate MoM',  unit: '%', tv: 'ECONOMICS:USCCPIM' },
     ],
   },
   {
     key: 'realyield', title: 'Real-Yield', icon: '💰', tone: '#9bffae',
     metrics: [
-      { key: 'dfii10', label: 'Real-Yield (DFII10)', unit: '%' },
+      { key: 'dfii10', label: 'Real-Yield (DFII10)', unit: '%', tv: 'FRED:DFII10' },
     ],
   },
   {
     key: 'volatility', title: 'Market Volatility', icon: '🌪', tone: '#7bd1ff',
     metrics: [
-      { key: 'vix_spx', label: 'VIX-S&P500', unit: '' },
-      { key: 'vix_ndx', label: 'VIX-NASDAQ', unit: '' },
+      { key: 'vix_spx', label: 'VIX-S&P500',  unit: '', tv: 'CBOE:VIX' },
+      { key: 'vix_ndx', label: 'VIX-NASDAQ',  unit: '', tv: 'CBOE:VXN' },
     ],
   },
   {
     key: 'overview', title: 'Overview Index And Price', icon: '🔭', tone: '#c9a9ff',
     metrics: [
-      { key: 'usdthb', label: 'USD/THB',     unit: '฿' },
-      { key: 'usoil',  label: 'USOIL',       unit: '$' },
-      { key: 'gold',   label: 'GOLD',        unit: '$' },
-      { key: 'btc',    label: 'BTC',         unit: '$' },
-      { key: 'spx',    label: 'S&P500',      unit: '' },
-      { key: 'ndx',    label: 'NASDAQ',      unit: '' },
-      { key: 'dji',    label: 'Dow Jones',   unit: '' },
-      { key: 'rut',    label: 'Russell 2000', unit: '' },
+      { key: 'usdthb', label: 'USD/THB',      unit: '฿', tv: 'FX_IDC:USDTHB' },
+      { key: 'usoil',  label: 'USOIL',        unit: '$', tv: 'TVC:USOIL' },
+      { key: 'gold',   label: 'GOLD',         unit: '$', tv: 'TVC:GOLD' },
+      { key: 'btc',    label: 'BTC',          unit: '$', tv: 'BINANCE:BTCUSDT' },
+      { key: 'spx',    label: 'S&P500',       unit: '',  tv: 'SP:SPX' },
+      { key: 'ndx',    label: 'NASDAQ',       unit: '',  tv: 'NASDAQ:IXIC' },
+      { key: 'dji',    label: 'Dow Jones',    unit: '',  tv: 'DJ:DJI' },
+      { key: 'rut',    label: 'Russell 2000', unit: '',  tv: 'TVC:RUT' },
     ],
   },
 ]
+
+// ─── TradingView Mini Chart ──────────────────────────────────────────────────
+// embed TradingView mini-symbol-overview widget (ฟรี, ไม่ต้องมี key)
+// StrictMode-safe: cleanup innerHTML เมื่อ unmount/symbol เปลี่ยน
+function TradingViewMini({ symbol, height = 220 }) {
+  const containerRef = useRef(null)
+  useEffect(() => {
+    if (!containerRef.current || !symbol) return
+    const container = containerRef.current
+    container.innerHTML = '<div class="tradingview-widget-container__widget"></div>'
+    const script = document.createElement('script')
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js'
+    script.type = 'text/javascript'
+    script.async = true
+    script.innerHTML = JSON.stringify({
+      symbol,
+      width: '100%',
+      height,
+      locale: 'en',
+      dateRange: '12M',
+      colorTheme: 'dark',
+      trendLineColor: 'rgba(52, 224, 122, 1)',
+      underLineColor: 'rgba(52, 224, 122, 0.3)',
+      underLineBottomColor: 'rgba(52, 224, 122, 0)',
+      isTransparent: true,
+      autosize: true,
+      largeChartUrl: '',
+    })
+    container.appendChild(script)
+    return () => {
+      try { container.innerHTML = '' } catch { /* ignore */ }
+    }
+  }, [symbol, height])
+  return (
+    <div className="tradingview-widget-container" ref={containerRef} style={{ minHeight: height }}>
+      <div className="tradingview-widget-container__widget" />
+    </div>
+  )
+}
 
 // ─── Market Regime Assessment (ด้านขวา) ─────────────────────────────────────
 const ASSESSMENT = [
@@ -88,6 +128,12 @@ export default function MacroOverview({ user }) {
   const [saveState, setSaveState] = useState('idle') // idle | saving | saved | error
   const [lastSavedAt, setLastSavedAt] = useState(null)
   const [openPicker, setOpenPicker] = useState(null) // row.key ที่กำลังเปิด color picker
+  const [openCharts, setOpenCharts] = useState(() => new Set())  // metric.key ที่ chart เปิดอยู่
+  const toggleChart = (k) => setOpenCharts((s) => {
+    const n = new Set(s)
+    n.has(k) ? n.delete(k) : n.add(k)
+    return n
+  })
 
   // ปิด picker เมื่อคลิกนอก
   useEffect(() => {
@@ -277,7 +323,7 @@ export default function MacroOverview({ user }) {
                       className="hairline rounded-xl p-3"
                       style={{ background: 'rgba(255,255,255,0.015)' }}
                     >
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <span className="text-[10.5px] text-[var(--txt-faint)] font-mono">{si + 1}.{mi + 1}</span>
                         <span className="text-[13px] font-medium" style={{ color: 'var(--txt-bright)' }}>
                           {m.label}
@@ -286,6 +332,21 @@ export default function MacroOverview({ user }) {
                           <span className="ml-auto text-[9.5px] text-[var(--txt-faint)]">
                             แก้ไข {fmtTime(entry.updatedAt)}
                           </span>
+                        )}
+                        {m.tv && (
+                          <button
+                            onClick={() => toggleChart(m.key)}
+                            className="text-[10.5px] px-2 py-0.5 rounded transition-colors whitespace-nowrap"
+                            style={{
+                              marginLeft: entry.updatedAt ? 0 : 'auto',
+                              background: openCharts.has(m.key) ? 'rgba(123,209,255,0.15)' : 'rgba(255,255,255,0.04)',
+                              color: openCharts.has(m.key) ? '#7bd1ff' : 'var(--txt-dim)',
+                              border: `1px solid ${openCharts.has(m.key) ? 'rgba(123,209,255,0.4)' : 'var(--line)'}`,
+                            }}
+                            title={`TradingView: ${m.tv}`}
+                          >
+                            {openCharts.has(m.key) ? '📈 ซ่อนกราฟ' : '📈 ดูกราฟ'}
+                          </button>
                         )}
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-2">
@@ -321,6 +382,15 @@ export default function MacroOverview({ user }) {
                           />
                         </div>
                       </div>
+                      {/* TradingView mini chart — เปิดเมื่อคลิกปุ่ม 📈 */}
+                      {m.tv && openCharts.has(m.key) && (
+                        <div className="mt-3 rounded-lg overflow-hidden" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--line)' }}>
+                          <TradingViewMini symbol={m.tv} height={220} />
+                          <div className="text-[9.5px] text-[var(--txt-faint)] text-center py-1 border-t border-[var(--line)]">
+                            {m.tv} · <a href={`https://www.tradingview.com/symbols/${encodeURIComponent(m.tv.split(':').pop())}/`} target="_blank" rel="noreferrer" className="underline hover:text-[#7bd1ff]">เปิดใน TradingView</a>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
