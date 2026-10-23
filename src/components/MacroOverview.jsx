@@ -109,6 +109,30 @@ function TradingViewAdvanced({ symbol, compare = [], height = 380 }) {
   )
 }
 
+// ลูกโลกหมุน — cycle 🌍 → 🌎 → 🌏 ให้เหมือนโลกหมุน
+function SpinningGlobe({ size = 180 }) {
+  const [i, setI] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setI((n) => (n + 1) % 3), 420)
+    return () => clearInterval(t)
+  }, [])
+  const emoji = ['🌍', '🌎', '🌏'][i]
+  return (
+    <div className="flex justify-center items-center" style={{ minHeight: size + 40 }}>
+      <div
+        style={{
+          fontSize: size,
+          lineHeight: 1,
+          filter: 'drop-shadow(0 0 40px rgba(52,224,122,0.45))',
+          transition: 'filter 400ms',
+        }}
+      >
+        {emoji}
+      </div>
+    </div>
+  )
+}
+
 // Ticker widget — แสดงแค่ราคา + % เปลี่ยนแปลง ไม่มีกราฟ
 function TradingViewTicker({ symbol }) {
   const containerRef = useRef(null)
@@ -373,8 +397,13 @@ export default function MacroOverview({ user }) {
         </div>
       </div>
 
-      <div>
-        {/* ── Macro-Economic (เต็มกว้าง) ──────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-6 items-start max-w-5xl">
+        {/* ── Globe (ซ้าย) ──────────────────────────────────────────── */}
+        <div className="lg:w-[260px] lg:sticky lg:top-4">
+          <SpinningGlobe size={200} />
+        </div>
+
+        {/* ── Macro-Overview panel (ขวา) ────────────────────────────── */}
         <div>
           <div className="panel rounded-2xl overflow-hidden">
             <div className="px-5 pt-4 pb-3 border-b border-[var(--line)]">
