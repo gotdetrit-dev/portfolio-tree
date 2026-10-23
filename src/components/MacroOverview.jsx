@@ -15,9 +15,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { loadMacroOverview, saveMacroOverview } from '../db.js'
 
 // tv = symbol บน TradingView (ใช้กับ mini chart widget) — ปล่อยว่างถ้าไม่มี chart
+// combinedChart = chart รวมที่ section header, overlay หลาย symbols
 const SECTIONS = [
   {
     key: 'credit', title: 'US-Credit Spread', icon: '📊', tone: '#ff8aa0',
+    combinedChart: {
+      primary: 'FRED:BAMLH0A0HYM2',
+      compare: ['FRED:BAMLC0A4CBBB', 'FRED:BAMLH0A3HYC'],
+      label: 'ดู HY / BBB / CCC ซ้อนทับ',
+    },
     metrics: [
       { key: 'hy_spread',  label: 'High Yield Credit Spread',  unit: '%', tv: 'FRED:BAMLH0A0HYM2' },
       { key: 'bbb_spread', label: 'BBB Yield Credit Spread',   unit: '%', tv: 'FRED:BAMLC0A4CBBB' },
@@ -62,6 +68,46 @@ const SECTIONS = [
 // ─── TradingView Mini Chart ──────────────────────────────────────────────────
 // embed TradingView mini-symbol-overview widget (ฟรี, ไม่ต้องมี key)
 // StrictMode-safe: cleanup innerHTML เมื่อ unmount/symbol เปลี่ยน
+// Advanced chart ที่ overlay หลาย symbols — ใช้สำหรับ combined chart ที่ section header
+function TradingViewAdvanced({ symbol, compare = [], height = 380 }) {
+  const containerRef = useRef(null)
+  useEffect(() => {
+    if (!containerRef.current || !symbol) return
+    const container = containerRef.current
+    container.innerHTML = '<div class="tradingview-widget-container__widget"></div>'
+    const script = document.createElement('script')
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js'
+    script.type = 'text/javascript'
+    script.async = true
+    script.innerHTML = JSON.stringify({
+      autosize: true,
+      symbol,
+      interval: 'W',
+      timezone: 'Etc/UTC',
+      theme: 'dark',
+      style: '2',                           // 2 = line
+      locale: 'en',
+      backgroundColor: 'rgba(0,0,0,0)',
+      hide_side_toolbar: true,
+      hide_top_toolbar: false,
+      hide_legend: false,
+      allow_symbol_change: false,
+      save_image: false,
+      compare_symbols: compare.map((s) => ({ symbol: s, position: 'SameScale' })),
+      support_host: 'https://www.tradingview.com',
+    })
+    container.appendChild(script)
+    return () => {
+      try { container.innerHTML = '' } catch { /* ignore */ }
+    }
+  }, [symbol, compare.join('|'), height]) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div className="tradingview-widget-container" ref={containerRef} style={{ height, minHeight: height }}>
+      <div className="tradingview-widget-container__widget" style={{ height: '100%' }} />
+    </div>
+  )
+}
+
 function TradingViewMini({ symbol, height = 220 }) {
   const containerRef = useRef(null)
   useEffect(() => {
@@ -130,6 +176,12 @@ export default function MacroOverview({ user }) {
   const [openPicker, setOpenPicker] = useState(null) // row.key ที่กำลังเปิด color picker
   const [openCharts, setOpenCharts] = useState(() => new Set())  // metric.key ที่ chart เปิดอยู่
   const toggleChart = (k) => setOpenCharts((s) => {
+    const n = new Set(s)
+    n.has(k) ? n.delete(k) : n.add(k)
+    return n
+  })
+  const [openCombined, setOpenCombined] = useState(() => new Set()) // section.key ที่ chart รวมเปิดอยู่
+  const toggleCombined = (k) => setOpenCombined((s) => {
     const n = new Set(s)
     n.has(k) ? n.delete(k) : n.add(k)
     return n
@@ -302,7 +354,7 @@ export default function MacroOverview({ user }) {
               style={{ borderColor: section.tone + '33' }}
             >
               <div
-                className="px-5 py-3 flex items-center gap-2 border-b"
+                className="px-5 py-3 flex items-center gap-2 border-b flex-wrap"
                 style={{ background: section.tone + '0d', borderBottomColor: section.tone + '22' }}
               >
                 <span className="text-[18px]" style={{ filter: `drop-shadow(0 0 6px ${section.tone}88)` }}>
@@ -313,7 +365,34 @@ export default function MacroOverview({ user }) {
                   {section.title}
                 </span>
                 <span className="ml-auto text-[10.5px] text-[var(--txt-faint)]">{section.metrics.length} รายการ</span>
+                {section.combinedChart && (
+                  <button
+                    onClick={() => toggleCombined(section.key)}
+                    className="text-[10.5px] px-2 py-0.5 rounded transition-colors whitespace-nowrap ml-2"
+                    style={{
+                      background: openCombined.has(section.key) ? section.tone + '26' : 'rgba(255,255,255,0.04)',
+                      color: openCombined.has(section.key) ? section.tone : 'var(--txt-dim)',
+                      border: `1px solid ${openCombined.has(section.key) ? section.tone + '66' : 'var(--line)'}`,
+                    }}
+                    title={section.combinedChart.label}
+                  >
+                    {openCombined.has(section.key) ? '📊 ซ่อนกราฟรวม' : '📊 กราฟรวม'}
+                  </button>
+                )}
               </div>
+              {/* Combined chart (section-level) — overlay หลาย symbols */}
+              {section.combinedChart && openCombined.has(section.key) && (
+                <div style={{ background: 'rgba(0,0,0,0.4)', borderBottom: '1px solid var(--line)' }}>
+                  <TradingViewAdvanced
+                    symbol={section.combinedChart.primary}
+                    compare={section.combinedChart.compare}
+                    height={420}
+                  />
+                  <div className="text-[9.5px] text-[var(--txt-faint)] text-center py-1 px-3">
+                    {[section.combinedChart.primary, ...section.combinedChart.compare].join('  ·  ')}
+                  </div>
+                </div>
+              )}
               <div className="p-4 space-y-3">
                 {section.metrics.map((m, mi) => {
                   const entry = data[m.key] || {}
