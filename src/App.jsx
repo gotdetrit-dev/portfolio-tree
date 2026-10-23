@@ -10,7 +10,6 @@ import SummaryBar from './components/SummaryBar.jsx'
 import HoldingsTable from './components/HoldingsTable.jsx'
 import TradeJournal from './components/TradeJournal.jsx'
 import WatchingList from './components/WatchingList.jsx'
-import MoneyMarket from './components/MoneyMarket.jsx'
 import MacroOverview from './components/MacroOverview.jsx'
 import { ArticleAddModal, CashModal, HistoryModal, HoldingModal, JournalAddModal, PricePlanModal, TargetsModal, TransactionEditModal, TransactionModal } from './components/Modals.jsx'
 import { makeWatchingRecord } from './watchingList.js'
@@ -706,8 +705,6 @@ export default function App({ user, onSignOut }) {
         <div className="flex items-center gap-2 flex-wrap justify-end">
           {[
             { key: 'macro',    label: 'Macro-Overview' },
-            { key: 'business', label: 'ธุรกิจของฉัน' },
-            { key: 'money',    label: 'ตลาดเงิน' },
             { key: 'us-stocks', label: 'ตลาดหุ้นอเมริกา' },
           ].map((s) => {
             const on = section === s.key
@@ -725,20 +722,6 @@ export default function App({ user, onSignOut }) {
           <button className="btn btn-ghost whitespace-nowrap" onClick={onSignOut}>ออกจากระบบ</button>
         </div>
       </header>
-
-      {/* ตลาดเงิน — Forex/CFD tracker */}
-      {section === 'money' && <MoneyMarket user={user} />}
-
-      {/* ธุรกิจของฉัน — ยังไม่มีเนื้อหา */}
-      {section === 'business' && (
-        <section className="px-4 lg:px-10 mt-6">
-          <div className="panel rounded-2xl px-6 py-16 text-center">
-            <div className="text-[36px] mb-2">🚧</div>
-            <div className="text-[18px] font-semibold mb-1">ธุรกิจของฉัน</div>
-            <div className="text-[13px] text-[var(--txt-dim)]">กำลังพัฒนา — ยังไม่พร้อมใช้งาน</div>
-          </div>
-        </section>
-      )}
 
       {/* Macro-Overview — manual tracker */}
       {section === 'macro' && <MacroOverview user={user} />}
