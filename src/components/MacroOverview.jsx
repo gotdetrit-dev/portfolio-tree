@@ -109,14 +109,51 @@ function TradingViewAdvanced({ symbol, compare = [], height = 380 }) {
   )
 }
 
-// ลูกโลก 3D หมุน — pure CSS (ocean + continents scroll + highlight)
+// ลูกโลก 3D หมุน — ใช้ SVG continents + CSS 3D shading
+// Continents วาดเป็น blob paths เรียงตามพื้นที่จริง (NA, SA, Europe, Africa, Asia, Oceania)
+// Scroll backgroundPosition ให้ทวีปเลื่อนซ้าย = ลูกโลกหมุน
 function SpinningGlobe({ size = 340 }) {
+  // SVG continents (width = height เพื่อ repeat-x seamless)
+  // สี green กลางๆ, viewBox 340x340, blobs คร่าวๆ ตามรูปทรงทวีปจริง
+  const svg = `
+<svg xmlns='http://www.w3.org/2000/svg' width='340' height='340' viewBox='0 0 340 340'>
+  <g fill='#3d9558' opacity='0.88'>
+    <!-- North America -->
+    <path d='M18,78 Q42,60 72,68 Q92,78 95,105 Q85,135 60,142 Q35,138 22,118 Q10,98 18,78 Z'/>
+    <path d='M48,145 Q58,142 65,156 Q62,172 50,175 Q38,170 42,156 Z'/>
+    <!-- Central America strand -->
+    <path d='M62,155 Q72,160 78,172 Q74,182 68,178 Q58,170 62,155 Z'/>
+    <!-- South America -->
+    <path d='M85,180 Q100,178 108,200 Q112,235 98,268 Q82,278 72,250 Q68,215 85,180 Z'/>
+    <!-- Greenland -->
+    <path d='M105,38 Q122,32 130,48 Q128,65 114,68 Q100,60 105,38 Z'/>
+    <!-- Europe -->
+    <path d='M152,70 Q172,62 190,72 Q198,85 185,98 Q168,100 155,92 Q148,80 152,70 Z'/>
+    <!-- Africa -->
+    <path d='M170,110 Q200,105 215,135 Q222,180 205,220 Q180,240 162,215 Q150,170 170,110 Z'/>
+    <!-- Middle East -->
+    <path d='M205,105 Q222,102 230,118 Q225,135 215,138 Q200,130 205,105 Z'/>
+    <!-- Asia (big landmass) -->
+    <path d='M220,55 Q275,45 310,70 Q320,95 295,118 Q252,122 215,105 Q198,80 220,55 Z'/>
+    <!-- India -->
+    <path d='M242,120 Q255,118 262,138 Q258,158 247,160 Q235,152 242,120 Z'/>
+    <!-- SE Asia + Indonesia -->
+    <path d='M275,138 Q290,135 298,148 Q294,160 283,162 Q268,155 275,138 Z'/>
+    <path d='M300,160 Q312,160 316,172 Q310,180 302,178 Q295,170 300,160 Z'/>
+    <!-- Australia -->
+    <path d='M280,195 Q312,192 322,212 Q318,232 293,238 Q268,234 268,215 Q268,200 280,195 Z'/>
+    <!-- Antarctica rim -->
+    <path d='M50,290 Q120,285 180,290 Q240,285 300,292 Q300,308 180,310 Q60,308 50,290 Z' opacity='0.6'/>
+  </g>
+</svg>`.replace(/\s+/g, ' ').trim()
+  const earthBg = `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`
+
   return (
     <>
       <style>{`
-        @keyframes macro-earth-spin {
-          from { background-position: 0% 50%; }
-          to { background-position: -200% 50%; }
+        @keyframes macro-earth-rotate {
+          from { background-position: 0 50%; }
+          to { background-position: -${size}px 50%; }
         }
       `}</style>
       <div
@@ -125,51 +162,40 @@ function SpinningGlobe({ size = 340 }) {
           width: size,
           height: size,
           borderRadius: '50%',
-          // Ocean sphere with 3D shading
-          background: 'radial-gradient(circle at 32% 30%, #5aa9e6 0%, #2063a3 55%, #0a2a4e 100%)',
+          background: 'radial-gradient(circle at 32% 28%, #6ab2e8 0%, #2a76bd 48%, #0b2e59 100%)',
           boxShadow: `
-            inset -${size * 0.13}px -${size * 0.14}px ${size * 0.28}px rgba(0,0,0,0.75),
+            inset -${size * 0.14}px -${size * 0.14}px ${size * 0.3}px rgba(0,0,0,0.75),
             inset ${size * 0.08}px ${size * 0.08}px ${size * 0.17}px rgba(255,255,255,0.18),
-            0 0 ${size * 0.22}px rgba(52,224,122,0.5),
-            0 ${size * 0.05}px ${size * 0.15}px rgba(0,0,0,0.6)
+            0 0 ${size * 0.22}px rgba(52,224,122,0.45),
+            0 ${size * 0.05}px ${size * 0.15}px rgba(0,0,0,0.55)
           `,
           overflow: 'hidden',
         }}
       >
-        {/* Continents layer — stripes หมุนตามแนวนอน */}
+        {/* Continents — SVG scroll ซ้ายต่อเนื่อง */}
         <div
           style={{
             position: 'absolute',
             inset: 0,
             borderRadius: '50%',
-            background: `repeating-linear-gradient(92deg,
-              transparent 0 ${size * 0.14}px,
-              rgba(55, 145, 80, 0.75) ${size * 0.15}px ${size * 0.3}px,
-              transparent ${size * 0.31}px ${size * 0.5}px,
-              rgba(85, 165, 105, 0.8) ${size * 0.51}px ${size * 0.68}px,
-              transparent ${size * 0.69}px ${size * 0.95}px,
-              rgba(70, 155, 95, 0.7) ${size * 0.96}px ${size * 1.1}px,
-              transparent ${size * 1.11}px ${size * 1.4}px
-            )`,
-            backgroundSize: '200% 100%',
-            animation: 'macro-earth-spin 18s linear infinite',
-            maskImage: 'radial-gradient(circle at 50% 50%, black 92%, transparent 100%)',
-            WebkitMaskImage: 'radial-gradient(circle at 50% 50%, black 92%, transparent 100%)',
+            backgroundImage: earthBg,
+            backgroundRepeat: 'repeat-x',
+            backgroundSize: `${size}px ${size}px`,
+            backgroundPosition: '0 50%',
+            animation: 'macro-earth-rotate 24s linear infinite',
+            // Fade ขอบให้เหมือนขอบลูกโลก (ขอบมืดลงเพราะหันออกห่าง)
+            maskImage: 'radial-gradient(circle at 50% 50%, black 70%, rgba(0,0,0,0.4) 92%, transparent 100%)',
+            WebkitMaskImage: 'radial-gradient(circle at 50% 50%, black 70%, rgba(0,0,0,0.4) 92%, transparent 100%)',
+            mixBlendMode: 'normal',
           }}
         />
-        {/* Equatorial dim band — เพิ่มมิติ 3D */}
+        {/* เงาด้านมืด (hemisphere) — ให้ดู 3D */}
         <div
           style={{
             position: 'absolute',
             inset: 0,
             borderRadius: '50%',
-            background: `linear-gradient(180deg,
-              rgba(0,0,0,0) 0%,
-              rgba(0,0,0,0) 30%,
-              rgba(0,0,0,0.15) 50%,
-              rgba(0,0,0,0) 70%,
-              rgba(0,0,0,0) 100%
-            )`,
+            background: `radial-gradient(circle at 70% 72%, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.2) 40%, transparent 70%)`,
             pointerEvents: 'none',
           }}
         />
@@ -179,7 +205,7 @@ function SpinningGlobe({ size = 340 }) {
             position: 'absolute',
             inset: 0,
             borderRadius: '50%',
-            background: 'radial-gradient(ellipse at 32% 25%, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.08) 25%, transparent 55%)',
+            background: 'radial-gradient(ellipse at 30% 22%, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.1) 22%, transparent 50%)',
             pointerEvents: 'none',
           }}
         />
