@@ -43,9 +43,15 @@ const SECTIONS = [
   },
   {
     key: 'realyield', title: 'Real Yield', icon: '💰', tone: '#9bffae',
-    source: 'fred',
-    metrics: [
-      { key: 'dfii10', label: '10-Year Real Yield (DFII10)', fredId: 'DFII10' },
+    source: 'tv-combined',
+    combinedChart: {
+      symbol: 'FRED:DFII10',
+      compareSymbols: [],
+      interval: 'D',
+      height: 500,
+    },
+    legend: [
+      { label: '10-Year Real Yield (DFII10)', fredId: 'DFII10' },
     ],
   },
   {
