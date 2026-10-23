@@ -87,6 +87,17 @@ export default function MacroOverview({ user }) {
   const [summary, setSummary] = useState('')
   const [saveState, setSaveState] = useState('idle') // idle | saving | saved | error
   const [lastSavedAt, setLastSavedAt] = useState(null)
+  const [openPicker, setOpenPicker] = useState(null) // row.key ที่กำลังเปิด color picker
+
+  // ปิด picker เมื่อคลิกนอก
+  useEffect(() => {
+    if (!openPicker) return
+    const close = (e) => {
+      if (!e.target.closest?.('[data-color-picker]')) setOpenPicker(null)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [openPicker])
 
   // ── Initial load ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -339,51 +350,89 @@ export default function MacroOverview({ user }) {
                   >
                     <div className="pt-1.5">
                       <div className="text-[13px] text-[var(--txt-dim)]">{row.label}</div>
-                      {/* Color picker — แสดงเฉพาะเมื่อมีข้อความแล้ว */}
+                    </div>
+                    <div className="relative" data-color-picker>
+                      <textarea
+                        rows={1}
+                        className="field w-full"
+                        value={entry.text}
+                        onChange={(e) => setAssessment(row.key, { text: e.target.value })}
+                        onBlur={flush}
+                        placeholder="—"
+                        style={{
+                          color: palette.ink,
+                          fontWeight: 600,
+                          fontSize: 13.5,
+                          lineHeight: 1.5,
+                          resize: 'vertical',
+                          minHeight: 36,
+                          background: 'transparent',
+                          border: `1px dashed ${palette.border}`,
+                          paddingRight: 32, // เว้นที่ให้ปุ่มสี
+                        }}
+                      />
+                      {/* ปุ่มสีด้านขวา — แสดงเฉพาะเมื่อมีข้อความแล้ว */}
                       {entry.text.trim() && (
-                        <div className="flex items-center gap-1.5 mt-2">
-                          {['red', 'white', 'green'].map((c) => {
-                            const active = entry.color === c
-                            return (
-                              <button
-                                key={c}
-                                onClick={() => { setAssessment(row.key, { color: c }); flush() }}
-                                title={c === 'red' ? 'เสี่ยง / Bearish' : c === 'green' ? 'ดี / Bullish' : 'กลางๆ / Neutral'}
-                                className="transition-all"
-                                style={{
-                                  width: active ? 16 : 12,
-                                  height: active ? 16 : 12,
-                                  borderRadius: '50%',
-                                  background: COLOR_MAP[c].dot,
-                                  border: active ? '2px solid rgba(255,255,255,0.9)' : '1px solid rgba(255,255,255,0.15)',
-                                  boxShadow: active ? `0 0 8px ${COLOR_MAP[c].dot}` : 'none',
-                                  cursor: 'pointer',
-                                  padding: 0,
-                                }}
-                              />
-                            )
-                          })}
-                        </div>
+                        <>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setOpenPicker(openPicker === row.key ? null : row.key) }}
+                            title="เปลี่ยนสี"
+                            className="transition-all"
+                            style={{
+                              position: 'absolute',
+                              top: 8,
+                              right: 8,
+                              width: 16,
+                              height: 16,
+                              borderRadius: '50%',
+                              background: palette.dot,
+                              border: '2px solid rgba(255,255,255,0.5)',
+                              boxShadow: `0 0 6px ${palette.dot}`,
+                              cursor: 'pointer',
+                              padding: 0,
+                            }}
+                          />
+                          {/* Popover: 3 ตัวเลือกสี */}
+                          {openPicker === row.key && (
+                            <div
+                              className="absolute flex items-center gap-2 fade-in"
+                              style={{
+                                top: 32,
+                                right: 0,
+                                padding: '6px 8px',
+                                background: 'rgba(8,9,13,0.98)',
+                                border: '1px solid rgba(255,255,255,0.15)',
+                                borderRadius: 10,
+                                boxShadow: '0 8px 24px rgba(0,0,0,0.7)',
+                                zIndex: 20,
+                              }}
+                            >
+                              {['red', 'white', 'green'].map((c) => {
+                                const active = entry.color === c
+                                return (
+                                  <button
+                                    key={c}
+                                    onClick={() => { setAssessment(row.key, { color: c }); setOpenPicker(null); flush() }}
+                                    title={c === 'red' ? 'เสี่ยง / Bearish' : c === 'green' ? 'ดี / Bullish' : 'กลางๆ / Neutral'}
+                                    className="transition-all"
+                                    style={{
+                                      width: 20,
+                                      height: 20,
+                                      borderRadius: '50%',
+                                      background: COLOR_MAP[c].dot,
+                                      border: active ? '2px solid #fff' : '1px solid rgba(255,255,255,0.2)',
+                                      boxShadow: active ? `0 0 10px ${COLOR_MAP[c].dot}` : 'none',
+                                      cursor: 'pointer',
+                                      padding: 0,
+                                    }}
+                                  />
+                                )
+                              })}
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
-                    <textarea
-                      rows={1}
-                      className="field w-full"
-                      value={entry.text}
-                      onChange={(e) => setAssessment(row.key, { text: e.target.value })}
-                      onBlur={flush}
-                      placeholder="—"
-                      style={{
-                        color: palette.ink,
-                        fontWeight: 600,
-                        fontSize: 13.5,
-                        lineHeight: 1.5,
-                        resize: 'vertical',
-                        minHeight: 36,
-                        background: 'transparent',
-                        border: `1px dashed ${palette.border}`,
-                      }}
-                    />
                   </div>
                 )
               })}
