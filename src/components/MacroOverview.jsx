@@ -28,7 +28,6 @@ const SECTIONS = [
   },
   {
     key: 'inflation', title: 'US-Inflation', icon: '📈', tone: '#f7c948',
-    chartOnly: true,
     metrics: [
       // Atlanta Fed Sticky CPI YoY (12-month % change) — ค่าใกล้เคียง CPI YoY ที่คนดูข่าว (2-4%)
       { key: 'us_inflation_rate',     label: 'US Sticky CPI YoY%',             unit: '%', tv: 'FRED:STICKCPIM679SFRBATL' },
@@ -38,14 +37,12 @@ const SECTIONS = [
   },
   {
     key: 'realyield', title: 'Real-Yield', icon: '💰', tone: '#9bffae',
-    chartOnly: true,
     metrics: [
       { key: 'dfii10', label: 'Real-Yield (DFII10)', unit: '%', tv: 'FRED:DFII10' },
     ],
   },
   {
     key: 'volatility', title: 'Market Volatility', icon: '🌪', tone: '#7bd1ff',
-    chartOnly: true,
     metrics: [
       // VIX ETF (ProShares VIX Short-Term) ใช้แทน CBOE:VIX ที่ widget ปิด data
       { key: 'vix_spx', label: 'VIX-S&P500 (VIXY ETF)',  unit: '', tv: 'AMEX:VIXY' },
@@ -55,7 +52,6 @@ const SECTIONS = [
   },
   {
     key: 'overview', title: 'Overview Index And Price', icon: '🔭', tone: '#c9a9ff',
-    chartOnly: true,
     metrics: [
       { key: 'usdthb', label: 'USD/THB',               unit: '฿', tv: 'FX_IDC:USDTHB' },
       { key: 'usoil',  label: 'USOIL',                 unit: '$', tv: 'TVC:USOIL' },
@@ -109,6 +105,34 @@ function TradingViewAdvanced({ symbol, compare = [], height = 380 }) {
   return (
     <div className="tradingview-widget-container" ref={containerRef} style={{ height, minHeight: height }}>
       <div className="tradingview-widget-container__widget" style={{ height: '100%' }} />
+    </div>
+  )
+}
+
+// Ticker widget — แสดงแค่ราคา + % เปลี่ยนแปลง ไม่มีกราฟ
+function TradingViewTicker({ symbol }) {
+  const containerRef = useRef(null)
+  useEffect(() => {
+    if (!containerRef.current || !symbol) return
+    const container = containerRef.current
+    container.innerHTML = '<div class="tradingview-widget-container__widget"></div>'
+    const script = document.createElement('script')
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-single-ticker.js'
+    script.type = 'text/javascript'
+    script.async = true
+    script.innerHTML = JSON.stringify({
+      symbol,
+      width: '100%',
+      colorTheme: 'dark',
+      isTransparent: true,
+      locale: 'en',
+    })
+    container.appendChild(script)
+    return () => { try { container.innerHTML = '' } catch { /* ignore */ } }
+  }, [symbol])
+  return (
+    <div className="tradingview-widget-container" ref={containerRef} style={{ minHeight: 72 }}>
+      <div className="tradingview-widget-container__widget" />
     </div>
   )
 }
@@ -372,27 +396,6 @@ export default function MacroOverview({ user }) {
                 <span className="ml-auto text-[10.5px] text-[var(--txt-faint)]">{section.metrics.length} รายการ</span>
               </div>
 
-              {/* chartOnly sections: แสดงแค่ chart ต่อกัน ไม่มีช่องกรอก */}
-              {section.chartOnly ? (
-                <div className="divide-y divide-[var(--line)]">
-                  {section.metrics.map((m) => (
-                    <div key={m.key} className="px-3 pt-2 pb-1">
-                      <div className="flex items-center gap-2 px-2">
-                        <span className="text-[12px] font-medium" style={{ color: 'var(--txt-bright)' }}>{m.label}</span>
-                        <span className="text-[10px] text-[var(--txt-faint)] font-mono">{m.tv}</span>
-                        <a
-                          href={`https://www.tradingview.com/symbols/${encodeURIComponent(m.tv.split(':').pop())}/`}
-                          target="_blank" rel="noreferrer"
-                          className="ml-auto text-[10px] text-[var(--txt-faint)] hover:text-[#7bd1ff] underline"
-                        >
-                          เปิดใน TradingView ↗
-                        </a>
-                      </div>
-                      <TradingViewMini symbol={m.tv} height={220} />
-                    </div>
-                  ))}
-                </div>
-              ) : (
               <div className="p-4 space-y-3">
                 {section.metrics.map((m, mi) => {
                   const entry = data[m.key] || {}
@@ -412,69 +415,32 @@ export default function MacroOverview({ user }) {
                             แก้ไข {fmtTime(entry.updatedAt)}
                           </span>
                         )}
-                        {m.tv && (
-                          <button
-                            onClick={() => toggleChart(m.key)}
-                            className="text-[10.5px] px-2 py-0.5 rounded transition-colors whitespace-nowrap"
-                            style={{
-                              marginLeft: entry.updatedAt ? 0 : 'auto',
-                              background: openCharts.has(m.key) ? 'rgba(123,209,255,0.15)' : 'rgba(255,255,255,0.04)',
-                              color: openCharts.has(m.key) ? '#7bd1ff' : 'var(--txt-dim)',
-                              border: `1px solid ${openCharts.has(m.key) ? 'rgba(123,209,255,0.4)' : 'var(--line)'}`,
-                            }}
-                            title={`TradingView: ${m.tv}`}
-                          >
-                            {openCharts.has(m.key) ? '📈 ซ่อนกราฟ' : '📈 ดูกราฟ'}
-                          </button>
-                        )}
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-2">
-                        {/* ตัวเลข */}
-                        <div>
-                          <label className="block text-[10px] uppercase tracking-wider text-[var(--txt-faint)] mb-1">
-                            ตัวเลข {m.unit && <span className="text-[var(--txt-dim)]">({m.unit})</span>}
-                          </label>
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            className="field w-full font-mono"
-                            value={entry.value || ''}
-                            onChange={(e) => setMetric(m.key, { value: e.target.value })}
-                            onBlur={flush}
-                            placeholder="—"
-                            style={{ fontSize: 15, fontWeight: 600 }}
-                          />
-                        </div>
-                        {/* บทวิเคราะห์ */}
-                        <div>
-                          <label className="block text-[10px] uppercase tracking-wider text-[var(--txt-faint)] mb-1">
-                            บทวิเคราะห์
-                          </label>
-                          <textarea
-                            rows={2}
-                            className="field w-full"
-                            value={entry.analysis || ''}
-                            onChange={(e) => setMetric(m.key, { analysis: e.target.value })}
-                            onBlur={flush}
-                            placeholder="เช่น spread กำลังขยายตัว แสดงความกังวลด้าน credit..."
-                            style={{ resize: 'vertical', minHeight: 48 }}
-                          />
-                        </div>
-                      </div>
-                      {/* TradingView mini chart — เปิดเมื่อคลิกปุ่ม 📈 */}
-                      {m.tv && openCharts.has(m.key) && (
-                        <div className="mt-3 rounded-lg overflow-hidden" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--line)' }}>
-                          <TradingViewMini symbol={m.tv} height={220} />
-                          <div className="text-[9.5px] text-[var(--txt-faint)] text-center py-1 border-t border-[var(--line)]">
-                            {m.tv} · <a href={`https://www.tradingview.com/symbols/${encodeURIComponent(m.tv.split(':').pop())}/`} target="_blank" rel="noreferrer" className="underline hover:text-[#7bd1ff]">เปิดใน TradingView</a>
-                          </div>
+                      {/* ราคา + % เปลี่ยนแปลง (auto จาก TradingView ticker widget) */}
+                      {m.tv && (
+                        <div className="mb-2 rounded-lg overflow-hidden" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--line)' }}>
+                          <TradingViewTicker symbol={m.tv} />
                         </div>
                       )}
+                      {/* บทวิเคราะห์ */}
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-wider text-[var(--txt-faint)] mb-1">
+                          บทวิเคราะห์
+                        </label>
+                        <textarea
+                          rows={2}
+                          className="field w-full"
+                          value={entry.analysis || ''}
+                          onChange={(e) => setMetric(m.key, { analysis: e.target.value })}
+                          onBlur={flush}
+                          placeholder="เช่น spread กำลังขยายตัว แสดงความกังวลด้าน credit..."
+                          style={{ resize: 'vertical', minHeight: 48 }}
+                        />
+                      </div>
                     </div>
                   )
                 })}
               </div>
-              )}
             </div>
           ))}
         </div>
