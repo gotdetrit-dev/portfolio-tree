@@ -43,15 +43,9 @@ const SECTIONS = [
   },
   {
     key: 'realyield', title: 'Real Yield', icon: '💰', tone: '#9bffae',
-    source: 'tv-combined',
-    combinedChart: {
-      symbol: 'TVC:US10Y',       // 10-Year Treasury (nominal yield — TVC มี widget license)
-      compareSymbols: [],
-      interval: 'D',
-      height: 500,
-    },
-    legend: [
-      { label: '10-Year Treasury Yield (US10Y)', fredId: 'US10Y' },
+    source: 'fred',
+    metrics: [
+      { key: 'dfii10', label: '10-Year Real Yield (DFII10)  ·  Daily (1D)', fredId: 'DFII10' },
     ],
   },
   {
