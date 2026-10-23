@@ -46,15 +46,30 @@ const SECTIONS = [
   {
     key: 'overview', title: 'Overview Index And Price', icon: '🔭', tone: '#c9a9ff',
     metrics: [
-      { key: 'usdthb', label: 'USD/THB', unit: '฿' },
-      { key: 'usoil',  label: 'USOIL',   unit: '$' },
-      { key: 'gold',   label: 'GOLD',    unit: '$' },
-      { key: 'btc',    label: 'BTC',     unit: '$' },
-      { key: 'spx',    label: 'S&P500',  unit: '' },
-      { key: 'ndx',    label: 'NASDAQ',  unit: '' },
+      { key: 'usdthb', label: 'USD/THB',     unit: '฿' },
+      { key: 'usoil',  label: 'USOIL',       unit: '$' },
+      { key: 'gold',   label: 'GOLD',        unit: '$' },
+      { key: 'btc',    label: 'BTC',         unit: '$' },
+      { key: 'spx',    label: 'S&P500',      unit: '' },
+      { key: 'ndx',    label: 'NASDAQ',      unit: '' },
+      { key: 'dji',    label: 'Dow Jones',   unit: '' },
+      { key: 'rut',    label: 'Russell 2000', unit: '' },
     ],
   },
 ]
+
+// ─── Market Regime Assessment (ด้านขวา) ─────────────────────────────────────
+const ASSESSMENT = [
+  { key: 'credit_risk',     label: 'Credit Risk' },
+  { key: 'inflation',       label: 'Inflation' },
+  { key: 'real_yield',      label: 'Real Yield' },
+  { key: 'volatility',      label: 'Volatility' },
+  { key: 'market_breadth',  label: 'Market Breadth' },
+]
+
+const THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+                     'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
+const thaiDateCE = (d) => `${d.getDate()} ${THAI_MONTHS[d.getMonth()]} ${d.getFullYear()}`
 
 const fmtTime = (iso) => {
   if (!iso) return ''
@@ -135,6 +150,16 @@ export default function MacroOverview({ user }) {
 
   function setSummaryText(v) {
     setSummary(v)
+    scheduleSave()
+  }
+
+  // Assessment ด้านขวา — เก็บใน data._assessment (ไม่ต้องแก้ schema)
+  const assessment = data._assessment || {}
+  function setAssessment(key, text) {
+    setData((d) => ({
+      ...d,
+      _assessment: { ...(d._assessment || {}), [key]: text },
+    }))
     scheduleSave()
   }
 
@@ -278,36 +303,45 @@ export default function MacroOverview({ user }) {
           ))}
         </div>
 
-        {/* ── ด้านขวา: Summary panel (sticky) ──────────────────────────── */}
+        {/* ── ด้านขวา: Market Regime Assessment (sticky) ────────────────── */}
         <div className="lg:sticky lg:top-4 lg:self-start">
-          <div className="panel rounded-2xl overflow-hidden" style={{ borderColor: 'rgba(52,224,122,0.3)' }}>
-            <div
-              className="px-5 py-3 flex items-center gap-2 border-b"
-              style={{ background: 'rgba(52,224,122,0.08)', borderBottomColor: 'rgba(52,224,122,0.2)' }}
-            >
-              <span className="text-[18px]">📝</span>
-              <span className="text-[14px] font-semibold" style={{ color: '#34e07a' }}>
-                สรุปภาพรวม Macro
-              </span>
+          <div className="panel rounded-2xl overflow-hidden">
+            <div className="px-5 pt-4 pb-3 border-b border-[var(--line)]">
+              <div className="text-[18px] font-semibold text-white">Market Regime Assessment</div>
+              <div className="text-[11px] text-[var(--txt-dim)] mt-1">
+                {thaiDateCE(new Date())} • จากข้อมูลที่ตรวจสอบได้
+              </div>
             </div>
-            <div className="p-4">
-              <textarea
-                className="field w-full"
-                value={summary}
-                onChange={(e) => setSummaryText(e.target.value)}
-                onBlur={flush}
-                placeholder={
-                  'สรุปภาพรวม macro วันนี้ — mood ตลาด, risk-on vs risk-off,\n' +
-                  'position ที่ควรปรับ, สัญญาณที่น่ากังวล, ฯลฯ\n\n' +
-                  '(กรอกเอง — เซฟอัตโนมัติ)'
-                }
-                style={{
-                  minHeight: 'calc(100vh - 240px)',
-                  resize: 'vertical',
-                  lineHeight: 1.65,
-                  fontSize: 13.5,
-                }}
-              />
+            <div className="p-2">
+              {ASSESSMENT.map((row, i) => (
+                <div
+                  key={row.key}
+                  className="grid grid-cols-[130px_1fr] gap-3 items-start px-3 py-3"
+                  style={{
+                    borderTop: i === 0 ? 'none' : '1px solid var(--line)',
+                  }}
+                >
+                  <div className="text-[13px] text-[var(--txt-dim)] pt-1.5">{row.label}</div>
+                  <textarea
+                    rows={1}
+                    className="field w-full"
+                    value={assessment[row.key] || ''}
+                    onChange={(e) => setAssessment(row.key, e.target.value)}
+                    onBlur={flush}
+                    placeholder="—"
+                    style={{
+                      color: '#ff6a3d',
+                      fontWeight: 600,
+                      fontSize: 13.5,
+                      lineHeight: 1.5,
+                      resize: 'vertical',
+                      minHeight: 36,
+                      background: 'transparent',
+                      border: '1px dashed rgba(255,106,61,0.25)',
+                    }}
+                  />
+                </div>
+              ))}
             </div>
           </div>
         </div>
