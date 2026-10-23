@@ -109,41 +109,53 @@ function TradingViewAdvanced({ symbol, compare = [], height = 380 }) {
   )
 }
 
-// ลูกโลก 3D หมุน — ใช้ SVG continents + CSS 3D shading
-// Continents วาดเป็น blob paths เรียงตามพื้นที่จริง (NA, SA, Europe, Africa, Asia, Oceania)
-// Scroll backgroundPosition ให้ทวีปเลื่อนซ้าย = ลูกโลกหมุน
+// ลูกโลก 3D หมุน — ใช้ SVG world strip (equirectangular 2:1) + scroll ให้โลกหมุน
+// Sphere ทำหน้าที่เป็น window มองผ่าน ครั้งละ 1 hemisphere; strip scroll ซ้ายทำให้ทวีปเลื่อนผ่าน
 function SpinningGlobe({ size = 340 }) {
-  // SVG continents (width = height เพื่อ repeat-x seamless)
-  // สี green กลางๆ, viewBox 340x340, blobs คร่าวๆ ตามรูปทรงทวีปจริง
+  // World map strip 1360x680 (2:1 ratio). Continents โดยประมาณ Mercator-ish
+  // สี style ตามรูปอ้างอิง: ทะเลฟ้า + ทวีปเขียวเข้ม + outline soft
   const svg = `
-<svg xmlns='http://www.w3.org/2000/svg' width='340' height='340' viewBox='0 0 340 340'>
-  <g fill='#3d9558' opacity='0.88'>
-    <!-- North America -->
-    <path d='M18,78 Q42,60 72,68 Q92,78 95,105 Q85,135 60,142 Q35,138 22,118 Q10,98 18,78 Z'/>
-    <path d='M48,145 Q58,142 65,156 Q62,172 50,175 Q38,170 42,156 Z'/>
-    <!-- Central America strand -->
-    <path d='M62,155 Q72,160 78,172 Q74,182 68,178 Q58,170 62,155 Z'/>
-    <!-- South America -->
-    <path d='M85,180 Q100,178 108,200 Q112,235 98,268 Q82,278 72,250 Q68,215 85,180 Z'/>
+<svg xmlns='http://www.w3.org/2000/svg' width='1360' height='680' viewBox='0 0 1360 680'>
+  <g fill='#4ea764'>
+    <!-- North America (ซ้ายบน) -->
+    <path d='M80,120 Q130,80 210,90 Q290,100 320,150 Q330,200 310,250 L280,290 L240,330 Q200,350 160,340 Q120,320 100,280 Q75,230 70,180 Q75,145 80,120 Z'/>
+    <!-- Alaska peninsula -->
+    <path d='M30,100 Q60,85 95,100 Q100,125 75,140 Q50,135 30,120 Z'/>
     <!-- Greenland -->
-    <path d='M105,38 Q122,32 130,48 Q128,65 114,68 Q100,60 105,38 Z'/>
+    <path d='M370,70 Q420,55 465,80 Q475,120 445,145 Q400,145 375,125 Q355,95 370,70 Z'/>
+    <!-- Central America -->
+    <path d='M250,340 Q280,345 300,370 L310,395 Q295,415 275,410 Q245,395 230,370 Q235,345 250,340 Z'/>
+    <!-- South America -->
+    <path d='M310,400 Q345,395 365,430 Q380,490 365,550 L345,595 Q320,620 290,610 Q265,585 260,540 Q257,480 275,430 Q290,405 310,400 Z'/>
     <!-- Europe -->
-    <path d='M152,70 Q172,62 190,72 Q198,85 185,98 Q168,100 155,92 Q148,80 152,70 Z'/>
+    <path d='M620,160 Q665,145 715,160 Q745,175 740,205 Q720,230 680,235 L645,225 Q615,215 610,195 Q610,175 620,160 Z'/>
+    <!-- Scandinavia -->
+    <path d='M680,105 Q710,95 735,120 Q730,150 705,160 Q680,152 675,130 Z'/>
+    <!-- UK/Ireland -->
+    <path d='M595,180 Q610,175 618,195 Q612,215 598,215 Q585,205 595,180 Z'/>
     <!-- Africa -->
-    <path d='M170,110 Q200,105 215,135 Q222,180 205,220 Q180,240 162,215 Q150,170 170,110 Z'/>
-    <!-- Middle East -->
-    <path d='M205,105 Q222,102 230,118 Q225,135 215,138 Q200,130 205,105 Z'/>
-    <!-- Asia (big landmass) -->
-    <path d='M220,55 Q275,45 310,70 Q320,95 295,118 Q252,122 215,105 Q198,80 220,55 Z'/>
+    <path d='M635,250 Q700,235 755,275 L785,320 Q800,390 780,460 L745,530 Q710,560 670,545 Q635,510 620,440 Q610,370 620,310 Q625,275 635,250 Z'/>
+    <!-- Middle East / Arabia -->
+    <path d='M780,270 Q825,260 855,290 L865,330 Q850,370 820,375 Q785,355 775,320 Q770,290 780,270 Z'/>
+    <!-- Asia main -->
+    <path d='M760,120 Q870,100 980,120 Q1070,140 1100,185 Q1110,230 1070,265 L1010,280 Q930,285 850,275 Q790,260 760,220 Q745,170 760,120 Z'/>
+    <!-- Russia far east tail -->
+    <path d='M1100,145 Q1150,135 1185,160 Q1180,195 1150,205 Q1115,200 1095,180 Z'/>
     <!-- India -->
-    <path d='M242,120 Q255,118 262,138 Q258,158 247,160 Q235,152 242,120 Z'/>
-    <!-- SE Asia + Indonesia -->
-    <path d='M275,138 Q290,135 298,148 Q294,160 283,162 Q268,155 275,138 Z'/>
-    <path d='M300,160 Q312,160 316,172 Q310,180 302,178 Q295,170 300,160 Z'/>
+    <path d='M905,300 Q945,295 965,330 L970,380 Q950,425 925,420 Q895,400 895,360 Q895,325 905,300 Z'/>
+    <!-- Southeast Asia -->
+    <path d='M1000,320 Q1035,315 1055,340 Q1050,380 1025,385 Q995,370 995,345 Z'/>
+    <!-- Indonesia (archipelago) -->
+    <path d='M1010,410 Q1070,400 1115,420 L1115,445 Q1070,460 1020,450 Q1000,435 1010,410 Z'/>
+    <path d='M1120,420 Q1150,418 1160,435 Q1150,450 1130,448 Q1115,440 1120,420 Z'/>
+    <!-- Japan -->
+    <path d='M1160,195 Q1175,190 1182,210 Q1178,230 1168,230 Q1155,215 1160,195 Z'/>
     <!-- Australia -->
-    <path d='M280,195 Q312,192 322,212 Q318,232 293,238 Q268,234 268,215 Q268,200 280,195 Z'/>
-    <!-- Antarctica rim -->
-    <path d='M50,290 Q120,285 180,290 Q240,285 300,292 Q300,308 180,310 Q60,308 50,290 Z' opacity='0.6'/>
+    <path d='M1070,490 Q1160,480 1225,510 L1245,540 Q1230,580 1180,590 Q1120,590 1080,575 Q1055,550 1060,520 Q1060,500 1070,490 Z'/>
+    <!-- New Zealand -->
+    <path d='M1245,575 Q1260,570 1268,590 Q1262,610 1250,608 Q1240,595 1245,575 Z'/>
+    <!-- Antarctica strip bottom -->
+    <path d='M40,645 Q400,635 800,640 Q1150,635 1320,650 Q1320,675 800,678 Q360,676 40,678 Z' opacity='0.65'/>
   </g>
 </svg>`.replace(/\s+/g, ' ').trim()
   const earthBg = `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`
@@ -153,7 +165,7 @@ function SpinningGlobe({ size = 340 }) {
       <style>{`
         @keyframes macro-earth-rotate {
           from { background-position: 0 50%; }
-          to { background-position: -${size}px 50%; }
+          to { background-position: -${size * 2}px 50%; }
         }
       `}</style>
       <div
@@ -162,17 +174,18 @@ function SpinningGlobe({ size = 340 }) {
           width: size,
           height: size,
           borderRadius: '50%',
-          background: 'radial-gradient(circle at 32% 28%, #6ab2e8 0%, #2a76bd 48%, #0b2e59 100%)',
+          // ทะเลสีฟ้า + 3D shading
+          background: 'radial-gradient(circle at 32% 28%, #70bce8 0%, #3486c4 45%, #0e3869 100%)',
           boxShadow: `
-            inset -${size * 0.14}px -${size * 0.14}px ${size * 0.3}px rgba(0,0,0,0.75),
-            inset ${size * 0.08}px ${size * 0.08}px ${size * 0.17}px rgba(255,255,255,0.18),
+            inset -${size * 0.13}px -${size * 0.14}px ${size * 0.28}px rgba(0,0,0,0.6),
+            inset ${size * 0.07}px ${size * 0.07}px ${size * 0.14}px rgba(255,255,255,0.2),
             0 0 ${size * 0.22}px rgba(52,224,122,0.45),
             0 ${size * 0.05}px ${size * 0.15}px rgba(0,0,0,0.55)
           `,
           overflow: 'hidden',
         }}
       >
-        {/* Continents — SVG scroll ซ้ายต่อเนื่อง */}
+        {/* World map strip — scroll ซ้ายต่อเนื่อง (seamless loop) */}
         <div
           style={{
             position: 'absolute',
@@ -180,22 +193,20 @@ function SpinningGlobe({ size = 340 }) {
             borderRadius: '50%',
             backgroundImage: earthBg,
             backgroundRepeat: 'repeat-x',
-            backgroundSize: `${size}px ${size}px`,
+            backgroundSize: `${size * 2}px ${size}px`, // 2:1 aspect
             backgroundPosition: '0 50%',
-            animation: 'macro-earth-rotate 24s linear infinite',
-            // Fade ขอบให้เหมือนขอบลูกโลก (ขอบมืดลงเพราะหันออกห่าง)
-            maskImage: 'radial-gradient(circle at 50% 50%, black 70%, rgba(0,0,0,0.4) 92%, transparent 100%)',
-            WebkitMaskImage: 'radial-gradient(circle at 50% 50%, black 70%, rgba(0,0,0,0.4) 92%, transparent 100%)',
-            mixBlendMode: 'normal',
+            animation: 'macro-earth-rotate 30s linear infinite',
+            maskImage: 'radial-gradient(circle at 50% 50%, black 75%, rgba(0,0,0,0.5) 92%, transparent 100%)',
+            WebkitMaskImage: 'radial-gradient(circle at 50% 50%, black 75%, rgba(0,0,0,0.5) 92%, transparent 100%)',
           }}
         />
-        {/* เงาด้านมืด (hemisphere) — ให้ดู 3D */}
+        {/* Shadow ด้านมืด (hemisphere) — ให้ดู 3D */}
         <div
           style={{
             position: 'absolute',
             inset: 0,
             borderRadius: '50%',
-            background: `radial-gradient(circle at 70% 72%, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.2) 40%, transparent 70%)`,
+            background: 'radial-gradient(circle at 70% 72%, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.18) 40%, transparent 70%)',
             pointerEvents: 'none',
           }}
         />
@@ -205,7 +216,7 @@ function SpinningGlobe({ size = 340 }) {
             position: 'absolute',
             inset: 0,
             borderRadius: '50%',
-            background: 'radial-gradient(ellipse at 30% 22%, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.1) 22%, transparent 50%)',
+            background: 'radial-gradient(ellipse at 30% 22%, rgba(255,255,255,0.32) 0%, rgba(255,255,255,0.08) 22%, transparent 50%)',
             pointerEvents: 'none',
           }}
         />
