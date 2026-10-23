@@ -14,57 +14,84 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { loadMacroOverview, saveMacroOverview } from '../db.js'
 
-// tv = symbol บน TradingView (ใช้กับ mini chart widget) — ปล่อยว่างถ้าไม่มี chart
-// combinedChart = chart รวมที่ section header, overlay หลาย symbols
+// source: 'fred' = ใช้ FRED fredgraph.png (static image ฟรี, รองรับทุก FRED series)
+//         'tv'   = TradingView mini widget (stocks/ETF/forex ที่มี widget license)
 const SECTIONS = [
   {
-    key: 'credit', title: 'US-Credit Spread', icon: '📊', tone: '#ff8aa0',
-    chartOnly: true,  // แสดงแค่ชาร์ท 3 ตัวต่อกัน ไม่มีช่องกรอกตัวเลข/บทวิเคราะห์
+    key: 'credit', title: 'Credit Spread', icon: '📊', tone: '#ff8aa0',
+    source: 'fred',
     metrics: [
-      { key: 'hy_spread',  label: 'High Yield Credit Spread',  unit: '%', tv: 'FRED:BAMLH0A0HYM2' },
-      { key: 'bbb_spread', label: 'BBB Yield Credit Spread',   unit: '%', tv: 'FRED:BAMLC0A4CBBB' },
-      { key: 'ccc_spread', label: 'CCC Yield Credit Spread',   unit: '%', tv: 'FRED:BAMLH0A3HYC' },
+      { key: 'hy_spread',  label: 'High Yield Credit Spread (BAMLH0A0HYM2)',  fredId: 'BAMLH0A0HYM2' },
+      { key: 'bbb_spread', label: 'BBB Credit Spread (BAMLC0A4CBBB)',          fredId: 'BAMLC0A4CBBB' },
+      { key: 'ccc_spread', label: 'CCC & Lower Credit Spread (BAMLH0A3HYC)',   fredId: 'BAMLH0A3HYC' },
     ],
   },
   {
-    key: 'inflation', title: 'US-Inflation', icon: '📈', tone: '#f7c948',
+    key: 'inflation', title: 'CPI / Core CPI', icon: '📈', tone: '#f7c948',
+    source: 'fred',
     metrics: [
-      // Atlanta Fed Sticky CPI YoY (12-month % change) — ค่าใกล้เคียง CPI YoY ที่คนดูข่าว (2-4%)
-      { key: 'us_inflation_rate',     label: 'US Sticky CPI YoY%',             unit: '%', tv: 'FRED:STICKCPIM679SFRBATL' },
-      // Core Sticky CPI MoM Annualized — rate% ของ core (ไม่รวมอาหาร+พลังงาน)
-      { key: 'us_core_inflation_mom', label: 'Core Sticky CPI MoM% (annualized)', unit: '%', tv: 'FRED:CORESTICKM159SFRBATL' },
+      { key: 'sticky_cpi',       label: 'US Sticky CPI YoY% (STICKCPIM679SFRBATL)',       fredId: 'STICKCPIM679SFRBATL' },
+      { key: 'core_sticky_mom',  label: 'Core Sticky CPI MoM% ann. (CORESTICKM159SFRBATL)', fredId: 'CORESTICKM159SFRBATL' },
     ],
   },
   {
-    key: 'realyield', title: 'Real-Yield', icon: '💰', tone: '#9bffae',
+    key: 'realyield', title: 'Real Yield', icon: '💰', tone: '#9bffae',
+    source: 'fred',
     metrics: [
-      { key: 'dfii10', label: 'Real-Yield (DFII10)', unit: '%', tv: 'FRED:DFII10' },
+      { key: 'dfii10', label: '10-Year Real Yield (DFII10)', fredId: 'DFII10' },
     ],
   },
   {
-    key: 'volatility', title: 'Market Volatility', icon: '🌪', tone: '#7bd1ff',
+    key: 'volatility', title: 'VIX / VXN', icon: '🌪', tone: '#7bd1ff',
+    source: 'fred',
     metrics: [
-      // VIX ETF (ProShares VIX Short-Term) ใช้แทน CBOE:VIX ที่ widget ปิด data
-      { key: 'vix_spx', label: 'VIX-S&P500 (VIXY ETF)',  unit: '', tv: 'AMEX:VIXY' },
-      // VXX = iPath VIX Short-Term Futures ETN — proxy สำหรับ volatility ของ Nasdaq ด้วย
-      { key: 'vix_ndx', label: 'VIX-NASDAQ (VXX ETN)',   unit: '', tv: 'AMEX:VXX' },
+      { key: 'vix', label: 'VIX — S&P 500 Volatility (VIXCLS)',    fredId: 'VIXCLS' },
+      { key: 'vxn', label: 'VXN — NASDAQ-100 Volatility (VXNCLS)', fredId: 'VXNCLS' },
     ],
   },
   {
     key: 'overview', title: 'Overview Index And Price', icon: '🔭', tone: '#c9a9ff',
+    source: 'tv',
     metrics: [
-      { key: 'usdthb', label: 'USD/THB',               unit: '฿', tv: 'FX_IDC:USDTHB' },
-      { key: 'usoil',  label: 'USOIL',                 unit: '$', tv: 'TVC:USOIL' },
-      { key: 'gold',   label: 'GOLD',                  unit: '$', tv: 'TVC:GOLD' },
-      { key: 'btc',    label: 'BTC',                   unit: '$', tv: 'BINANCE:BTCUSDT' },
-      // ETF proxies — track index 99.9% identical แต่ widget มี data license
-      { key: 'spx',    label: 'S&P500 (SPY ETF)',        unit: '', tv: 'AMEX:SPY' },
-      { key: 'ndx',    label: 'NASDAQ-100 (QQQ ETF)',    unit: '', tv: 'NASDAQ:QQQ' },
-      { key: 'dji',    label: 'Dow Jones (DIA ETF)',     unit: '', tv: 'AMEX:DIA' },
-      { key: 'rut',    label: 'Russell 2000 (IWM ETF)',  unit: '', tv: 'AMEX:IWM' },
+      { key: 'usdthb', label: 'USD/THB',                 tv: 'FX_IDC:USDTHB' },
+      { key: 'usoil',  label: 'USOIL',                   tv: 'TVC:USOIL' },
+      { key: 'gold',   label: 'GOLD',                    tv: 'TVC:GOLD' },
+      { key: 'btc',    label: 'BTC',                     tv: 'BINANCE:BTCUSDT' },
+      { key: 'spx',    label: 'S&P 500 (SPY ETF)',       tv: 'AMEX:SPY' },
+      { key: 'ndx',    label: 'NASDAQ-100 (QQQ ETF)',    tv: 'NASDAQ:QQQ' },
+      { key: 'dji',    label: 'Dow Jones (DIA ETF)',     tv: 'AMEX:DIA' },
+      { key: 'rut',    label: 'Russell 2000 (IWM ETF)',  tv: 'AMEX:IWM' },
     ],
   },
 ]
+
+// ─── FRED Chart ────────────────────────────────────────────────────────────
+// FRED fredgraph.png endpoint = static server-rendered PNG, ฟรี, รองรับทุก series
+// 5 ปีย้อนหลัง default range
+function FredChart({ fredId, height = 300 }) {
+  const today = new Date()
+  const start = new Date(today)
+  start.setFullYear(today.getFullYear() - 5)
+  const cosd = start.toISOString().slice(0, 10)
+  const coed = today.toISOString().slice(0, 10)
+  const url = `https://fred.stlouisfed.org/graph/fredgraph.png?id=${encodeURIComponent(fredId)}&cosd=${cosd}&coed=${coed}&recession_bars=on`
+  const siteUrl = `https://fred.stlouisfed.org/series/${encodeURIComponent(fredId)}`
+  return (
+    <a
+      href={siteUrl}
+      target="_blank" rel="noreferrer"
+      title={`เปิด ${fredId} ใน FRED`}
+      style={{ display: 'block', background: '#fff', borderRadius: 8, overflow: 'hidden' }}
+    >
+      <img
+        src={url}
+        alt={`FRED: ${fredId}`}
+        loading="lazy"
+        style={{ width: '100%', height, objectFit: 'contain', display: 'block' }}
+      />
+    </a>
+  )
+}
 
 // ─── TradingView Mini Chart ──────────────────────────────────────────────────
 // embed TradingView mini-symbol-overview widget (ฟรี, ไม่ต้องมี key)
@@ -662,6 +689,54 @@ export default function MacroOverview({ user }) {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ── Charts sections ───────────────────────────────────────────── */}
+      <div className="mt-6 space-y-4">
+        {SECTIONS.map((section, si) => (
+          <div
+            key={section.key}
+            className="panel rounded-2xl overflow-hidden"
+            style={{ borderColor: section.tone + '33' }}
+          >
+            <div
+              className="px-5 py-3 flex items-center gap-2 border-b"
+              style={{ background: section.tone + '0d', borderBottomColor: section.tone + '22' }}
+            >
+              <span className="text-[18px]" style={{ filter: `drop-shadow(0 0 6px ${section.tone}88)` }}>
+                {section.icon}
+              </span>
+              <span className="text-[11px] text-[var(--txt-faint)] font-mono">{si + 1}.</span>
+              <span className="text-[14px] font-semibold" style={{ color: section.tone }}>
+                {section.title}
+              </span>
+              <span className="text-[10.5px] text-[var(--txt-faint)]">
+                · {section.source === 'fred' ? 'FRED Embedded Chart' : 'TradingView Widget'}
+              </span>
+              <span className="ml-auto text-[10.5px] text-[var(--txt-faint)]">{section.metrics.length} รายการ</span>
+            </div>
+            <div className="divide-y divide-[var(--line)]">
+              {section.metrics.map((m, mi) => (
+                <div key={m.key} className="px-4 pt-3 pb-4">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <span className="text-[10.5px] text-[var(--txt-faint)] font-mono">{si + 1}.{mi + 1}</span>
+                    <span className="text-[12.5px] font-medium" style={{ color: 'var(--txt-bright)' }}>
+                      {m.label}
+                    </span>
+                  </div>
+                  {section.source === 'fred' && m.fredId && (
+                    <FredChart fredId={m.fredId} height={300} />
+                  )}
+                  {section.source === 'tv' && m.tv && (
+                    <div className="rounded-lg overflow-hidden" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--line)' }}>
+                      <TradingViewMini symbol={m.tv} height={240} />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   )
