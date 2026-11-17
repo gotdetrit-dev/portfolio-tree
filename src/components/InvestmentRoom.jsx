@@ -17,11 +17,11 @@ const LS_AVATAR  = 'investment_room_avatar_v1'
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)
 
 const STARTER = [
-  { name: 'AI & Technology', icon: '🤖', tone: '#7bd1ff', description: 'หุ้น AI, semiconductor, cloud, software ที่คาดว่าจะเติบโตสูง', news: '', holdings: [] },
-  { name: 'Defensive',       icon: '🛡️', tone: '#9bffae', description: 'หุ้นกินปลอดภัย กลุ่ม utilities, consumer staples', news: '', holdings: [] },
-  { name: 'Hospital',        icon: '🏥', tone: '#ff8aa0', description: 'เครือโรงพยาบาลและบริการสุขภาพ', news: '', holdings: [] },
-  { name: 'Drug / Pharma',   icon: '💊', tone: '#f7c948', description: 'บริษัทยา biotech', news: '', holdings: [] },
-  { name: 'Food & Beverage', icon: '🍔', tone: '#ff9f43', description: 'อาหารเครื่องดื่ม brand-driven', news: '', holdings: [] },
+  { name: 'AI & Technology', icon: '🤖', tone: '#7bd1ff', description: 'หุ้น AI, semiconductor, cloud, software ที่คาดว่าจะเติบโตสูง', news: '', holdings: [], watchlist: [] },
+  { name: 'Defensive',       icon: '🛡️', tone: '#9bffae', description: 'หุ้นกินปลอดภัย กลุ่ม utilities, consumer staples', news: '', holdings: [], watchlist: [] },
+  { name: 'Hospital',        icon: '🏥', tone: '#ff8aa0', description: 'เครือโรงพยาบาลและบริการสุขภาพ', news: '', holdings: [], watchlist: [] },
+  { name: 'Drug / Pharma',   icon: '💊', tone: '#f7c948', description: 'บริษัทยา biotech', news: '', holdings: [], watchlist: [] },
+  { name: 'Food & Beverage', icon: '🍔', tone: '#ff9f43', description: 'อาหารเครื่องดื่ม brand-driven', news: '', holdings: [], watchlist: [] },
 ]
 
 const DEFAULT_AVATAR = {
@@ -99,7 +99,7 @@ export default function InvestmentRoom() {
     setEditMode(null)
   }
   const createTheme = (name, icon, tone) => {
-    const t = { id: uid(), name: name.trim() || 'ธีมใหม่', icon: icon || '✨', tone: tone || '#7bd1ff', description: '', news: '', holdings: [], image: null }
+    const t = { id: uid(), name: name.trim() || 'ธีมใหม่', icon: icon || '✨', tone: tone || '#7bd1ff', description: '', news: '', holdings: [], watchlist: [], image: null }
     setThemes((arr) => {
       const next = [...arr, t]
       setIndex(next.length - 1)
@@ -196,24 +196,16 @@ export default function InvestmentRoom() {
           className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr_1.1fr] gap-4 items-start"
           style={{ perspective: '1800px', perspectiveOrigin: '50% 40%' }}
         >
-          {/* ── Left screen: Portfolio summary (tilted dramatically) ──────── */}
-          <Screen title="สรุปธีม" tone={cur.tone} tilt="left-big" tall>
-            <div className="space-y-3 text-[13px]">
-              <StatRow label="มูลค่าปัจจุบัน" value={fmtUsd(mvNow)} tone={cur.tone} big />
-              <StatRow label="ต้นทุนรวม" value={fmtUsd(costBasis)} />
-              <StatRow
-                label="กำไร / ขาดทุน"
-                value={fmtSigned(pl)}
-                sub={costBasis > 0 ? fmtSignedPct(plPct) : null}
-                color={pl >= 0 ? '#34e07a' : '#ff4d6d'}
-                big
-              />
-              <StatRow label="จำนวนหุ้นในธีม" value={(cur.holdings || []).length + ' ตัว'} />
-              <StatRow label="รวมจำนวน shares" value={fmtNum(totalQty)} />
-            </div>
+          {/* ── Left screen: Watchlist (tilted dramatically) ────────── */}
+          <Screen title="รายการเฝ้ารอ" tone={cur.tone} tilt="left-big" tall>
+            <WatchlistBlock
+              watchlist={cur.watchlist || []}
+              tone={cur.tone}
+              onChange={(w) => updateCur({ watchlist: w })}
+            />
           </Screen>
 
-          {/* ── Center: Hero text + Avatar on stage ───────────────────── */}
+          {/* ── Center: Hero text + summary + avatar ───────────────── */}
           <div className="flex flex-col items-center text-center px-2">
             {/* Theme icon + name (big title) */}
             <div className="text-[52px] leading-none mb-3" style={{ filter: `drop-shadow(0 0 20px ${cur.tone}aa)` }}>
@@ -225,8 +217,7 @@ export default function InvestmentRoom() {
             >
               {cur.name}
             </h1>
-            {/* Description — shown read-only in hero (edit via settings) */}
-            <p className="text-[13px] text-[var(--txt-dim)] leading-relaxed max-w-md mb-4 min-h-[60px]">
+            <p className="text-[13px] text-[var(--txt-dim)] leading-relaxed max-w-md mb-4 min-h-[40px]">
               {cur.description || <span className="italic text-[var(--txt-faint)]">ยังไม่มีคำอธิบาย คลิก "ตั้งค่าธีม" เพื่อเพิ่ม</span>}
             </p>
             {/* CTA buttons */}
@@ -254,22 +245,52 @@ export default function InvestmentRoom() {
                 + สร้างธีมใหม่
               </button>
             </div>
+
             {/* News preview */}
             {cur.news && (
               <div className="w-full max-w-md mb-3 rounded-lg p-3 text-left text-[11.5px] leading-relaxed" style={{ background: 'rgba(0,0,0,0.3)', border: `1px solid ${cur.tone}22` }}>
                 <div className="text-[9.5px] uppercase tracking-wider mb-1" style={{ color: cur.tone }}>📰 ข่าวอัพเดต</div>
-                <div className="text-[var(--txt-dim)] max-h-[80px] overflow-y-auto">{cur.news}</div>
+                <div className="text-[var(--txt-dim)] max-h-[60px] overflow-y-auto">{cur.news}</div>
               </div>
             )}
 
-            {/* Avatar on glowing stage */}
-            <div className="relative flex flex-col items-center mt-2">
+            {/* ── Summary stats (ย้ายมาไว้ตรงนี้) ───────────────────── */}
+            <div
+              className="w-full max-w-md mb-4 rounded-xl p-3"
+              style={{
+                background: 'rgba(8,11,18,0.75)',
+                border: `1px solid ${cur.tone}55`,
+                boxShadow: `0 0 20px ${cur.tone}22, inset 0 0 20px ${cur.tone}0d`,
+              }}
+            >
+              <div
+                className="text-[10px] uppercase tracking-[0.2em] font-semibold mb-2 flex items-center gap-1.5"
+                style={{ color: cur.tone, textShadow: `0 0 6px ${cur.tone}88` }}
+              >
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: cur.tone, boxShadow: `0 0 6px ${cur.tone}` }} />
+                สรุปธีม
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[12px]">
+                <StatRow label="มูลค่า" value={fmtUsd(mvNow)} tone={cur.tone} />
+                <StatRow label="ต้นทุน" value={fmtUsd(costBasis)} />
+                <StatRow
+                  label="กำไร/ขาดทุน"
+                  value={fmtSigned(pl)}
+                  sub={costBasis > 0 ? fmtSignedPct(plPct) : null}
+                  color={pl >= 0 ? '#34e07a' : '#ff4d6d'}
+                />
+                <StatRow label="จำนวน" value={(cur.holdings || []).length + ' ตัว'} />
+              </div>
+            </div>
+
+            {/* Avatar on glowing stage — ยกสูงขึ้น ไม่ให้ตกขอบ */}
+            <div className="relative flex flex-col items-center mt-1 mb-6">
               <HolographicPlatform tone={cur.tone} />
               <button
                 onClick={() => setEditMode('avatar')}
                 className="relative transition-transform hover:scale-105"
                 title="คลิกเพื่อปรับแต่งตัวละคร"
-                style={{ marginBottom: -30, zIndex: 2 }}
+                style={{ marginTop: -70, zIndex: 2 }}
               >
                 <Avatar type={avatar.type} color={avatar.color} activeTone={cur.tone} />
               </button>
@@ -282,7 +303,7 @@ export default function InvestmentRoom() {
                 </div>
               )}
               <div
-                className="text-center text-[9.5px] mt-1 relative"
+                className="text-center text-[9.5px] mt-0.5 relative"
                 style={{ color: cur.tone, textShadow: `0 0 6px ${cur.tone}66`, zIndex: 2 }}
               >
                 ⚙ คลิกตัวละครเพื่อปรับแต่ง
@@ -650,6 +671,99 @@ function HoldingsList({ holdings, tone, onChange }) {
     </div>
   )
 }
+
+// ─── Watchlist (รายการเฝ้ารอ) ──────────────────────────────────────────────
+function WatchlistBlock({ watchlist, tone, onChange }) {
+  const [adding, setAdding] = useState(false)
+  const [ticker, setTicker] = useState('')
+  const [targetPrice, setTargetPrice] = useState('')
+  const [note, setNote] = useState('')
+
+  function add() {
+    const t = ticker.trim().toUpperCase()
+    if (!t) return
+    onChange([...watchlist, { ticker: t, targetPrice: Number(targetPrice) || 0, note: note.trim() }])
+    setTicker(''); setTargetPrice(''); setNote(''); setAdding(false)
+  }
+  function remove(i) { onChange(watchlist.filter((_, idx) => idx !== i)) }
+  function updateField(i, k, v) {
+    onChange(watchlist.map((w, idx) => (idx === i ? { ...w, [k]: k === 'targetPrice' ? Number(v) || 0 : v } : w)))
+  }
+
+  return (
+    <div className="space-y-2 text-[12px]">
+      {watchlist.length === 0 && !adding && (
+        <div className="text-center text-[11px] text-[var(--txt-faint)] italic py-6">
+          ยังไม่มีหุ้นที่เฝ้ารอในธีมนี้
+        </div>
+      )}
+      {watchlist.map((w, i) => (
+        <div
+          key={i}
+          className="rounded-lg p-2 hairline"
+          style={{ background: 'rgba(255,255,255,0.02)', borderColor: tone + '22' }}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[12px]">👁</span>
+            <span className="font-mono font-semibold text-[13px] text-white">{w.ticker}</span>
+            {w.targetPrice > 0 && (
+              <span className="ml-auto text-[11px] font-mono" style={{ color: tone }}>
+                เป้า ${fmtNumPlain(w.targetPrice)}
+              </span>
+            )}
+            <button onClick={() => remove(i)} className="text-[var(--txt-faint)] hover:text-[#ff8aa0] text-[10px]">✕</button>
+          </div>
+          <div className="grid grid-cols-[1fr_auto] gap-2 items-center">
+            <input
+              className="w-full bg-transparent text-[11px] text-[var(--txt-dim)] border-b border-[var(--line)] focus:border-[var(--txt-dim)] outline-none pb-0.5"
+              placeholder="โน้ต / เหตุผล"
+              value={w.note || ''}
+              onChange={(e) => updateField(i, 'note', e.target.value)}
+            />
+            <input
+              type="number"
+              step="0.01"
+              className="w-20 bg-transparent text-[11px] font-mono text-white text-right border-b border-[var(--line)] focus:border-[var(--txt-dim)] outline-none pb-0.5"
+              placeholder="เป้า"
+              value={w.targetPrice || ''}
+              onChange={(e) => updateField(i, 'targetPrice', e.target.value)}
+            />
+          </div>
+        </div>
+      ))}
+
+      {adding ? (
+        <div className="rounded-lg p-2 hairline" style={{ background: 'rgba(255,255,255,0.03)', borderColor: tone + '44' }}>
+          <input
+            autoFocus
+            className="field w-full text-[12px] mb-2"
+            placeholder="สัญลักษณ์ เช่น NVDA"
+            value={ticker}
+            onChange={(e) => setTicker(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && add()}
+          />
+          <div className="grid grid-cols-2 gap-1.5 mb-2">
+            <input className="field text-[11px]" placeholder="เป้าราคา $" type="number" step="0.01" value={targetPrice} onChange={(e) => setTargetPrice(e.target.value)} />
+            <input className="field text-[11px]" placeholder="โน้ต" value={note} onChange={(e) => setNote(e.target.value)} />
+          </div>
+          <div className="flex gap-1.5">
+            <button onClick={() => setAdding(false)} className="btn text-[10.5px] flex-1">ยกเลิก</button>
+            <button onClick={add} className="btn btn-primary text-[10.5px] flex-1" disabled={!ticker.trim()}>เพิ่ม</button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setAdding(true)}
+          className="w-full rounded-lg py-2 text-[11px]"
+          style={{ border: `1px dashed ${tone}55`, color: tone }}
+        >
+          + เพิ่มหุ้นเฝ้ารอ
+        </button>
+      )}
+    </div>
+  )
+}
+const fmtNumPlain = (n) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })
 
 function MiniInput({ label, value, onChange }) {
   return (
