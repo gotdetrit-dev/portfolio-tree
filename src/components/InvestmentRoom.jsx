@@ -169,10 +169,13 @@ export default function InvestmentRoom() {
           ))}
         </div>
 
-        {/* 3-screen layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr_1fr] gap-4">
+        {/* 3-screen layout — perspective wrapper ให้จอเอียง 3D */}
+        <div
+          className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr_1fr] gap-4"
+          style={{ perspective: '1600px', perspectiveOrigin: '50% 40%' }}
+        >
           {/* ── จอ 1: สรุปพอร์ตธีมนี้ ────────────────────────────────── */}
-          <Screen title="สรุปธีม" tone={cur.tone}>
+          <Screen title="สรุปธีม" tone={cur.tone} tilt="left">
             <div className="space-y-3 text-[13px]">
               <StatRow label="มูลค่าปัจจุบัน" value={fmtUsd(mvNow)} tone={cur.tone} big />
               <StatRow label="ต้นทุนรวม" value={fmtUsd(costBasis)} />
@@ -190,7 +193,7 @@ export default function InvestmentRoom() {
 
           {/* ── จอ 2 (กลางบน) + Avatar (กลางล่าง) ──────────────────── */}
           <div className="flex flex-col gap-4">
-            <Screen title="คำอธิบาย + ข่าว" tone={cur.tone} tall>
+            <Screen title="คำอธิบาย + ข่าว" tone={cur.tone} tall tilt="center">
               <div className="space-y-3">
                 <div>
                   <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)] mb-1">คำอธิบายธีม</div>
@@ -217,23 +220,28 @@ export default function InvestmentRoom() {
               </div>
             </Screen>
 
-            {/* Avatar in a "cockpit chair" */}
-            <div className="relative flex items-center justify-center" style={{ minHeight: 240 }}>
+            {/* Avatar บน holographic platform */}
+            <div className="relative flex flex-col items-center justify-end" style={{ minHeight: 280 }}>
+              <HolographicPlatform tone={cur.tone} />
               <button
                 onClick={() => setEditMode('avatar')}
                 className="relative transition-transform hover:scale-105"
                 title="คลิกเพื่อปรับแต่งตัวละคร"
+                style={{ marginBottom: -40, zIndex: 2 }}
               >
                 <Avatar {...avatar} activeTone={cur.tone} />
-                <div className="text-center text-[10px] text-[var(--txt-dim)] mt-1">
-                  ⚙ คลิกปรับแต่ง
-                </div>
               </button>
+              <div
+                className="text-center text-[10px] mt-1 relative"
+                style={{ color: cur.tone, textShadow: `0 0 8px ${cur.tone}66`, zIndex: 2 }}
+              >
+                ⚙ คลิกตัวละครเพื่อปรับแต่ง
+              </div>
             </div>
           </div>
 
           {/* ── จอ 3: หุ้นที่ถือ ─────────────────────────────────────── */}
-          <Screen title="หุ้นที่ถืออยู่" tone={cur.tone}>
+          <Screen title="หุ้นที่ถืออยู่" tone={cur.tone} tilt="right">
             <HoldingsList
               holdings={cur.holdings || []}
               tone={cur.tone}
@@ -270,26 +278,203 @@ export default function InvestmentRoom() {
   )
 }
 
-// ─── Screen frame ──────────────────────────────────────────────────────────
-function Screen({ title, tone, children, tall }) {
+// ─── Screen frame — holographic style ─────────────────────────────────────
+// tilt: 'left' | 'center' | 'right' — ควบคุมการเอียง 3D
+function Screen({ title, tone, children, tall, tilt = 'center' }) {
+  const tiltDeg = tilt === 'left' ? 8 : tilt === 'right' ? -8 : 0
+  const translateZ = tilt === 'center' ? 12 : 0
+
   return (
     <div
-      className="rounded-2xl overflow-hidden flex flex-col"
       style={{
-        background: 'rgba(8,11,18,0.85)',
-        border: `1px solid ${tone}55`,
-        boxShadow: `0 0 0 1px ${tone}22, inset 0 0 60px ${tone}11, 0 20px 40px rgba(0,0,0,0.5)`,
-        minHeight: tall ? 280 : 340,
+        transform: `perspective(1400px) rotateY(${tiltDeg}deg) translateZ(${translateZ}px)`,
+        transformStyle: 'preserve-3d',
+        transition: 'transform 500ms cubic-bezier(.2,.8,.2,1)',
       }}
     >
       <div
-        className="px-4 py-2 text-[11px] uppercase tracking-[0.15em] font-semibold flex items-center gap-2"
-        style={{ background: `linear-gradient(90deg, ${tone}22, transparent)`, borderBottom: `1px solid ${tone}22`, color: tone }}
+        className="rounded-2xl overflow-hidden flex flex-col relative"
+        style={{
+          background: 'linear-gradient(145deg, rgba(10,16,28,0.95) 0%, rgba(5,10,20,0.92) 100%)',
+          border: `1px solid ${tone}88`,
+          boxShadow: `
+            0 0 0 1px ${tone}33,
+            0 0 20px ${tone}55,
+            0 0 60px ${tone}22,
+            inset 0 0 1px ${tone}aa,
+            inset 0 0 80px ${tone}0e,
+            0 30px 60px rgba(0,0,0,0.6)
+          `,
+          minHeight: tall ? 280 : 340,
+          backdropFilter: 'blur(4px)',
+        }}
       >
-        <span style={{ width: 6, height: 6, borderRadius: '50%', background: tone, boxShadow: `0 0 6px ${tone}` }} />
-        {title}
+        {/* Scanlines overlay — subtle */}
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: `repeating-linear-gradient(0deg, transparent 0px, transparent 2px, ${tone}04 2px, ${tone}04 3px)`,
+            pointerEvents: 'none',
+            mixBlendMode: 'overlay',
+            opacity: 0.4,
+            zIndex: 1,
+          }}
+        />
+        {/* Corner accents */}
+        <CornerAccent tone={tone} pos="tl" />
+        <CornerAccent tone={tone} pos="tr" />
+        <CornerAccent tone={tone} pos="bl" />
+        <CornerAccent tone={tone} pos="br" />
+
+        {/* Header */}
+        <div
+          className="px-4 py-2.5 text-[11px] uppercase tracking-[0.2em] font-semibold flex items-center gap-2 relative"
+          style={{
+            background: `linear-gradient(90deg, ${tone}33 0%, ${tone}11 50%, transparent 100%)`,
+            borderBottom: `1px solid ${tone}44`,
+            color: tone,
+            textShadow: `0 0 10px ${tone}88`,
+            zIndex: 2,
+          }}
+        >
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: tone,
+              boxShadow: `0 0 10px ${tone}, 0 0 20px ${tone}66`,
+              animation: 'macro-pulse 1.8s ease-in-out infinite',
+            }}
+          />
+          {title}
+        </div>
+        <style>{`
+          @keyframes macro-pulse { 0%,100% { opacity: 1 } 50% { opacity: 0.4 } }
+        `}</style>
+        <div className="flex-1 p-4 overflow-auto relative" style={{ zIndex: 2 }}>
+          {children}
+        </div>
       </div>
-      <div className="flex-1 p-4 overflow-auto">{children}</div>
+    </div>
+  )
+}
+
+function CornerAccent({ tone, pos }) {
+  const styles = {
+    tl: { top: -2, left: -2, borderTop: `2px solid ${tone}`, borderLeft: `2px solid ${tone}` },
+    tr: { top: -2, right: -2, borderTop: `2px solid ${tone}`, borderRight: `2px solid ${tone}` },
+    bl: { bottom: -2, left: -2, borderBottom: `2px solid ${tone}`, borderLeft: `2px solid ${tone}` },
+    br: { bottom: -2, right: -2, borderBottom: `2px solid ${tone}`, borderRight: `2px solid ${tone}` },
+  }
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: 'absolute',
+        width: 14,
+        height: 14,
+        pointerEvents: 'none',
+        zIndex: 3,
+        filter: `drop-shadow(0 0 4px ${tone})`,
+        ...styles[pos],
+      }}
+    />
+  )
+}
+
+// ─── Holographic Platform (แท่นใต้ avatar) ───────────────────────────────
+function HolographicPlatform({ tone }) {
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: 'relative',
+        width: 220,
+        height: 100,
+        marginTop: 20,
+      }}
+    >
+      {/* Vertical light columns */}
+      <svg
+        width="220"
+        height="100"
+        viewBox="0 0 220 100"
+        style={{ position: 'absolute', inset: 0 }}
+      >
+        <defs>
+          <linearGradient id={`col-${tone.replace('#', '')}`} x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor={tone} stopOpacity="0" />
+            <stop offset="100%" stopColor={tone} stopOpacity="0.5" />
+          </linearGradient>
+        </defs>
+        {/* Rising light columns */}
+        {[40, 70, 110, 150, 180].map((x, i) => (
+          <rect
+            key={i}
+            x={x}
+            y={0}
+            width={2}
+            height={85}
+            fill={`url(#col-${tone.replace('#', '')})`}
+            style={{
+              animation: `col-rise-${i} ${2 + i * 0.3}s ease-in-out infinite`,
+              transformOrigin: `${x}px 85px`,
+            }}
+          />
+        ))}
+      </svg>
+      <style>{`
+        @keyframes col-rise-0 { 0%,100% { transform: scaleY(0.6); opacity: 0.6; } 50% { transform: scaleY(1); opacity: 1; } }
+        @keyframes col-rise-1 { 0%,100% { transform: scaleY(0.8); opacity: 0.5; } 50% { transform: scaleY(1); opacity: 0.9; } }
+        @keyframes col-rise-2 { 0%,100% { transform: scaleY(0.7); opacity: 0.8; } 50% { transform: scaleY(1.1); opacity: 1; } }
+        @keyframes col-rise-3 { 0%,100% { transform: scaleY(0.9); opacity: 0.6; } 50% { transform: scaleY(1); opacity: 0.95; } }
+        @keyframes col-rise-4 { 0%,100% { transform: scaleY(0.7); opacity: 0.7; } 50% { transform: scaleY(1); opacity: 1; } }
+      `}</style>
+      {/* Platform disc (perspective ellipse) */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 10,
+          left: '50%',
+          transform: 'translateX(-50%) perspective(400px) rotateX(70deg)',
+          width: 200,
+          height: 200,
+          borderRadius: '50%',
+          background: `radial-gradient(ellipse at center, ${tone}44 0%, ${tone}22 35%, transparent 70%)`,
+          boxShadow: `0 0 50px ${tone}88, 0 0 100px ${tone}44`,
+        }}
+      />
+      {/* Ring */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 14,
+          left: '50%',
+          transform: 'translateX(-50%) perspective(400px) rotateX(70deg)',
+          width: 160,
+          height: 160,
+          borderRadius: '50%',
+          border: `2px solid ${tone}`,
+          boxShadow: `0 0 20px ${tone}, inset 0 0 20px ${tone}66`,
+        }}
+      />
+      {/* Inner smaller ring */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 22,
+          left: '50%',
+          transform: 'translateX(-50%) perspective(400px) rotateX(70deg)',
+          width: 110,
+          height: 110,
+          borderRadius: '50%',
+          border: `1px solid ${tone}88`,
+          boxShadow: `0 0 12px ${tone}66`,
+        }}
+      />
     </div>
   )
 }
