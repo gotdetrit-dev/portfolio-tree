@@ -704,8 +704,9 @@ export default function App({ user, onSignOut }) {
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
           {[
-            { key: 'macro',    label: 'Macro-Overview' },
-            { key: 'us-stocks', label: 'ตลาดหุ้นอเมริกา' },
+            { key: 'investment-room', label: 'ห้องลงทุน' },
+            { key: 'macro',           label: 'Macro-Overview' },
+            { key: 'us-stocks',       label: 'ตลาดหุ้นอเมริกา' },
           ].map((s) => {
             const on = section === s.key
             return (
@@ -722,6 +723,17 @@ export default function App({ user, onSignOut }) {
           <button className="btn btn-ghost whitespace-nowrap" onClick={onSignOut}>ออกจากระบบ</button>
         </div>
       </header>
+
+      {/* ห้องลงทุน — ยังไม่มีเนื้อหา */}
+      {section === 'investment-room' && (
+        <section className="px-4 lg:px-10 mt-6">
+          <div className="panel rounded-2xl px-6 py-16 text-center">
+            <div className="text-[36px] mb-2">🏛️</div>
+            <div className="text-[18px] font-semibold mb-1">ห้องลงทุน</div>
+            <div className="text-[13px] text-[var(--txt-dim)]">กำลังพัฒนา — ยังไม่พร้อมใช้งาน</div>
+          </div>
+        </section>
+      )}
 
       {/* Macro-Overview — manual tracker */}
       {section === 'macro' && <MacroOverview user={user} />}
