@@ -11,6 +11,7 @@ import HoldingsTable from './components/HoldingsTable.jsx'
 import TradeJournal from './components/TradeJournal.jsx'
 import WatchingList from './components/WatchingList.jsx'
 import MacroOverview from './components/MacroOverview.jsx'
+import InvestmentRoom from './components/InvestmentRoom.jsx'
 import { ArticleAddModal, CashModal, HistoryModal, HoldingModal, JournalAddModal, PricePlanModal, TargetsModal, TransactionEditModal, TransactionModal } from './components/Modals.jsx'
 import { makeWatchingRecord } from './watchingList.js'
 
@@ -724,16 +725,8 @@ export default function App({ user, onSignOut }) {
         </div>
       </header>
 
-      {/* ห้องลงทุน — ยังไม่มีเนื้อหา */}
-      {section === 'investment-room' && (
-        <section className="px-4 lg:px-10 mt-6">
-          <div className="panel rounded-2xl px-6 py-16 text-center">
-            <div className="text-[36px] mb-2">🏛️</div>
-            <div className="text-[18px] font-semibold mb-1">ห้องลงทุน</div>
-            <div className="text-[13px] text-[var(--txt-dim)]">กำลังพัฒนา — ยังไม่พร้อมใช้งาน</div>
-          </div>
-        </section>
-      )}
+      {/* ห้องลงทุน — ธีมหุ้นที่ติดตาม */}
+      {section === 'investment-room' && <InvestmentRoom />}
 
       {/* Macro-Overview — manual tracker */}
       {section === 'macro' && <MacroOverview user={user} />}
