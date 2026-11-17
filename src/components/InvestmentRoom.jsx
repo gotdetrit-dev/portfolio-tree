@@ -134,58 +134,70 @@ export default function InvestmentRoom() {
     >
       <CosmicBackdrop tone={cur.tone} />
 
-      {/* Main cockpit area */}
-      <div className="relative z-10 px-4 lg:px-10 pt-6 pb-20 max-w-[1400px] mx-auto">
-        {/* Top strip — theme name + nav */}
-        <div className="flex items-center gap-3 mb-6 flex-wrap">
-          <button
-            onClick={prev}
-            className="btn text-[18px] px-3 py-1"
-            disabled={themes.length <= 1}
-            title="ธีมก่อนหน้า (←)"
-          >‹</button>
-          <div className="flex-1 text-center">
-            <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: cur.tone }}>
-              ธีมที่ {index + 1} จาก {themes.length}
-            </div>
-            <div className="flex items-center justify-center gap-2 mt-1">
-              <span className="text-[28px]" style={{ filter: `drop-shadow(0 0 10px ${cur.tone}88)` }}>{cur.icon}</span>
-              <h1 className="text-[22px] sm:text-[26px] font-bold text-white">{cur.name}</h1>
-            </div>
+      {/* Side nav arrows (fixed) */}
+      <button
+        onClick={prev}
+        disabled={themes.length <= 1}
+        className="fixed left-4 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full flex items-center justify-center text-[20px] transition-all hover:scale-110"
+        style={{
+          background: 'rgba(8,11,18,0.6)',
+          border: `1px solid ${cur.tone}66`,
+          color: cur.tone,
+          boxShadow: `0 0 20px ${cur.tone}44, inset 0 0 10px ${cur.tone}22`,
+          backdropFilter: 'blur(8px)',
+        }}
+        title="ธีมก่อนหน้า (←)"
+      >‹</button>
+      <button
+        onClick={next}
+        disabled={themes.length <= 1}
+        className="fixed right-4 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full flex items-center justify-center text-[20px] transition-all hover:scale-110"
+        style={{
+          background: 'rgba(8,11,18,0.6)',
+          border: `1px solid ${cur.tone}66`,
+          color: cur.tone,
+          boxShadow: `0 0 20px ${cur.tone}44, inset 0 0 10px ${cur.tone}22`,
+          backdropFilter: 'blur(8px)',
+        }}
+        title="ธีมถัดไป (→)"
+      >›</button>
+
+      {/* Main stage */}
+      <div className="relative z-10 px-4 lg:px-10 pt-6 max-w-[1400px] mx-auto">
+        {/* Theme badge (top center) */}
+        <div className="flex flex-col items-center text-center mb-3">
+          <div className="flex items-center gap-2 text-[10.5px] uppercase tracking-[0.3em]" style={{ color: cur.tone, textShadow: `0 0 10px ${cur.tone}88` }}>
+            <span>✦</span>
+            <span>INVESTMENT ROOM · ธีมที่ {index + 1} / {themes.length}</span>
+            <span>✦</span>
           </div>
-          <button
-            onClick={next}
-            className="btn text-[18px] px-3 py-1"
-            disabled={themes.length <= 1}
-            title="ธีมถัดไป (→)"
-          >›</button>
+          {/* Dots indicator */}
+          <div className="flex items-center justify-center gap-1.5 mt-3">
+            {themes.map((t, i) => (
+              <button
+                key={t.id}
+                onClick={() => setIndex(i)}
+                style={{
+                  width: i === index ? 24 : 6,
+                  height: 6,
+                  borderRadius: 3,
+                  background: i === index ? t.tone : 'rgba(255,255,255,0.2)',
+                  boxShadow: i === index ? `0 0 8px ${t.tone}` : 'none',
+                  transition: 'all 300ms',
+                }}
+                title={t.name}
+              />
+            ))}
+          </div>
         </div>
 
-        {/* Dots indicator */}
-        <div className="flex items-center justify-center gap-1.5 mb-6">
-          {themes.map((t, i) => (
-            <button
-              key={t.id}
-              onClick={() => setIndex(i)}
-              style={{
-                width: i === index ? 20 : 6,
-                height: 6,
-                borderRadius: 3,
-                background: i === index ? t.tone : 'rgba(255,255,255,0.2)',
-                transition: 'all 300ms',
-              }}
-              title={t.name}
-            />
-          ))}
-        </div>
-
-        {/* 3-screen layout — perspective wrapper ให้จอเอียง 3D */}
+        {/* 3-col: screen-left | hero+avatar | screen-right */}
         <div
-          className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr_1fr] gap-4"
-          style={{ perspective: '1600px', perspectiveOrigin: '50% 40%' }}
+          className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr_1.1fr] gap-4 items-start"
+          style={{ perspective: '1800px', perspectiveOrigin: '50% 40%' }}
         >
-          {/* ── จอ 1: สรุปพอร์ตธีมนี้ ────────────────────────────────── */}
-          <Screen title="สรุปธีม" tone={cur.tone} tilt="left">
+          {/* ── Left screen: Portfolio summary (tilted dramatically) ──────── */}
+          <Screen title="สรุปธีม" tone={cur.tone} tilt="left-big" tall>
             <div className="space-y-3 text-[13px]">
               <StatRow label="มูลค่าปัจจุบัน" value={fmtUsd(mvNow)} tone={cur.tone} big />
               <StatRow label="ต้นทุนรวม" value={fmtUsd(costBasis)} />
@@ -201,43 +213,63 @@ export default function InvestmentRoom() {
             </div>
           </Screen>
 
-          {/* ── จอ 2 (กลางบน) + Avatar (กลางล่าง) ──────────────────── */}
-          <div className="flex flex-col gap-4">
-            <Screen title="คำอธิบาย + ข่าว" tone={cur.tone} tall tilt="center">
-              <div className="space-y-3">
-                <div>
-                  <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)] mb-1">คำอธิบายธีม</div>
-                  <textarea
-                    rows={3}
-                    className="field w-full text-[12.5px]"
-                    value={cur.description || ''}
-                    onChange={(e) => updateCur({ description: e.target.value })}
-                    placeholder="เขียนอธิบายธีมนี้สั้นๆ..."
-                    style={{ resize: 'vertical', minHeight: 60 }}
-                  />
-                </div>
-                <div>
-                  <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)] mb-1">📰 ข่าวอัพเดต</div>
-                  <textarea
-                    rows={5}
-                    className="field w-full text-[12.5px]"
-                    value={cur.news || ''}
-                    onChange={(e) => updateCur({ news: e.target.value })}
-                    placeholder="วางข่าว / ลิงก์ / highlight ที่น่าสนใจของธีมนี้"
-                    style={{ resize: 'vertical', minHeight: 100 }}
-                  />
-                </div>
+          {/* ── Center: Hero text + Avatar on stage ───────────────────── */}
+          <div className="flex flex-col items-center text-center px-2">
+            {/* Theme icon + name (big title) */}
+            <div className="text-[52px] leading-none mb-3" style={{ filter: `drop-shadow(0 0 20px ${cur.tone}aa)` }}>
+              {cur.icon}
+            </div>
+            <h1
+              className="text-[28px] sm:text-[36px] font-bold leading-[1.1] text-white mb-3"
+              style={{ textShadow: `0 0 20px ${cur.tone}66` }}
+            >
+              {cur.name}
+            </h1>
+            {/* Description — shown read-only in hero (edit via settings) */}
+            <p className="text-[13px] text-[var(--txt-dim)] leading-relaxed max-w-md mb-4 min-h-[60px]">
+              {cur.description || <span className="italic text-[var(--txt-faint)]">ยังไม่มีคำอธิบาย คลิก "ตั้งค่าธีม" เพื่อเพิ่ม</span>}
+            </p>
+            {/* CTA buttons */}
+            <div className="flex items-center gap-2 flex-wrap justify-center mb-4">
+              <button
+                onClick={() => setEditMode('theme')}
+                className="px-4 py-2 rounded-full text-[12px] font-semibold transition-all"
+                style={{
+                  background: `linear-gradient(135deg, ${cur.tone}, ${darken(cur.tone, 0.15)})`,
+                  color: '#0a0e18',
+                  boxShadow: `0 8px 20px ${cur.tone}55`,
+                }}
+              >
+                ✏ ตั้งค่าธีม
+              </button>
+              <button
+                onClick={() => setEditMode('create')}
+                className="px-4 py-2 rounded-full text-[12px]"
+                style={{
+                  background: 'transparent',
+                  color: cur.tone,
+                  border: `1px solid ${cur.tone}66`,
+                }}
+              >
+                + สร้างธีมใหม่
+              </button>
+            </div>
+            {/* News preview */}
+            {cur.news && (
+              <div className="w-full max-w-md mb-3 rounded-lg p-3 text-left text-[11.5px] leading-relaxed" style={{ background: 'rgba(0,0,0,0.3)', border: `1px solid ${cur.tone}22` }}>
+                <div className="text-[9.5px] uppercase tracking-wider mb-1" style={{ color: cur.tone }}>📰 ข่าวอัพเดต</div>
+                <div className="text-[var(--txt-dim)] max-h-[80px] overflow-y-auto">{cur.news}</div>
               </div>
-            </Screen>
+            )}
 
-            {/* Avatar บน holographic platform */}
-            <div className="relative flex flex-col items-center justify-end" style={{ minHeight: 280 }}>
+            {/* Avatar on glowing stage */}
+            <div className="relative flex flex-col items-center mt-2">
               <HolographicPlatform tone={cur.tone} />
               <button
                 onClick={() => setEditMode('avatar')}
                 className="relative transition-transform hover:scale-105"
                 title="คลิกเพื่อปรับแต่งตัวละคร"
-                style={{ marginBottom: -40, zIndex: 2 }}
+                style={{ marginBottom: -30, zIndex: 2 }}
               >
                 <Avatar type={avatar.type} color={avatar.color} activeTone={cur.tone} />
               </button>
@@ -250,16 +282,16 @@ export default function InvestmentRoom() {
                 </div>
               )}
               <div
-                className="text-center text-[10px] mt-1 relative"
-                style={{ color: cur.tone, textShadow: `0 0 8px ${cur.tone}66`, zIndex: 2 }}
+                className="text-center text-[9.5px] mt-1 relative"
+                style={{ color: cur.tone, textShadow: `0 0 6px ${cur.tone}66`, zIndex: 2 }}
               >
-                ⚙ คลิกเพื่อปรับแต่ง
+                ⚙ คลิกตัวละครเพื่อปรับแต่ง
               </div>
             </div>
           </div>
 
-          {/* ── จอ 3: หุ้นที่ถือ ─────────────────────────────────────── */}
-          <Screen title="หุ้นที่ถืออยู่" tone={cur.tone} tilt="right">
+          {/* ── Right screen: Holdings (tilted dramatically) ──────────── */}
+          <Screen title="หุ้นที่ถืออยู่" tone={cur.tone} tilt="right-big" tall>
             <HoldingsList
               holdings={cur.holdings || []}
               tone={cur.tone}
@@ -268,15 +300,35 @@ export default function InvestmentRoom() {
           </Screen>
         </div>
 
+        {/* Stage platform (rectangular glowing bar at bottom) */}
+        <div className="relative mt-12 mb-10 pointer-events-none" style={{ perspective: '600px' }}>
+          <div
+            style={{
+              height: 50,
+              width: '80%',
+              margin: '0 auto',
+              transform: 'rotateX(60deg)',
+              background: `linear-gradient(90deg, transparent 0%, ${cur.tone}44 20%, ${cur.tone}88 50%, ${cur.tone}44 80%, transparent 100%)`,
+              borderTop: `2px solid ${cur.tone}`,
+              boxShadow: `0 -20px 40px ${cur.tone}55, 0 0 60px ${cur.tone}66`,
+              filter: 'blur(0.5px)',
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              top: 10,
+              left: 0, right: 0,
+              height: 1,
+              background: `linear-gradient(90deg, transparent, ${cur.tone}, transparent)`,
+              boxShadow: `0 0 20px ${cur.tone}`,
+            }}
+          />
+        </div>
+
         {/* Bottom action bar */}
-        <div className="mt-8 flex items-center justify-center gap-2 flex-wrap">
-          <button onClick={() => setEditMode('create')} className="btn text-[12px]">
-            + สร้างธีมใหม่
-          </button>
-          <button onClick={() => setEditMode('theme')} className="btn text-[12px]">
-            ⚙ ตั้งค่าธีม "{cur.name}"
-          </button>
-          <button onClick={deleteCur} className="btn text-[12px]" style={{ color: '#ff8aa0' }}>
+        <div className="pb-10 flex items-center justify-center gap-2 flex-wrap">
+          <button onClick={deleteCur} className="btn text-[11px]" style={{ color: '#ff8aa0' }}>
             🗑 ลบธีมนี้
           </button>
         </div>
@@ -299,7 +351,7 @@ export default function InvestmentRoom() {
 // ─── Screen frame — holographic style ─────────────────────────────────────
 // tilt: 'left' | 'center' | 'right' — ควบคุมการเอียง 3D
 function Screen({ title, tone, children, tall, tilt = 'center' }) {
-  const tiltDeg = tilt === 'left' ? 8 : tilt === 'right' ? -8 : 0
+  const tiltDeg = tilt === 'left-big' ? 18 : tilt === 'right-big' ? -18 : tilt === 'left' ? 8 : tilt === 'right' ? -8 : 0
   const translateZ = tilt === 'center' ? 12 : 0
 
   return (
@@ -1039,7 +1091,7 @@ function ThemeSettingsModal({ theme, onClose, onUpdate }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="panel rounded-2xl p-5 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+      <div className="panel rounded-2xl p-5 max-w-lg w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <div className="text-[16px] font-semibold">ตั้งค่าธีม</div>
           <button onClick={onClose} className="text-[var(--txt-dim)] hover:text-white text-[20px]">✕</button>
@@ -1049,13 +1101,37 @@ function ThemeSettingsModal({ theme, onClose, onUpdate }) {
             <span className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--txt-faint)' }}>ชื่อธีม</span>
             <input type="text" className="field w-full" value={theme.name} onChange={(e) => onUpdate({ name: e.target.value })} />
           </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--txt-faint)' }}>ไอคอน (emoji)</span>
+              <input type="text" className="field w-full" value={theme.icon} onChange={(e) => onUpdate({ icon: e.target.value })} maxLength={2} />
+            </label>
+            <label className="block">
+              <span className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--txt-faint)' }}>สีธีม</span>
+              <input type="color" className="field w-full" value={theme.tone} onChange={(e) => onUpdate({ tone: e.target.value })} style={{ height: 40 }} />
+            </label>
+          </div>
           <label className="block">
-            <span className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--txt-faint)' }}>ไอคอน (emoji 1 ตัว)</span>
-            <input type="text" className="field w-full" value={theme.icon} onChange={(e) => onUpdate({ icon: e.target.value })} maxLength={2} />
+            <span className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--txt-faint)' }}>คำอธิบายธีม (subtitle)</span>
+            <textarea
+              rows={2}
+              className="field w-full"
+              value={theme.description || ''}
+              onChange={(e) => onUpdate({ description: e.target.value })}
+              placeholder="เช่น หุ้น AI, semiconductor, cloud ที่คาดว่าจะเติบโตสูง"
+              style={{ resize: 'vertical', minHeight: 50 }}
+            />
           </label>
           <label className="block">
-            <span className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--txt-faint)' }}>สีธีม</span>
-            <input type="color" className="field w-full" value={theme.tone} onChange={(e) => onUpdate({ tone: e.target.value })} style={{ height: 40 }} />
+            <span className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--txt-faint)' }}>📰 ข่าวอัพเดต</span>
+            <textarea
+              rows={5}
+              className="field w-full"
+              value={theme.news || ''}
+              onChange={(e) => onUpdate({ news: e.target.value })}
+              placeholder="วางข่าว / ลิงก์ / highlight ของธีมนี้"
+              style={{ resize: 'vertical', minHeight: 90 }}
+            />
           </label>
           <div>
             <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)] mb-1">รูปธีม</div>
@@ -1120,32 +1196,70 @@ function CreateThemeModal({ onClose, onCreate }) {
   )
 }
 
-// ─── Cosmic backdrop ──────────────────────────────────────────────────────
+// ─── Cosmic backdrop — bright vertical light rays (FutureSkill-style) ─────
 function CosmicBackdrop({ tone = '#7bd1ff' }) {
+  const toneId = tone.replace('#', '')
   return (
     <div
       aria-hidden
       style={{
         position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none',
-        background: `radial-gradient(ellipse at 50% 0%, ${tone}22 0%, transparent 55%), radial-gradient(ellipse at 50% 100%, ${tone}11 0%, transparent 60%)`,
+        background: `
+          radial-gradient(ellipse at 50% 100%, ${tone}22 0%, transparent 60%),
+          radial-gradient(ellipse at 20% 50%, ${tone}18 0%, transparent 55%),
+          radial-gradient(ellipse at 80% 50%, ${tone}18 0%, transparent 55%),
+          radial-gradient(ellipse at 50% 0%, ${tone}11 0%, transparent 50%),
+          linear-gradient(180deg, #050810 0%, #0a0f1a 100%)
+        `,
       }}
     >
-      <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.35 }}>
+      {/* Bright vertical rays */}
+      <svg viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
         <defs>
-          <linearGradient id="ir-ray" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor={tone} stopOpacity="0.5" />
-            <stop offset="100%" stopColor={tone} stopOpacity="0" />
+          <linearGradient id={`ray-main-${toneId}`} x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor={tone} stopOpacity="0" />
+            <stop offset="40%" stopColor={tone} stopOpacity="0.4" />
+            <stop offset="100%" stopColor={tone} stopOpacity="0.85" />
           </linearGradient>
+          <linearGradient id={`ray-soft-${toneId}`} x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor={tone} stopOpacity="0" />
+            <stop offset="100%" stopColor={tone} stopOpacity="0.25" />
+          </linearGradient>
+          <radialGradient id={`floor-glow-${toneId}`} cx="50%" cy="100%" r="80%">
+            <stop offset="0%" stopColor={tone} stopOpacity="0.4" />
+            <stop offset="60%" stopColor={tone} stopOpacity="0.05" />
+            <stop offset="100%" stopColor={tone} stopOpacity="0" />
+          </radialGradient>
         </defs>
-        {[200, 380, 600, 820, 1000].map((x, i) => (
-          <polygon key={i} points={`${x},0 ${x + 2},0 ${x + 180 + i * 20},800 ${x + 150 + i * 20},800`} fill="url(#ir-ray)" />
-        ))}
+
+        {/* Dense vertical light beams */}
+        {Array.from({ length: 24 }).map((_, i) => {
+          const x = 50 + i * 48 + Math.sin(i * 1.3) * 10
+          const w = 2 + (i % 3) * 1.5
+          const main = i % 4 === 0
+          return (
+            <rect
+              key={i}
+              x={x}
+              y={0}
+              width={w}
+              height={900}
+              fill={`url(#ray-${main ? 'main' : 'soft'}-${toneId})`}
+              opacity={main ? 0.9 : 0.5}
+            />
+          )
+        })}
+
+        {/* Floor glow at bottom */}
+        <rect x="0" y="0" width="1200" height="900" fill={`url(#floor-glow-${toneId})`} />
       </svg>
+
+      {/* Stars */}
       <div
         style={{
           position: 'absolute', inset: 0,
-          backgroundImage: 'radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.4), transparent), radial-gradient(1px 1px at 70% 60%, rgba(255,255,255,0.3), transparent), radial-gradient(1px 1px at 40% 80%, rgba(255,255,255,0.3), transparent), radial-gradient(1px 1px at 85% 20%, rgba(255,255,255,0.4), transparent), radial-gradient(1px 1px at 10% 70%, rgba(255,255,255,0.3), transparent)',
-          opacity: 0.6,
+          backgroundImage: 'radial-gradient(1.5px 1.5px at 15% 20%, rgba(255,255,255,0.7), transparent), radial-gradient(1px 1px at 70% 40%, rgba(255,255,255,0.5), transparent), radial-gradient(1px 1px at 30% 65%, rgba(255,255,255,0.5), transparent), radial-gradient(1.5px 1.5px at 85% 15%, rgba(255,255,255,0.6), transparent), radial-gradient(1px 1px at 55% 80%, rgba(255,255,255,0.4), transparent), radial-gradient(1px 1px at 10% 85%, rgba(255,255,255,0.4), transparent), radial-gradient(1px 1px at 92% 70%, rgba(255,255,255,0.5), transparent)',
+          opacity: 0.8,
         }}
       />
     </div>
