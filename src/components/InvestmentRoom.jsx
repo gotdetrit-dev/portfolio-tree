@@ -1,243 +1,730 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // InvestmentRoom.jsx — ห้องลงทุน
-// Landing page สไตล์ futuristic — hero + grid ธีมหุ้น (sector/custom)
-// แต่ละธีมสามารถอัพรูป + ใส่หุ้นที่ติดตามได้
-// MVP: เก็บใน localStorage (ย้ายไป Supabase ภายหลังถ้า user ต้องการ)
+// Cockpit view: 1 ธีมต่อ 1 จอ, swipe L/R เปลี่ยนธีม
+// Layout:
+//   จอ 1 (ซ้าย)   = สรุปพอร์ตธีมนี้ (P/L, allocation, จำนวนหุ้น)
+//   จอ 2 (กลางบน) = ชื่อธีม + description + news
+//   จอ 3 (ขวา)    = หุ้นที่ถือ (ticker + qty + price + change)
+//   Avatar (กลางล่าง) = customize ได้ (gender, hair, color)
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
-const LS_KEY = 'investment_room_themes_v1'
+const LS_THEMES  = 'investment_room_themes_v2'
+const LS_AVATAR  = 'investment_room_avatar_v1'
 
-// ธีมแนะนำเริ่มต้น (user สามารถลบ/แก้/เพิ่มได้)
-const STARTER_THEMES = [
-  { id: 'ai',        name: 'AI & Technology', icon: '🤖', tone: '#7bd1ff', tickers: [] },
-  { id: 'defense',   name: 'Defensive',       icon: '🛡️', tone: '#9bffae', tickers: [] },
-  { id: 'hospital',  name: 'Hospital',        icon: '🏥', tone: '#ff8aa0', tickers: [] },
-  { id: 'drug',      name: 'Drug / Pharma',   icon: '💊', tone: '#f7c948', tickers: [] },
-  { id: 'fnb',       name: 'Food & Beverage', icon: '🍔', tone: '#ff9f43', tickers: [] },
+// ─── Starter data ──────────────────────────────────────────────────────────
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)
+
+const STARTER = [
+  { name: 'AI & Technology', icon: '🤖', tone: '#7bd1ff', description: 'หุ้น AI, semiconductor, cloud, software ที่คาดว่าจะเติบโตสูง', news: '', holdings: [] },
+  { name: 'Defensive',       icon: '🛡️', tone: '#9bffae', description: 'หุ้นกินปลอดภัย กลุ่ม utilities, consumer staples', news: '', holdings: [] },
+  { name: 'Hospital',        icon: '🏥', tone: '#ff8aa0', description: 'เครือโรงพยาบาลและบริการสุขภาพ', news: '', holdings: [] },
+  { name: 'Drug / Pharma',   icon: '💊', tone: '#f7c948', description: 'บริษัทยา biotech', news: '', holdings: [] },
+  { name: 'Food & Beverage', icon: '🍔', tone: '#ff9f43', description: 'อาหารเครื่องดื่ม brand-driven', news: '', holdings: [] },
 ]
 
-const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)
+const DEFAULT_AVATAR = {
+  gender: 'female', // male | female | neutral
+  hairStyle: 'medium',
+  hairColor: '#3b2416',
+  skinTone: '#f5d5b0',
+  shirtColor: '#34e07a',
+}
+
+const HAIR_STYLES = ['short', 'medium', 'long', 'pony', 'spiky', 'bald']
+const HAIR_COLORS = [
+  '#1a0f0a', '#3b2416', '#6b4423', '#c69758', '#f0c060',
+  '#b84848', '#9c3cb3', '#4a90e2', '#ff79c6', '#7bd1ff',
+]
+const SKIN_TONES = ['#f5d5b0', '#e6b893', '#c69376', '#9a6b50', '#6d4a35']
+const SHIRT_COLORS = ['#34e07a', '#7bd1ff', '#ff79c6', '#f7c948', '#c9a9ff', '#ff6a3d']
 
 function loadThemes() {
   try {
-    const raw = localStorage.getItem(LS_KEY)
-    if (!raw) return STARTER_THEMES.map((t) => ({ ...t, id: uid() }))
+    const raw = localStorage.getItem(LS_THEMES)
+    if (!raw) return STARTER.map((t) => ({ ...t, id: uid(), image: null }))
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) && parsed.length ? parsed : STARTER_THEMES.map((t) => ({ ...t, id: uid() }))
-  } catch { return STARTER_THEMES.map((t) => ({ ...t, id: uid() })) }
+    return Array.isArray(parsed) && parsed.length ? parsed : STARTER.map((t) => ({ ...t, id: uid(), image: null }))
+  } catch { return STARTER.map((t) => ({ ...t, id: uid(), image: null })) }
 }
-function saveThemes(themes) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(themes)) } catch { /* ignore */ }
+function loadAvatar() {
+  try {
+    const raw = localStorage.getItem(LS_AVATAR)
+    return raw ? { ...DEFAULT_AVATAR, ...JSON.parse(raw) } : DEFAULT_AVATAR
+  } catch { return DEFAULT_AVATAR }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function InvestmentRoom() {
   const [themes, setThemes] = useState(() => loadThemes())
-  const [open, setOpen] = useState(null)    // theme ที่กำลังเปิด detail
-  const [creating, setCreating] = useState(false)
+  const [index, setIndex] = useState(0)
+  const [avatar, setAvatar] = useState(() => loadAvatar())
+  const [editMode, setEditMode] = useState(null) // null | 'theme' | 'avatar' | 'create'
 
-  useEffect(() => { saveThemes(themes) }, [themes])
+  useEffect(() => { localStorage.setItem(LS_THEMES, JSON.stringify(themes)) }, [themes])
+  useEffect(() => { localStorage.setItem(LS_AVATAR, JSON.stringify(avatar)) }, [avatar])
 
-  const addTheme = (name, icon, tone) => {
-    const t = { id: uid(), name: name.trim() || 'ธีมใหม่', icon: icon || '✨', tone: tone || '#7bd1ff', tickers: [], image: null }
-    setThemes((arr) => [...arr, t])
-    setCreating(false)
-    setOpen(t)
+  // Keyboard nav
+  useEffect(() => {
+    const onKey = (e) => {
+      if (editMode) return
+      if (e.key === 'ArrowLeft') prev()
+      else if (e.key === 'ArrowRight') next()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [editMode, themes.length]) // eslint-disable-line
+
+  const cur = themes[index]
+  const prev = () => setIndex((i) => (i - 1 + themes.length) % themes.length)
+  const next = () => setIndex((i) => (i + 1) % themes.length)
+
+  const updateCur = (patch) => setThemes((arr) => arr.map((t, i) => (i === index ? { ...t, ...patch } : t)))
+  const deleteCur = () => {
+    if (themes.length <= 1) { alert('ต้องมีอย่างน้อย 1 ธีม'); return }
+    if (!confirm(`ลบธีม "${cur.name}" ทิ้งถาวร?`)) return
+    setThemes((arr) => arr.filter((_, i) => i !== index))
+    setIndex((i) => Math.max(0, i - 1))
+    setEditMode(null)
   }
-  const updateTheme = (id, patch) => setThemes((arr) => arr.map((t) => (t.id === id ? { ...t, ...patch } : t)))
-  const deleteTheme = (id) => {
-    if (!confirm('ลบธีมนี้ทิ้งถาวร? หุ้นที่เพิ่มในธีมจะหายทั้งหมด')) return
-    setThemes((arr) => arr.filter((t) => t.id !== id))
-    setOpen(null)
+  const createTheme = (name, icon, tone) => {
+    const t = { id: uid(), name: name.trim() || 'ธีมใหม่', icon: icon || '✨', tone: tone || '#7bd1ff', description: '', news: '', holdings: [], image: null }
+    setThemes((arr) => {
+      const next = [...arr, t]
+      setIndex(next.length - 1)
+      return next
+    })
+    setEditMode(null)
   }
+
+  // ─── Swipe handling (touch) ────────────────────────────────────────────
+  const touchRef = useRef({ x: 0 })
+  const onTouchStart = (e) => { touchRef.current.x = e.touches[0].clientX }
+  const onTouchEnd = (e) => {
+    const dx = e.changedTouches[0].clientX - touchRef.current.x
+    if (Math.abs(dx) > 60) { dx > 0 ? prev() : next() }
+  }
+
+  if (!cur) return null
+
+  // Aggregates from holdings (placeholder — user กรอกเองในธีม)
+  const totalQty = (cur.holdings || []).reduce((s, h) => s + (Number(h.qty) || 0), 0)
+  const costBasis = (cur.holdings || []).reduce((s, h) => s + (Number(h.qty) || 0) * (Number(h.avgCost) || 0), 0)
+  const mvNow     = (cur.holdings || []).reduce((s, h) => s + (Number(h.qty) || 0) * (Number(h.lastPrice) || Number(h.avgCost) || 0), 0)
+  const pl        = mvNow - costBasis
+  const plPct     = costBasis > 0 ? (pl / costBasis) * 100 : 0
 
   return (
-    <section className="relative px-4 lg:px-10 pb-16" style={{ minHeight: '100vh' }}>
-      <CosmicBackdrop />
+    <section
+      className="relative"
+      style={{ minHeight: 'calc(100vh - 60px)' }}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
+      <CosmicBackdrop tone={cur.tone} />
 
-      {/* ── Hero ────────────────────────────────────────────────────────── */}
-      <div className="relative z-10 flex flex-col items-center text-center pt-8 pb-12">
-        <div className="flex items-center gap-2 mb-5 text-[10.5px] uppercase tracking-[0.3em]" style={{ color: '#7bd1ff' }}>
-          <span>✦</span>
-          <span>INVESTMENT ROOM</span>
-          <span>✦</span>
-        </div>
-        <h1 className="text-[36px] sm:text-[44px] lg:text-[52px] font-bold leading-[1.1] text-white max-w-[820px]">
-          จัดกลุ่มหุ้น<span style={{ color: '#34e07a', textShadow: '0 0 24px rgba(52,224,122,0.6)' }}>ตามธีม</span>
-          <br />ติดตามเฉพาะที่สนใจจริงๆ
-        </h1>
-        <p className="text-[14px] sm:text-[15px] text-[var(--txt-dim)] mt-4 max-w-[640px] leading-relaxed">
-          สร้างธีมเอง อัพรูปแทนธีม ใส่หุ้นที่กำลังศึกษาลงไป
-          <br className="hidden sm:inline" />
-          ไม่ต้องเก็บรวมในพอร์ตหลักให้ยุ่งเหยิง
-        </p>
-        <div className="flex items-center gap-3 flex-wrap justify-center mt-7">
+      {/* Main cockpit area */}
+      <div className="relative z-10 px-4 lg:px-10 pt-6 pb-20 max-w-[1400px] mx-auto">
+        {/* Top strip — theme name + nav */}
+        <div className="flex items-center gap-3 mb-6 flex-wrap">
           <button
-            onClick={() => setCreating(true)}
-            className="btn btn-primary px-6 py-3 text-[14px]"
-            style={{
-              background: 'linear-gradient(135deg, #34e07a, #3bd48a)',
-              color: '#06110b',
-              fontWeight: 600,
-              boxShadow: '0 10px 30px rgba(52,224,122,0.25)',
-            }}
-          >
+            onClick={prev}
+            className="btn text-[18px] px-3 py-1"
+            disabled={themes.length <= 1}
+            title="ธีมก่อนหน้า (←)"
+          >‹</button>
+          <div className="flex-1 text-center">
+            <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: cur.tone }}>
+              ธีมที่ {index + 1} จาก {themes.length}
+            </div>
+            <div className="flex items-center justify-center gap-2 mt-1">
+              <span className="text-[28px]" style={{ filter: `drop-shadow(0 0 10px ${cur.tone}88)` }}>{cur.icon}</span>
+              <h1 className="text-[22px] sm:text-[26px] font-bold text-white">{cur.name}</h1>
+            </div>
+          </div>
+          <button
+            onClick={next}
+            className="btn text-[18px] px-3 py-1"
+            disabled={themes.length <= 1}
+            title="ธีมถัดไป (→)"
+          >›</button>
+        </div>
+
+        {/* Dots indicator */}
+        <div className="flex items-center justify-center gap-1.5 mb-6">
+          {themes.map((t, i) => (
+            <button
+              key={t.id}
+              onClick={() => setIndex(i)}
+              style={{
+                width: i === index ? 20 : 6,
+                height: 6,
+                borderRadius: 3,
+                background: i === index ? t.tone : 'rgba(255,255,255,0.2)',
+                transition: 'all 300ms',
+              }}
+              title={t.name}
+            />
+          ))}
+        </div>
+
+        {/* 3-screen layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr_1fr] gap-4">
+          {/* ── จอ 1: สรุปพอร์ตธีมนี้ ────────────────────────────────── */}
+          <Screen title="สรุปธีม" tone={cur.tone}>
+            <div className="space-y-3 text-[13px]">
+              <StatRow label="มูลค่าปัจจุบัน" value={fmtUsd(mvNow)} tone={cur.tone} big />
+              <StatRow label="ต้นทุนรวม" value={fmtUsd(costBasis)} />
+              <StatRow
+                label="กำไร / ขาดทุน"
+                value={fmtSigned(pl)}
+                sub={costBasis > 0 ? fmtSignedPct(plPct) : null}
+                color={pl >= 0 ? '#34e07a' : '#ff4d6d'}
+                big
+              />
+              <StatRow label="จำนวนหุ้นในธีม" value={(cur.holdings || []).length + ' ตัว'} />
+              <StatRow label="รวมจำนวน shares" value={fmtNum(totalQty)} />
+            </div>
+          </Screen>
+
+          {/* ── จอ 2 (กลางบน) + Avatar (กลางล่าง) ──────────────────── */}
+          <div className="flex flex-col gap-4">
+            <Screen title="คำอธิบาย + ข่าว" tone={cur.tone} tall>
+              <div className="space-y-3">
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)] mb-1">คำอธิบายธีม</div>
+                  <textarea
+                    rows={3}
+                    className="field w-full text-[12.5px]"
+                    value={cur.description || ''}
+                    onChange={(e) => updateCur({ description: e.target.value })}
+                    placeholder="เขียนอธิบายธีมนี้สั้นๆ..."
+                    style={{ resize: 'vertical', minHeight: 60 }}
+                  />
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)] mb-1">📰 ข่าวอัพเดต</div>
+                  <textarea
+                    rows={5}
+                    className="field w-full text-[12.5px]"
+                    value={cur.news || ''}
+                    onChange={(e) => updateCur({ news: e.target.value })}
+                    placeholder="วางข่าว / ลิงก์ / highlight ที่น่าสนใจของธีมนี้"
+                    style={{ resize: 'vertical', minHeight: 100 }}
+                  />
+                </div>
+              </div>
+            </Screen>
+
+            {/* Avatar in a "cockpit chair" */}
+            <div className="relative flex items-center justify-center" style={{ minHeight: 240 }}>
+              <button
+                onClick={() => setEditMode('avatar')}
+                className="relative transition-transform hover:scale-105"
+                title="คลิกเพื่อปรับแต่งตัวละคร"
+              >
+                <Avatar {...avatar} activeTone={cur.tone} />
+                <div className="text-center text-[10px] text-[var(--txt-dim)] mt-1">
+                  ⚙ คลิกปรับแต่ง
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* ── จอ 3: หุ้นที่ถือ ─────────────────────────────────────── */}
+          <Screen title="หุ้นที่ถืออยู่" tone={cur.tone}>
+            <HoldingsList
+              holdings={cur.holdings || []}
+              tone={cur.tone}
+              onChange={(h) => updateCur({ holdings: h })}
+            />
+          </Screen>
+        </div>
+
+        {/* Bottom action bar */}
+        <div className="mt-8 flex items-center justify-center gap-2 flex-wrap">
+          <button onClick={() => setEditMode('create')} className="btn text-[12px]">
             + สร้างธีมใหม่
           </button>
-          <div className="text-[11px] text-[var(--txt-faint)]">
-            มี <span className="font-mono text-white">{themes.length}</span> ธีม ·{' '}
-            <span className="font-mono text-white">{themes.reduce((s, t) => s + (t.tickers?.length || 0), 0)}</span> หุ้น
-          </div>
-        </div>
-      </div>
-
-      {/* ── Themes grid ─────────────────────────────────────────────────── */}
-      <div className="relative z-10 max-w-[1200px] mx-auto">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, transparent, var(--line-strong), transparent)' }} />
-          <div className="text-[11px] uppercase tracking-[0.2em] text-[var(--txt-faint)]">ธีมของฉัน</div>
-          <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, transparent, var(--line-strong), transparent)' }} />
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {themes.map((t) => (
-            <ThemeCard key={t.id} theme={t} onClick={() => setOpen(t)} />
-          ))}
-          {/* + Add card */}
-          <button
-            onClick={() => setCreating(true)}
-            className="rounded-2xl flex flex-col items-center justify-center text-center p-5 transition-all"
-            style={{
-              minHeight: 170,
-              border: '2px dashed var(--line-strong)',
-              background: 'rgba(255,255,255,0.02)',
-              color: 'var(--txt-dim)',
-            }}
-          >
-            <div className="text-[28px] mb-2 opacity-60">+</div>
-            <div className="text-[12px]">สร้างธีมใหม่</div>
+          <button onClick={() => setEditMode('theme')} className="btn text-[12px]">
+            ⚙ ตั้งค่าธีม "{cur.name}"
+          </button>
+          <button onClick={deleteCur} className="btn text-[12px]" style={{ color: '#ff8aa0' }}>
+            🗑 ลบธีมนี้
           </button>
         </div>
       </div>
 
       {/* Modals */}
-      {creating && <CreateThemeModal onClose={() => setCreating(false)} onCreate={addTheme} />}
-      {open && (
-        <ThemeDetailModal
-          theme={themes.find((t) => t.id === open.id) || open}
-          onClose={() => setOpen(null)}
-          onUpdate={(patch) => updateTheme(open.id, patch)}
-          onDelete={() => deleteTheme(open.id)}
+      {editMode === 'avatar' && <AvatarEditor avatar={avatar} onChange={setAvatar} onClose={() => setEditMode(null)} />}
+      {editMode === 'create' && <CreateThemeModal onClose={() => setEditMode(null)} onCreate={createTheme} />}
+      {editMode === 'theme' && (
+        <ThemeSettingsModal
+          theme={cur}
+          onClose={() => setEditMode(null)}
+          onUpdate={updateCur}
         />
       )}
     </section>
   )
 }
 
-// ─── Cosmic animated backdrop ───────────────────────────────────────────────
-function CosmicBackdrop() {
+// ─── Screen frame ──────────────────────────────────────────────────────────
+function Screen({ title, tone, children, tall }) {
   return (
     <div
-      aria-hidden
+      className="rounded-2xl overflow-hidden flex flex-col"
       style={{
-        position: 'absolute',
-        inset: 0,
-        overflow: 'hidden',
-        pointerEvents: 'none',
-        background: 'radial-gradient(ellipse at 50% 0%, rgba(80,120,200,0.18) 0%, transparent 55%), radial-gradient(ellipse at 50% 100%, rgba(52,224,122,0.08) 0%, transparent 60%)',
+        background: 'rgba(8,11,18,0.85)',
+        border: `1px solid ${tone}55`,
+        boxShadow: `0 0 0 1px ${tone}22, inset 0 0 60px ${tone}11, 0 20px 40px rgba(0,0,0,0.5)`,
+        minHeight: tall ? 280 : 340,
       }}
     >
-      {/* Light rays */}
-      <svg
-        viewBox="0 0 1200 800"
-        preserveAspectRatio="xMidYMid slice"
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.4 }}
-      >
-        <defs>
-          <linearGradient id="ray1" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#7bd1ff" stopOpacity="0.6" />
-            <stop offset="100%" stopColor="#7bd1ff" stopOpacity="0" />
-          </linearGradient>
-          <linearGradient id="ray2" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#34e07a" stopOpacity="0.4" />
-            <stop offset="100%" stopColor="#34e07a" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {/* diagonal rays coming down from top */}
-        {[200, 380, 600, 820, 1000].map((x, i) => (
-          <polygon
-            key={i}
-            points={`${x},0 ${x + 2},0 ${x + 180 + i * 20},800 ${x + 150 + i * 20},800`}
-            fill={i % 2 ? 'url(#ray2)' : 'url(#ray1)'}
-          />
-        ))}
-      </svg>
-      {/* subtle stars */}
       <div
-        style={{
-          position: 'absolute', inset: 0,
-          backgroundImage: 'radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.4), transparent), radial-gradient(1px 1px at 70% 60%, rgba(255,255,255,0.3), transparent), radial-gradient(1px 1px at 40% 80%, rgba(255,255,255,0.3), transparent), radial-gradient(1px 1px at 85% 20%, rgba(255,255,255,0.4), transparent), radial-gradient(1px 1px at 10% 70%, rgba(255,255,255,0.3), transparent)',
-          opacity: 0.6,
-        }}
-      />
+        className="px-4 py-2 text-[11px] uppercase tracking-[0.15em] font-semibold flex items-center gap-2"
+        style={{ background: `linear-gradient(90deg, ${tone}22, transparent)`, borderBottom: `1px solid ${tone}22`, color: tone }}
+      >
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: tone, boxShadow: `0 0 6px ${tone}` }} />
+        {title}
+      </div>
+      <div className="flex-1 p-4 overflow-auto">{children}</div>
     </div>
   )
 }
 
-// ─── Theme card ─────────────────────────────────────────────────────────────
-function ThemeCard({ theme, onClick }) {
-  const hasImage = !!theme.image
+function StatRow({ label, value, sub, color, tone, big }) {
   return (
-    <button
-      onClick={onClick}
-      className="rounded-2xl p-4 text-left transition-all hover:scale-[1.02]"
-      style={{
-        minHeight: 170,
-        background: hasImage ? '#0a0e18' : `linear-gradient(135deg, ${theme.tone}11, rgba(255,255,255,0.02))`,
-        border: `1px solid ${theme.tone}44`,
-        boxShadow: `inset 0 0 40px ${theme.tone}18, 0 8px 24px rgba(0,0,0,0.3)`,
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
-      {hasImage && (
-        <>
-          <img
-            src={theme.image}
-            alt={theme.name}
-            style={{
-              position: 'absolute', inset: 0, width: '100%', height: '100%',
-              objectFit: 'cover', opacity: 0.4,
-            }}
-          />
-          <div
-            style={{
-              position: 'absolute', inset: 0,
-              background: `linear-gradient(180deg, transparent 40%, #0a0e18ee)`,
-            }}
-          />
-        </>
-      )}
-      <div style={{ position: 'relative', zIndex: 1 }}>
-        <div className="text-[32px] mb-2" style={{ filter: `drop-shadow(0 0 10px ${theme.tone}88)` }}>
-          {theme.icon}
+    <div className="flex items-start justify-between gap-2">
+      <span className="text-[11px] text-[var(--txt-dim)]">{label}</span>
+      <div className="text-right">
+        <div className={`font-mono num-tabular ${big ? 'text-[16px] font-semibold' : 'text-[13px]'}`} style={{ color: color || tone || 'white' }}>
+          {value}
         </div>
-        <div className="font-semibold text-white text-[14px] leading-tight mb-1">{theme.name}</div>
-        <div className="text-[10.5px] mt-2" style={{ color: theme.tone }}>
-          {(theme.tickers?.length || 0)} หุ้น
-        </div>
-        {theme.tickers?.length > 0 && (
-          <div className="text-[9.5px] font-mono text-[var(--txt-faint)] mt-1 truncate">
-            {theme.tickers.slice(0, 5).join(' · ')}{theme.tickers.length > 5 ? ' · ...' : ''}
-          </div>
-        )}
+        {sub && <div className="text-[10.5px] font-mono" style={{ color }}>{sub}</div>}
       </div>
-    </button>
+    </div>
   )
 }
 
-// ─── Create theme modal ─────────────────────────────────────────────────────
+// ─── Holdings list (per-theme) ─────────────────────────────────────────────
+function HoldingsList({ holdings, tone, onChange }) {
+  const [adding, setAdding] = useState(false)
+  const [ticker, setTicker] = useState('')
+  const [qty, setQty] = useState('')
+  const [avgCost, setAvgCost] = useState('')
+  const [lastPrice, setLastPrice] = useState('')
+
+  function add() {
+    const t = ticker.trim().toUpperCase()
+    if (!t) return
+    const next = [...holdings, { ticker: t, qty: Number(qty) || 0, avgCost: Number(avgCost) || 0, lastPrice: Number(lastPrice) || 0 }]
+    onChange(next)
+    setTicker(''); setQty(''); setAvgCost(''); setLastPrice('')
+    setAdding(false)
+  }
+  function remove(i) { onChange(holdings.filter((_, idx) => idx !== i)) }
+  function updateField(i, k, v) {
+    onChange(holdings.map((h, idx) => (idx === i ? { ...h, [k]: Number(v) || 0 } : h)))
+  }
+
+  return (
+    <div className="space-y-2 text-[12px]">
+      {holdings.length === 0 && !adding && (
+        <div className="text-center text-[11px] text-[var(--txt-faint)] italic py-6">
+          ยังไม่มีหุ้นในธีมนี้
+        </div>
+      )}
+      {holdings.map((h, i) => {
+        const mv = (h.qty || 0) * (h.lastPrice || h.avgCost || 0)
+        const cost = (h.qty || 0) * (h.avgCost || 0)
+        const pl = mv - cost
+        const plColor = pl >= 0 ? '#34e07a' : '#ff4d6d'
+        return (
+          <div
+            key={i}
+            className="rounded-lg p-2 hairline"
+            style={{ background: 'rgba(255,255,255,0.02)', borderColor: tone + '22' }}
+          >
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="font-mono font-semibold text-[13px] text-white">{h.ticker}</span>
+              <span className="ml-auto text-[11px] font-mono" style={{ color: plColor }}>
+                {pl >= 0 ? '+' : ''}{fmtUsd(pl)}
+              </span>
+              <button onClick={() => remove(i)} className="text-[var(--txt-faint)] hover:text-[#ff8aa0] text-[10px]">✕</button>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5 text-[10.5px]">
+              <MiniInput label="จำนวน" value={h.qty} onChange={(v) => updateField(i, 'qty', v)} />
+              <MiniInput label="ทุน" value={h.avgCost} onChange={(v) => updateField(i, 'avgCost', v)} />
+              <MiniInput label="ราคา" value={h.lastPrice} onChange={(v) => updateField(i, 'lastPrice', v)} />
+            </div>
+          </div>
+        )
+      })}
+
+      {adding ? (
+        <div className="rounded-lg p-2 hairline" style={{ background: 'rgba(255,255,255,0.03)', borderColor: tone + '44' }}>
+          <input
+            autoFocus
+            className="field w-full text-[12px] mb-2"
+            placeholder="สัญลักษณ์ เช่น NVDA"
+            value={ticker}
+            onChange={(e) => setTicker(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && add()}
+          />
+          <div className="grid grid-cols-3 gap-1.5">
+            <input className="field text-[11px]" placeholder="จำนวน" type="number" value={qty} onChange={(e) => setQty(e.target.value)} />
+            <input className="field text-[11px]" placeholder="ทุน $" type="number" step="0.01" value={avgCost} onChange={(e) => setAvgCost(e.target.value)} />
+            <input className="field text-[11px]" placeholder="ราคา $" type="number" step="0.01" value={lastPrice} onChange={(e) => setLastPrice(e.target.value)} />
+          </div>
+          <div className="flex gap-1.5 mt-2">
+            <button onClick={() => setAdding(false)} className="btn text-[10.5px] flex-1">ยกเลิก</button>
+            <button onClick={add} className="btn btn-primary text-[10.5px] flex-1" disabled={!ticker.trim()}>เพิ่ม</button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setAdding(true)}
+          className="w-full rounded-lg py-2 text-[11px]"
+          style={{ border: `1px dashed ${tone}55`, color: tone }}
+        >
+          + เพิ่มหุ้น
+        </button>
+      )}
+    </div>
+  )
+}
+
+function MiniInput({ label, value, onChange }) {
+  return (
+    <label className="block">
+      <span className="block text-[9.5px] uppercase tracking-wider text-[var(--txt-faint)]">{label}</span>
+      <input
+        type="number"
+        step="0.01"
+        className="w-full bg-transparent text-[11.5px] font-mono text-white border-b border-[var(--line)] focus:border-[var(--txt-dim)] outline-none"
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
+  )
+}
+
+// ─── Avatar SVG ────────────────────────────────────────────────────────────
+function Avatar({ gender, hairStyle, hairColor, skinTone, shirtColor, activeTone }) {
+  // Idle sway animation
+  const [sway, setSway] = useState(0)
+  useEffect(() => {
+    let raf
+    const start = performance.now()
+    const tick = (t) => {
+      const elapsed = (t - start) / 1000
+      setSway(Math.sin(elapsed * 1.5) * 2) // degrees
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
+  const bodyWidth = gender === 'female' ? 72 : gender === 'male' ? 88 : 80
+  const shoulderY = 130
+
+  return (
+    <div style={{ width: 170, height: 220, position: 'relative' }}>
+      {/* Chair / platform */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 150,
+          height: 20,
+          borderRadius: '50% / 100%',
+          background: `radial-gradient(ellipse at center, ${activeTone}44 0%, transparent 70%)`,
+          filter: 'blur(4px)',
+        }}
+      />
+      <svg
+        viewBox="0 0 200 260"
+        width="170"
+        height="220"
+        style={{ transform: `rotate(${sway}deg)`, transformOrigin: 'center bottom', transition: 'transform 100ms linear', filter: `drop-shadow(0 0 20px ${activeTone}55)` }}
+      >
+        {/* Body */}
+        <g>
+          {/* Shirt */}
+          <path
+            d={`M${100 - bodyWidth / 2},${shoulderY} Q${100 - bodyWidth / 2 - 6},${shoulderY + 50} ${100 - bodyWidth / 2 - 4},${shoulderY + 110} L${100 + bodyWidth / 2 + 4},${shoulderY + 110} Q${100 + bodyWidth / 2 + 6},${shoulderY + 50} ${100 + bodyWidth / 2},${shoulderY} Z`}
+            fill={shirtColor}
+          />
+          {/* Shirt neckline */}
+          <path d={`M85,${shoulderY} Q100,${shoulderY + 15} 115,${shoulderY}`} fill={skinTone} />
+        </g>
+        {/* Neck */}
+        <rect x="90" y={shoulderY - 20} width="20" height="25" rx="4" fill={skinTone} />
+        {/* Head */}
+        <circle cx="100" cy="75" r="42" fill={skinTone} />
+        {/* Ears */}
+        <ellipse cx="59" cy="78" rx="6" ry="9" fill={skinTone} />
+        <ellipse cx="141" cy="78" rx="6" ry="9" fill={skinTone} />
+        {/* Eyes (looking at screens — center) */}
+        <g>
+          <ellipse cx="86" cy="76" rx="5" ry="7" fill="#fff" />
+          <ellipse cx="114" cy="76" rx="5" ry="7" fill="#fff" />
+          <circle cx="86" cy="78" r="3" fill="#1a1a2e" />
+          <circle cx="114" cy="78" r="3" fill="#1a1a2e" />
+          <circle cx="87" cy="77" r="1" fill="#fff" />
+          <circle cx="115" cy="77" r="1" fill="#fff" />
+        </g>
+        {/* Nose */}
+        <path d="M100 82 L96 92 L100 94 L104 92 Z" fill={darken(skinTone, 0.12)} opacity="0.5" />
+        {/* Mouth */}
+        <path d="M90 102 Q100 108 110 102" stroke={darken(skinTone, 0.35)} strokeWidth="2" fill="none" strokeLinecap="round" />
+        {/* Blush */}
+        <circle cx="75" cy="90" r="6" fill="#ff8aa0" opacity="0.35" />
+        <circle cx="125" cy="90" r="6" fill="#ff8aa0" opacity="0.35" />
+        {/* Hair */}
+        <Hair style={hairStyle} color={hairColor} />
+      </svg>
+    </div>
+  )
+}
+
+function Hair({ style, color }) {
+  if (style === 'bald') return null
+  const stroke = darken(color, 0.15)
+  if (style === 'short') {
+    return (
+      <path d="M58,55 Q60,40 100,32 Q140,40 142,55 Q145,68 140,78 Q130,55 100,50 Q70,55 60,78 Q55,68 58,55 Z" fill={color} stroke={stroke} strokeWidth="1" />
+    )
+  }
+  if (style === 'medium') {
+    return (
+      <g>
+        <path d="M58,55 Q60,38 100,30 Q140,38 142,55 L144,110 Q135,100 130,85 Q100,52 70,85 Q65,100 56,110 Z" fill={color} stroke={stroke} strokeWidth="1" />
+      </g>
+    )
+  }
+  if (style === 'long') {
+    return (
+      <g>
+        <path d="M55,60 Q58,36 100,28 Q142,36 145,60 L150,160 Q138,165 130,130 Q125,110 128,85 Q100,52 72,85 Q75,110 70,130 Q62,165 50,160 Z" fill={color} stroke={stroke} strokeWidth="1" />
+      </g>
+    )
+  }
+  if (style === 'pony') {
+    return (
+      <g>
+        <path d="M58,55 Q60,38 100,30 Q140,38 142,55 Q145,70 140,80 Q130,55 100,50 Q70,55 60,80 Q55,70 58,55 Z" fill={color} stroke={stroke} strokeWidth="1" />
+        {/* Ponytail */}
+        <path d="M140,85 Q168,110 162,160 Q155,170 148,165 Q148,125 136,100 Z" fill={color} stroke={stroke} strokeWidth="1" />
+      </g>
+    )
+  }
+  if (style === 'spiky') {
+    return (
+      <g>
+        <path d="M55,70 L62,42 L72,58 L80,34 L92,54 L100,30 L108,54 L120,34 L128,58 L138,42 L145,70 Q130,55 100,50 Q70,55 55,70 Z" fill={color} stroke={stroke} strokeWidth="1" />
+      </g>
+    )
+  }
+  return null
+}
+
+// ─── Avatar editor ────────────────────────────────────────────────────────
+function AvatarEditor({ avatar, onChange, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="panel rounded-2xl p-5 max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-[16px] font-semibold">ปรับแต่งตัวละคร</div>
+          <button onClick={onClose} className="text-[var(--txt-dim)] hover:text-white text-[20px]">✕</button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-5">
+          {/* Preview */}
+          <div className="flex items-center justify-center p-3 rounded-xl" style={{ background: 'rgba(0,0,0,0.3)' }}>
+            <Avatar {...avatar} activeTone="#34e07a" />
+          </div>
+
+          {/* Controls */}
+          <div className="space-y-4">
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)] mb-2">เพศ</div>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { key: 'female', label: '♀ หญิง' },
+                  { key: 'male',   label: '♂ ชาย' },
+                  { key: 'neutral',label: '⚥ กลาง' },
+                ].map((g) => {
+                  const active = avatar.gender === g.key
+                  return (
+                    <button
+                      key={g.key}
+                      onClick={() => onChange({ ...avatar, gender: g.key })}
+                      className="py-2 rounded-lg text-[12px]"
+                      style={{
+                        background: active ? 'rgba(52,224,122,0.15)' : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${active ? 'rgba(52,224,122,0.5)' : 'var(--line)'}`,
+                        color: active ? '#34e07a' : 'var(--txt-dim)',
+                      }}
+                    >
+                      {g.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)] mb-2">ทรงผม</div>
+              <div className="grid grid-cols-3 gap-2">
+                {HAIR_STYLES.map((s) => {
+                  const active = avatar.hairStyle === s
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => onChange({ ...avatar, hairStyle: s })}
+                      className="py-2 rounded-lg text-[11px] capitalize"
+                      style={{
+                        background: active ? 'rgba(52,224,122,0.15)' : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${active ? 'rgba(52,224,122,0.5)' : 'var(--line)'}`,
+                        color: active ? '#34e07a' : 'var(--txt-dim)',
+                      }}
+                    >
+                      {s === 'short' ? 'สั้น' : s === 'medium' ? 'ปานกลาง' : s === 'long' ? 'ยาว' : s === 'pony' ? 'หางม้า' : s === 'spiky' ? 'สปายกี้' : 'ล้าน'}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)] mb-2">สีผม</div>
+              <div className="flex gap-1.5 flex-wrap">
+                {HAIR_COLORS.map((c) => {
+                  const active = avatar.hairColor === c
+                  return (
+                    <button
+                      key={c}
+                      onClick={() => onChange({ ...avatar, hairColor: c })}
+                      style={{
+                        width: 28, height: 28, borderRadius: 14, background: c,
+                        border: active ? '2px solid #fff' : '1px solid rgba(255,255,255,0.15)',
+                        boxShadow: active ? `0 0 10px ${c}` : 'none',
+                      }}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)] mb-2">สีผิว</div>
+              <div className="flex gap-1.5">
+                {SKIN_TONES.map((c) => {
+                  const active = avatar.skinTone === c
+                  return (
+                    <button
+                      key={c}
+                      onClick={() => onChange({ ...avatar, skinTone: c })}
+                      style={{
+                        width: 32, height: 32, borderRadius: 16, background: c,
+                        border: active ? '2px solid #fff' : '1px solid rgba(255,255,255,0.15)',
+                        boxShadow: active ? `0 0 10px rgba(255,255,255,0.3)` : 'none',
+                      }}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)] mb-2">สีเสื้อ</div>
+              <div className="flex gap-1.5">
+                {SHIRT_COLORS.map((c) => {
+                  const active = avatar.shirtColor === c
+                  return (
+                    <button
+                      key={c}
+                      onClick={() => onChange({ ...avatar, shirtColor: c })}
+                      style={{
+                        width: 32, height: 32, borderRadius: 16, background: c,
+                        border: active ? '2px solid #fff' : '1px solid rgba(255,255,255,0.15)',
+                        boxShadow: active ? `0 0 10px ${c}66` : 'none',
+                      }}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end mt-5">
+          <button onClick={onClose} className="btn btn-primary">เสร็จ</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Theme settings modal ─────────────────────────────────────────────────
+function ThemeSettingsModal({ theme, onClose, onUpdate }) {
+  const fileRef = useRef(null)
+  async function onFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) { alert('รูปใหญ่เกิน 2MB'); return }
+    const reader = new FileReader()
+    reader.onload = () => onUpdate({ image: reader.result })
+    reader.readAsDataURL(file)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="panel rounded-2xl p-5 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-[16px] font-semibold">ตั้งค่าธีม</div>
+          <button onClick={onClose} className="text-[var(--txt-dim)] hover:text-white text-[20px]">✕</button>
+        </div>
+        <div className="space-y-3">
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--txt-faint)' }}>ชื่อธีม</span>
+            <input type="text" className="field w-full" value={theme.name} onChange={(e) => onUpdate({ name: e.target.value })} />
+          </label>
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--txt-faint)' }}>ไอคอน (emoji 1 ตัว)</span>
+            <input type="text" className="field w-full" value={theme.icon} onChange={(e) => onUpdate({ icon: e.target.value })} maxLength={2} />
+          </label>
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--txt-faint)' }}>สีธีม</span>
+            <input type="color" className="field w-full" value={theme.tone} onChange={(e) => onUpdate({ tone: e.target.value })} style={{ height: 40 }} />
+          </label>
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-[var(--txt-faint)] mb-1">รูปธีม</div>
+            <input ref={fileRef} type="file" accept="image/*" onChange={onFile} className="hidden" />
+            <div className="flex items-center gap-2">
+              <button className="btn text-[12px]" onClick={() => fileRef.current?.click()}>
+                📷 {theme.image ? 'เปลี่ยนรูป' : 'อัพรูป'}
+              </button>
+              {theme.image && (
+                <button className="btn text-[12px]" style={{ color: '#ff8aa0' }} onClick={() => onUpdate({ image: null })}>🗑 ลบรูป</button>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end mt-5">
+          <button onClick={onClose} className="btn btn-primary">เสร็จ</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Create theme modal ─────────────────────────────────────────────────
 function CreateThemeModal({ onClose, onCreate }) {
   const [name, setName] = useState('')
   const [icon, setIcon] = useState('✨')
@@ -254,26 +741,16 @@ function CreateThemeModal({ onClose, onCreate }) {
         <div className="text-[16px] font-semibold mb-4">สร้างธีมใหม่</div>
         <label className="block mb-3">
           <span className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--txt-faint)' }}>ชื่อธีม</span>
-          <input
-            type="text" className="field w-full" value={name} autoFocus
-            onChange={(e) => setName(e.target.value)}
-            placeholder="เช่น AI, Semiconductors, Luxury, Clean Energy"
-          />
+          <input type="text" className="field w-full" value={name} autoFocus onChange={(e) => setName(e.target.value)} placeholder="เช่น AI, Semiconductors, Clean Energy" />
         </label>
         <div className="block text-[10px] uppercase tracking-wider mb-2" style={{ color: 'var(--txt-faint)' }}>ไอคอน + สี</div>
         <div className="grid grid-cols-6 gap-2 mb-4">
           {PRESETS.map((p, i) => {
             const active = icon === p.icon && tone === p.tone
             return (
-              <button
-                key={i}
-                onClick={() => { setIcon(p.icon); setTone(p.tone) }}
+              <button key={i} onClick={() => { setIcon(p.icon); setTone(p.tone) }}
                 className="rounded-lg aspect-square flex items-center justify-center text-[22px] transition-all"
-                style={{
-                  background: active ? `${p.tone}22` : 'rgba(255,255,255,0.03)',
-                  border: `1px solid ${active ? p.tone : 'var(--line)'}`,
-                  boxShadow: active ? `0 0 12px ${p.tone}66` : 'none',
-                }}
+                style={{ background: active ? `${p.tone}22` : 'rgba(255,255,255,0.03)', border: `1px solid ${active ? p.tone : 'var(--line)'}`, boxShadow: active ? `0 0 12px ${p.tone}66` : 'none' }}
               >
                 {p.icon}
               </button>
@@ -282,157 +759,56 @@ function CreateThemeModal({ onClose, onCreate }) {
         </div>
         <div className="flex gap-2">
           <button className="btn flex-1" onClick={onClose}>ยกเลิก</button>
-          <button
-            className="btn btn-primary flex-1"
-            onClick={() => onCreate(name, icon, tone)}
-            disabled={!name.trim()}
-          >
-            สร้าง
-          </button>
+          <button className="btn btn-primary flex-1" onClick={() => onCreate(name, icon, tone)} disabled={!name.trim()}>สร้าง</button>
         </div>
       </div>
     </div>
   )
 }
 
-// ─── Theme detail modal ────────────────────────────────────────────────────
-function ThemeDetailModal({ theme, onClose, onUpdate, onDelete }) {
-  const [newTicker, setNewTicker] = useState('')
-  const fileRef = useRef(null)
-
-  async function onFile(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (file.size > 2 * 1024 * 1024) { alert('รูปใหญ่เกิน 2MB — ลองย่อก่อน'); return }
-    const reader = new FileReader()
-    reader.onload = () => onUpdate({ image: reader.result })
-    reader.readAsDataURL(file)
-  }
-
-  function addTicker() {
-    const t = newTicker.trim().toUpperCase()
-    if (!t) return
-    if ((theme.tickers || []).includes(t)) { setNewTicker(''); return }
-    onUpdate({ tickers: [...(theme.tickers || []), t] })
-    setNewTicker('')
-  }
-
-  function removeTicker(t) {
-    onUpdate({ tickers: (theme.tickers || []).filter((x) => x !== t) })
-  }
-
+// ─── Cosmic backdrop ──────────────────────────────────────────────────────
+function CosmicBackdrop({ tone = '#7bd1ff' }) {
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="panel rounded-2xl p-0 max-w-xl w-full overflow-hidden" onClick={(e) => e.stopPropagation()} style={{ borderColor: theme.tone + '55' }}>
-        {/* Header with image or gradient */}
-        <div
-          className="px-5 pt-5 pb-4 relative"
-          style={{
-            background: theme.image
-              ? `linear-gradient(180deg, transparent 0%, #080b12 100%), url(${theme.image})`
-              : `linear-gradient(135deg, ${theme.tone}22, rgba(255,255,255,0.02))`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            minHeight: theme.image ? 180 : 100,
-          }}
-        >
-          <div className="flex items-start gap-3 relative z-10">
-            <span className="text-[32px]" style={{ filter: `drop-shadow(0 0 10px ${theme.tone}88)` }}>{theme.icon}</span>
-            <div className="flex-1">
-              <input
-                className="w-full bg-transparent text-white text-[18px] font-semibold border-b border-transparent hover:border-[var(--line)] focus:border-[var(--txt-dim)] outline-none pb-1"
-                value={theme.name}
-                onChange={(e) => onUpdate({ name: e.target.value })}
-              />
-              <div className="text-[11px] mt-1" style={{ color: theme.tone }}>{(theme.tickers || []).length} หุ้นในธีม</div>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-[var(--txt-dim)] hover:text-white"
-              style={{ fontSize: 20, lineHeight: 1 }}
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-
-        <div className="p-5 space-y-4">
-          {/* Image upload */}
-          <div>
-            <div className="text-[11px] uppercase tracking-wider text-[var(--txt-faint)] mb-2">รูปธีม</div>
-            <div className="flex items-center gap-2">
-              <input ref={fileRef} type="file" accept="image/*" onChange={onFile} className="hidden" />
-              <button className="btn text-[12px]" onClick={() => fileRef.current?.click()}>
-                📷 {theme.image ? 'เปลี่ยนรูป' : 'อัพรูปธีม'}
-              </button>
-              {theme.image && (
-                <button className="btn text-[12px]" onClick={() => onUpdate({ image: null })} style={{ color: '#ff8aa0' }}>
-                  🗑 ลบรูป
-                </button>
-              )}
-              <div className="text-[10px] text-[var(--txt-faint)] ml-auto">ไฟล์ไม่เกิน 2MB</div>
-            </div>
-          </div>
-
-          {/* Add ticker */}
-          <div>
-            <div className="text-[11px] uppercase tracking-wider text-[var(--txt-faint)] mb-2">เพิ่มหุ้น</div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                className="field flex-1"
-                placeholder="เช่น NVDA, PLTR, QQQ"
-                value={newTicker}
-                onChange={(e) => setNewTicker(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addTicker()}
-              />
-              <button className="btn btn-primary" onClick={addTicker} disabled={!newTicker.trim()}>+ เพิ่ม</button>
-            </div>
-          </div>
-
-          {/* Tickers list */}
-          {(theme.tickers || []).length > 0 && (
-            <div>
-              <div className="text-[11px] uppercase tracking-wider text-[var(--txt-faint)] mb-2">
-                หุ้นในธีม ({theme.tickers.length})
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {theme.tickers.map((t) => (
-                  <div
-                    key={t}
-                    className="rounded-full px-3 py-1 flex items-center gap-2 text-[12px] font-mono"
-                    style={{
-                      background: `${theme.tone}18`,
-                      border: `1px solid ${theme.tone}66`,
-                      color: '#fff',
-                    }}
-                  >
-                    <span>{t}</span>
-                    <button
-                      onClick={() => removeTicker(t)}
-                      className="text-[var(--txt-faint)] hover:text-[#ff8aa0]"
-                      style={{ fontSize: 12 }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Delete */}
-          <div className="pt-3 border-t border-[var(--line)]">
-            <button
-              onClick={onDelete}
-              className="btn text-[11px]"
-              style={{ color: '#ff4d6d', border: '1px solid rgba(255,77,109,0.3)' }}
-            >
-              🗑 ลบธีมนี้ทิ้ง
-            </button>
-          </div>
-        </div>
-      </div>
+    <div
+      aria-hidden
+      style={{
+        position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none',
+        background: `radial-gradient(ellipse at 50% 0%, ${tone}22 0%, transparent 55%), radial-gradient(ellipse at 50% 100%, ${tone}11 0%, transparent 60%)`,
+      }}
+    >
+      <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.35 }}>
+        <defs>
+          <linearGradient id="ir-ray" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor={tone} stopOpacity="0.5" />
+            <stop offset="100%" stopColor={tone} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {[200, 380, 600, 820, 1000].map((x, i) => (
+          <polygon key={i} points={`${x},0 ${x + 2},0 ${x + 180 + i * 20},800 ${x + 150 + i * 20},800`} fill="url(#ir-ray)" />
+        ))}
+      </svg>
+      <div
+        style={{
+          position: 'absolute', inset: 0,
+          backgroundImage: 'radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.4), transparent), radial-gradient(1px 1px at 70% 60%, rgba(255,255,255,0.3), transparent), radial-gradient(1px 1px at 40% 80%, rgba(255,255,255,0.3), transparent), radial-gradient(1px 1px at 85% 20%, rgba(255,255,255,0.4), transparent), radial-gradient(1px 1px at 10% 70%, rgba(255,255,255,0.3), transparent)',
+          opacity: 0.6,
+        }}
+      />
     </div>
   )
 }
+
+// ─── Utilities ────────────────────────────────────────────────────────────
+function darken(hex, amt) {
+  const h = hex.replace('#', '')
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16)
+  const d = (v) => Math.max(0, Math.round(v * (1 - amt)))
+  return `rgb(${d(r)}, ${d(g)}, ${d(b)})`
+}
+const fmtUsd = (n) => {
+  const v = Number(n || 0)
+  return (v < 0 ? '-' : '') + '$' + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+const fmtSigned = (n) => (Number(n) >= 0 ? '+' : '') + fmtUsd(n)
+const fmtSignedPct = (n) => (Number(n) >= 0 ? '+' : '') + Number(n || 0).toFixed(2) + '%'
+const fmtNum = (n) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 4 })
