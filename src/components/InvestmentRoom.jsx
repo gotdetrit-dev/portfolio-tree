@@ -283,14 +283,14 @@ export default function InvestmentRoom() {
               </div>
             </div>
 
-            {/* Avatar on glowing stage — ยกสูงขึ้น ไม่ให้ตกขอบ */}
+            {/* Avatar on glowing stage — ยกสูงขึ้นอีก ไม่ให้ตกขอบ */}
             <div className="relative flex flex-col items-center mt-1 mb-6">
               <HolographicPlatform tone={cur.tone} />
               <button
                 onClick={() => setEditMode('avatar')}
                 className="relative transition-transform hover:scale-105"
                 title="คลิกเพื่อปรับแต่งตัวละคร"
-                style={{ marginTop: -70, zIndex: 2 }}
+                style={{ marginTop: -150, zIndex: 2 }}
               >
                 <Avatar type={avatar.type} color={avatar.color} activeTone={cur.tone} />
               </button>
@@ -374,6 +374,7 @@ export default function InvestmentRoom() {
 function Screen({ title, tone, children, tall, tilt = 'center' }) {
   const tiltDeg = tilt === 'left-big' ? 18 : tilt === 'right-big' ? -18 : tilt === 'left' ? 8 : tilt === 'right' ? -8 : 0
   const translateZ = tilt === 'center' ? 12 : 0
+  const minH = tall ? 620 : 340
 
   return (
     <div
@@ -396,7 +397,7 @@ function Screen({ title, tone, children, tall, tilt = 'center' }) {
             inset 0 0 80px ${tone}0e,
             0 30px 60px rgba(0,0,0,0.6)
           `,
-          minHeight: tall ? 280 : 340,
+          minHeight: minH,
           backdropFilter: 'blur(4px)',
         }}
       >
