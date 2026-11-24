@@ -141,10 +141,30 @@ export default function InvestmentRoom() {
                 key={t.id}
                 theme={t}
                 onClick={() => { setIndex(i); setOpened(true) }}
+                onEdit={() => { setIndex(i); setEditMode('theme') }}
               />
             ))}
           </div>
         </div>
+
+        {/* ปุ่มเพิ่มธีม (มุมขวาล่าง) */}
+        <button
+          onClick={() => setEditMode('create')}
+          className="fixed right-6 bottom-6 z-20 w-14 h-14 rounded-full flex items-center justify-center text-[28px] leading-none transition-all hover:scale-110"
+          style={{
+            background: 'rgba(8,11,18,0.75)',
+            border: `1px solid ${cur.tone}88`,
+            color: cur.tone,
+            boxShadow: `0 0 20px ${cur.tone}55, inset 0 0 10px ${cur.tone}22`,
+            backdropFilter: 'blur(8px)',
+          }}
+          title="เพิ่มธีม"
+        >+</button>
+
+        {editMode === 'create' && <CreateThemeModal onClose={() => setEditMode(null)} onCreate={createTheme} />}
+        {editMode === 'theme' && (
+          <ThemeSettingsModal theme={cur} onClose={() => setEditMode(null)} onUpdate={updateCur} />
+        )}
       </section>
     )
   }
@@ -306,12 +326,15 @@ export default function InvestmentRoom() {
 }
 
 // ─── การ์ดธีม (หน้ารวม) ───────────────────────────────────────────────────
-function ThemeCard({ theme, onClick }) {
+function ThemeCard({ theme, onClick, onEdit }) {
   const tone = theme.tone || '#7bd1ff'
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className="group relative rounded-2xl p-6 text-center flex flex-col items-center justify-center transition-all duration-300 hover:-translate-y-1"
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+      className="group relative cursor-pointer rounded-2xl p-6 text-center flex flex-col items-center justify-center transition-all duration-300 hover:-translate-y-1"
       style={{
         minHeight: 200,
         background: 'linear-gradient(145deg, rgba(10,16,28,0.92) 0%, rgba(5,10,20,0.88) 100%)',
@@ -324,6 +347,12 @@ function ThemeCard({ theme, onClick }) {
       <CornerAccent tone={tone} pos="tr" />
       <CornerAccent tone={tone} pos="bl" />
       <CornerAccent tone={tone} pos="br" />
+      <button
+        onClick={(e) => { e.stopPropagation(); onEdit() }}
+        className="absolute top-3 right-3 w-8 h-8 rounded-lg flex items-center justify-center text-[14px] transition-all hover:scale-110"
+        style={{ color: tone, border: `1px solid ${tone}55`, background: 'rgba(8,11,18,0.6)' }}
+        title="แก้ไขชื่อและคำอธิบายธีม"
+      >✏</button>
       <div
         className="text-[44px] leading-none mb-3 transition-transform duration-300 group-hover:scale-110"
         style={{ filter: `drop-shadow(0 0 16px ${tone}aa)` }}
@@ -338,7 +367,7 @@ function ThemeCard({ theme, onClick }) {
           {theme.description}
         </div>
       )}
-    </button>
+    </div>
   )
 }
 
