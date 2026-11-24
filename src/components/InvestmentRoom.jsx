@@ -641,30 +641,33 @@ function AllocationModal({ themes, cash, onClose, onSave }) {
             return (
               <div key={r.id}>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[16px] leading-none">{r.icon}</span>
-                  <span className="text-[13px] text-white truncate">{r.name}</span>
-                  <span className="ml-auto text-[10.5px] text-[var(--txt-faint)]">เพิ่มได้ถึง {fmtPct(max)}</span>
+                  <span className="text-[16px] leading-none flex-none">{r.icon}</span>
+                  <span className="text-[13px] text-white flex-1 min-w-0 break-words">{r.name}</span>
                   <input
                     type="number"
                     min={0}
                     max={max}
                     step={0.5}
-                    className="field w-20 text-right text-[12px] font-mono"
+                    className="field text-right text-[12px] font-mono flex-none"
+                    style={{ width: 64, minWidth: 0, paddingLeft: 6, paddingRight: 6 }}
                     value={v}
                     onChange={(e) => setRow(r.id, e.target.value)}
                   />
-                  <span className="text-[12px] text-[var(--txt-dim)]">%</span>
+                  <span className="text-[12px] text-[var(--txt-dim)] flex-none">%</span>
                 </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={0.5}
-                  value={v}
-                  onChange={(e) => setRow(r.id, e.target.value)}
-                  className="w-full"
-                  style={{ accentColor: r.tone }}
-                />
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    value={v}
+                    onChange={(e) => setRow(r.id, e.target.value)}
+                    className="flex-1"
+                    style={{ accentColor: r.tone }}
+                  />
+                  <span className="text-[10.5px] text-[var(--txt-faint)] whitespace-nowrap flex-none">เพิ่มได้ถึง {fmtPct(max)}</span>
+                </div>
               </div>
             )
           })}
