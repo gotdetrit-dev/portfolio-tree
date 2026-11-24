@@ -557,7 +557,7 @@ export default function InvestmentRoom({ user, agg, holdings = [], watchingList 
 // ─── การ์ดธีม (หน้ารวม) ───────────────────────────────────────────────────
 // สีการ์ดตามผลตอบแทน: วันนี้ = เปลี่ยนแปลงรายวัน, ทั้งหมด = กำไร/ขาดทุนรวม
 // ยังไม่มีหุ้น → เทา
-const PERF_UP = '#34e07a', PERF_DOWN = '#ff4d6d', PERF_NONE = '#6b7785'
+const PERF_UP = '#34e07a', PERF_DOWN = '#ff4d6d', PERF_NONE = '#c9d6e3' // เทาเงินสว่าง ให้ดูยังเปิดไฟอยู่
 function perfStatus(perf, mode) {
   if (!perf || !perf.has) return { color: PERF_NONE, text: 'ยังไม่มีการซื้อ' }
   const v = mode === 'today' ? perf.day : perf.pl
