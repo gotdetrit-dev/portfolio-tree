@@ -197,13 +197,7 @@ export default function InvestmentRoom() {
           style={{ perspective: '1800px', perspectiveOrigin: '50% 40%' }}
         >
           {/* ── Left screen: Watchlist (tilted dramatically) ────────── */}
-          <Screen title="รายการเฝ้ารอ" tone={cur.tone} tilt="left-big" tall>
-            <WatchlistBlock
-              watchlist={cur.watchlist || []}
-              tone={cur.tone}
-              onChange={(w) => updateCur({ watchlist: w })}
-            />
-          </Screen>
+          <Screen title="รายการเฝ้ารอ" tone={cur.tone} tilt="left-big" tall />
 
           {/* ── Center: Hero text + summary + avatar ───────────────── */}
           <div className="flex flex-col items-center text-center px-2">
@@ -218,34 +212,8 @@ export default function InvestmentRoom() {
               {cur.name}
             </h1>
             <p className="text-[13px] text-[var(--txt-dim)] leading-relaxed max-w-md mb-4 min-h-[40px]">
-              {cur.description || <span className="italic text-[var(--txt-faint)]">ยังไม่มีคำอธิบาย คลิก "ตั้งค่าธีม" เพื่อเพิ่ม</span>}
+              {cur.description}
             </p>
-            {/* CTA buttons */}
-            <div className="flex items-center gap-2 flex-wrap justify-center mb-4">
-              <button
-                onClick={() => setEditMode('theme')}
-                className="px-4 py-2 rounded-full text-[12px] font-semibold transition-all"
-                style={{
-                  background: `linear-gradient(135deg, ${cur.tone}, ${darken(cur.tone, 0.15)})`,
-                  color: '#0a0e18',
-                  boxShadow: `0 8px 20px ${cur.tone}55`,
-                }}
-              >
-                ✏ ตั้งค่าธีม
-              </button>
-              <button
-                onClick={() => setEditMode('create')}
-                className="px-4 py-2 rounded-full text-[12px]"
-                style={{
-                  background: 'transparent',
-                  color: cur.tone,
-                  border: `1px solid ${cur.tone}66`,
-                }}
-              >
-                + สร้างธีมใหม่
-              </button>
-            </div>
-
             {/* News preview */}
             {cur.news && (
               <div className="w-full max-w-md mb-3 rounded-lg p-3 text-left text-[11.5px] leading-relaxed" style={{ background: 'rgba(0,0,0,0.3)', border: `1px solid ${cur.tone}22` }}>
@@ -254,71 +222,10 @@ export default function InvestmentRoom() {
               </div>
             )}
 
-            {/* ── Summary stats (ย้ายมาไว้ตรงนี้) ───────────────────── */}
-            <div
-              className="w-full max-w-md mb-4 rounded-xl p-3"
-              style={{
-                background: 'rgba(8,11,18,0.75)',
-                border: `1px solid ${cur.tone}55`,
-                boxShadow: `0 0 20px ${cur.tone}22, inset 0 0 20px ${cur.tone}0d`,
-              }}
-            >
-              <div
-                className="text-[10px] uppercase tracking-[0.2em] font-semibold mb-2 flex items-center gap-1.5"
-                style={{ color: cur.tone, textShadow: `0 0 6px ${cur.tone}88` }}
-              >
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: cur.tone, boxShadow: `0 0 6px ${cur.tone}` }} />
-                สรุปธีม
-              </div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[12px]">
-                <StatRow label="มูลค่า" value={fmtUsd(mvNow)} tone={cur.tone} />
-                <StatRow label="ต้นทุน" value={fmtUsd(costBasis)} />
-                <StatRow
-                  label="กำไร/ขาดทุน"
-                  value={fmtSigned(pl)}
-                  sub={costBasis > 0 ? fmtSignedPct(plPct) : null}
-                  color={pl >= 0 ? '#34e07a' : '#ff4d6d'}
-                />
-                <StatRow label="จำนวน" value={(cur.holdings || []).length + ' ตัว'} />
-              </div>
-            </div>
-
-            {/* Avatar on glowing stage — ยกสูงขึ้นอีก ไม่ให้ตกขอบ */}
-            <div className="relative flex flex-col items-center mt-1 mb-6">
-              <HolographicPlatform tone={cur.tone} />
-              <button
-                onClick={() => setEditMode('avatar')}
-                className="relative transition-transform hover:scale-105"
-                title="คลิกเพื่อปรับแต่งตัวละคร"
-                style={{ marginTop: -150, zIndex: 2 }}
-              >
-                <Avatar type={avatar.type} color={avatar.color} activeTone={cur.tone} />
-              </button>
-              {avatar.name && (
-                <div
-                  className="text-center text-[14px] font-semibold mt-1 relative"
-                  style={{ color: '#fff', textShadow: `0 0 10px ${cur.tone}88`, zIndex: 2 }}
-                >
-                  {avatar.name}
-                </div>
-              )}
-              <div
-                className="text-center text-[9.5px] mt-0.5 relative"
-                style={{ color: cur.tone, textShadow: `0 0 6px ${cur.tone}66`, zIndex: 2 }}
-              >
-                ⚙ คลิกตัวละครเพื่อปรับแต่ง
-              </div>
-            </div>
           </div>
 
           {/* ── Right screen: Holdings (tilted dramatically) ──────────── */}
-          <Screen title="หุ้นที่ถืออยู่" tone={cur.tone} tilt="right-big" tall>
-            <HoldingsList
-              holdings={cur.holdings || []}
-              tone={cur.tone}
-              onChange={(h) => updateCur({ holdings: h })}
-            />
-          </Screen>
+          <Screen title="หุ้นที่ถืออยู่" tone={cur.tone} tilt="right-big" tall />
         </div>
 
         {/* Stage platform (rectangular glowing bar at bottom) */}
