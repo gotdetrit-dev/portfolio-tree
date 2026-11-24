@@ -683,32 +683,14 @@ export default function App({ user, onSignOut }) {
   return (
     <div className="min-h-screen text-[13px] font-thai" style={{ color: 'var(--txt)' }}>
       {/* Top bar */}
-      <header className="px-6 lg:px-10 pt-7 pb-5 flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center relative"
-            style={{
-              background: 'radial-gradient(circle at 40% 30%, rgba(52,224,122,0.4), transparent 60%)',
-              border: '1px solid rgba(52,224,122,0.5)',
-              boxShadow: '0 0 16px rgba(52,224,122,0.4)',
-            }}
-          >
-            <span style={{ filter: 'drop-shadow(0 0 4px #34e07a)' }}>🌳</span>
-          </div>
-          <div>
-            <div className="text-[18px] font-semibold tracking-tight" style={{ color: '#fff' }}>
-              พอร์ต<span style={{ color: '#34e07a', textShadow: '0 0 10px rgba(52,224,122,0.55)' }}>ต้นไม้</span>
-              <span className="text-[12px] font-normal text-[var(--txt-dim)]"> by หมอก๊อต</span>
-            </div>
-            <div className="text-[11px] text-[var(--txt-dim)] font-thai">ระบบจัดการพอร์ตลงทุน · ใช้ต้นไม้เป็นภาพแทน</div>
-          </div>
-        </div>
+      <header className="px-6 lg:px-10 py-2 flex items-center justify-end gap-4 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap justify-end">
           {[
             { key: 'investment-room', label: 'ห้องลงทุน' },
-            { key: 'macro',           label: 'Macro-Overview' },
-            { key: 'us-stocks',       label: 'ตลาดหุ้นอเมริกา' },
-          ].map((s) => {
+            // ซ่อนไว้ก่อน — เอา hidden ออกเพื่อแสดงปุ่มอีกครั้ง
+            { key: 'macro',           label: 'Macro-Overview',   hidden: true },
+            { key: 'us-stocks',       label: 'ตลาดหุ้นอเมริกา', hidden: true },
+          ].filter((s) => !s.hidden).map((s) => {
             const on = section === s.key
             return (
               <button
