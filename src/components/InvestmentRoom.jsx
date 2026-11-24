@@ -191,6 +191,11 @@ export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, hold
     const prevMv = mv - day
     return {
       has: hs.length > 0,
+      top: hs
+        .map((h) => ({ symbol: h.symbol, mv: (Number(h.qty) || 0) * (Number(h.price) || 0) }))
+        .sort((a, b) => b.mv - a.mv)
+        .slice(0, 3)
+        .map((t) => ({ symbol: t.symbol, weight: mv > 0 ? (t.mv / mv) * 100 : 0 })),
       pl: mv - cost, plPct: cost > 0 ? ((mv - cost) / cost) * 100 : 0,
       day, dayPct: prevMv > 0 ? (day / prevMv) * 100 : 0,
     }
@@ -695,6 +700,18 @@ function ThemeCard({ theme, actualPct = 0, perf, mode = 'all', onClick, onEdit }
       <div className="text-[20px] font-bold text-white mb-1 truncate max-w-full" style={{ textShadow: `0 0 14px ${themeTone}66` }}>
         {theme.name}
       </div>
+      {/* Top 3 หุ้นในธีม (มูลค่ามากสุด) — มุมขวาบน */}
+      {perf?.top?.length > 0 && (
+        <div className={`absolute right-4 ${onEdit ? 'top-14' : 'top-3'} flex flex-col items-end gap-0.5 text-[11px] font-mono`}>
+          {perf.top.map((t, i) => (
+            <div key={t.symbol} className="flex items-center gap-1.5">
+              <span className="text-[var(--txt-faint)]">{i + 1}</span>
+              <span className="font-semibold text-white">{t.symbol}</span>
+              <span style={{ color: themeTone }}>{t.weight.toFixed(0)}%</span>
+            </div>
+          ))}
+        </div>
+      )}
       {/* ผลตอบแทนตามโหมด (วันนี้ / ทั้งหมด) */}
       <div className="text-[13px] font-mono num-tabular mb-1" style={{ color: st.color }}>
         {st.text}
