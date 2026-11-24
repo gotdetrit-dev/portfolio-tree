@@ -541,8 +541,7 @@ function PlText({ n }) {
 function PortfolioStat({ label, value, sub, tone, color, footer }) {
   return (
     <div
-      className="rounded-xl px-4 py-2 min-w-[220px] text-right"
-      style={{ background: 'rgba(8,11,18,0.7)', border: `1px solid ${tone}55`, boxShadow: `0 0 16px ${tone}22` }}
+      className="px-2 py-1 min-w-[200px] text-right"
     >
       <div className="text-[10.5px] text-[var(--txt-faint)]">{label}</div>
       <div className="flex items-baseline justify-end gap-2">
