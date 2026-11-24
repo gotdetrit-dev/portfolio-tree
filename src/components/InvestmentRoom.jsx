@@ -358,6 +358,14 @@ export default function InvestmentRoom({ user, agg, holdings = [], watchingList 
         >
           ← ธีมทั้งหมด
         </button>
+        <button
+          onClick={deleteCur}
+          className="absolute right-4 lg:right-10 top-5 text-[12px] px-3 py-1.5 rounded-full transition-all hover:scale-105"
+          style={{ color: '#ff8aa0', border: '1px solid rgba(255,138,160,0.45)', background: 'rgba(8,11,18,0.6)' }}
+          title="ลบธีมนี้"
+        >
+          🗑 ลบธีมนี้
+        </button>
         {/* Theme badge (top center) */}
         <div className="flex flex-col items-center text-center mb-3">
           <div className="flex items-center gap-2 text-[10.5px] uppercase tracking-[0.3em]" style={{ color: cur.tone, textShadow: `0 0 10px ${cur.tone}88` }}>
@@ -497,12 +505,6 @@ export default function InvestmentRoom({ user, agg, holdings = [], watchingList 
           />
         )}
 
-        {/* Bottom action bar */}
-        <div className="pb-10 flex items-center justify-center gap-2 flex-wrap">
-          <button onClick={deleteCur} className="btn text-[11px]" style={{ color: '#ff8aa0' }}>
-            🗑 ลบธีมนี้
-          </button>
-        </div>
       </div>
 
       {/* Modals */}
