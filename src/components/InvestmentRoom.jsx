@@ -69,7 +69,7 @@ function loadAvatar() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-export default function InvestmentRoom({ user }) {
+export default function InvestmentRoom({ user, agg }) {
   const [themes, setThemes] = useState(() => loadThemes())
   const [index, setIndex] = useState(0)
   const [avatar, setAvatar] = useState(() => loadAvatar())
@@ -221,13 +221,25 @@ export default function InvestmentRoom({ user }) {
       <section className="relative" style={{ minHeight: 'calc(100vh - 60px)' }}>
         <CosmicBackdrop tone={cur.tone} />
         <div className="relative z-10 px-4 lg:px-10 pt-8 pb-12 max-w-[1200px] mx-auto">
-          <div
-            className="flex items-center justify-center gap-2 text-[10.5px] uppercase tracking-[0.3em] mb-8"
-            style={{ color: cur.tone, textShadow: `0 0 10px ${cur.tone}88` }}
-          >
-            <span>✦</span>
-            <span>INVESTMENT ROOM · {themes.length} ธีม</span>
-            <span>✦</span>
+          {/* หัวข้อ (กลาง) + มูลค่าพอร์ต / กำไรรวม (ขวา) */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] items-center gap-4 mb-8">
+            <div className="hidden lg:block" />
+            <h1
+              className="text-center text-[34px] sm:text-[44px] font-bold leading-tight text-white"
+              style={{ textShadow: `0 0 24px ${cur.tone}88` }}
+            >
+              การลงทุนของฉัน
+            </h1>
+            <div className="flex flex-col gap-2 items-center lg:items-end">
+              <PortfolioStat label="มูลค่าพอร์ต" value={fmtUsd(agg?.total || 0)} tone={cur.tone} />
+              <PortfolioStat
+                label="กำไรรวม (รับรู้แล้ว + ยังไม่รับรู้)"
+                value={fmtSigned(agg?.totalPL || 0)}
+                sub={fmtSignedPct(agg?.totalReturnPct || 0)}
+                tone={cur.tone}
+                color={(agg?.totalPL || 0) >= 0 ? '#34e07a' : '#ff4d6d'}
+              />
+            </div>
           </div>
           <SyncNotice status={syncStatus} saveState={saveState} />
           {/* เงินสด */}
@@ -516,11 +528,27 @@ function FabButton({ tone, label, title, active, big, onClick, children }) {
 }
 
 // ─── สถานะการบันทึก Supabase ────────────────────────────────────────────────
+// ─── กล่องตัวเลขพอร์ต (มุมขวาบน) ────────────────────────────────────────────
+function PortfolioStat({ label, value, sub, tone, color }) {
+  return (
+    <div
+      className="rounded-xl px-4 py-2 min-w-[220px] text-right"
+      style={{ background: 'rgba(8,11,18,0.7)', border: `1px solid ${tone}55`, boxShadow: `0 0 16px ${tone}22` }}
+    >
+      <div className="text-[10.5px] text-[var(--txt-faint)]">{label}</div>
+      <div className="flex items-baseline justify-end gap-2">
+        <span className="text-[20px] font-semibold font-mono num-tabular" style={{ color: color || '#fff' }}>{value}</span>
+        {sub && <span className="text-[12px] font-mono num-tabular" style={{ color: color || 'var(--txt-dim)' }}>{sub}</span>}
+      </div>
+    </div>
+  )
+}
+
 function SyncNotice({ status, saveState }) {
   if (status === 'synced') {
-    const txt = saveState === 'saving' ? 'กำลังบันทึก…' : saveState === 'error' ? '⚠ บันทึกไม่สำเร็จ' : '☁ บันทึกใน Supabase แล้ว'
-    const color = saveState === 'error' ? '#ff8aa0' : 'var(--txt-faint)'
-    return <div className="text-center text-[10.5px] -mt-6 mb-6" style={{ color }}>{txt}</div>
+    // บันทึกปกติไม่ต้องแสดงอะไร — แสดงเฉพาะตอนบันทึกไม่สำเร็จ
+    if (saveState !== 'error') return null
+    return <div className="text-center text-[11px] -mt-4 mb-6" style={{ color: '#ff8aa0' }}>⚠ บันทึกลง Supabase ไม่สำเร็จ</div>
   }
   const msg = status === 'error'
     ? '⚠ โหลดจาก Supabase ไม่สำเร็จ — ตอนนี้ใช้ข้อมูลในเครื่องนี้ (ลองรีเฟรช)'

@@ -708,7 +708,7 @@ export default function App({ user, onSignOut }) {
       </header>
 
       {/* ห้องลงทุน — ธีมหุ้นที่ติดตาม */}
-      {section === 'investment-room' && <InvestmentRoom user={user} />}
+      {section === 'investment-room' && <InvestmentRoom user={user} agg={agg} />}
 
       {/* Macro-Overview — manual tracker */}
       {section === 'macro' && <MacroOverview user={user} />}
