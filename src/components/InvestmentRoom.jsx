@@ -557,7 +557,7 @@ export default function InvestmentRoom({ user, agg, holdings = [], watchingList 
 // ─── การ์ดธีม (หน้ารวม) ───────────────────────────────────────────────────
 // สีการ์ดตามผลตอบแทน: วันนี้ = เปลี่ยนแปลงรายวัน, ทั้งหมด = กำไร/ขาดทุนรวม
 // ยังไม่มีหุ้น → เทา
-const PERF_UP = '#34e07a', PERF_DOWN = '#ff4d6d', PERF_NONE = '#c9d6e3' // เทาเงินสว่าง ให้ดูยังเปิดไฟอยู่
+const PERF_UP = '#34e07a', PERF_DOWN = '#ff4d6d', PERF_NONE = '#6b7785' // ยังไม่มีการซื้อ = การ์ดเทาทั้งใบ เหมือนปิดไฟ
 function perfStatus(perf, mode) {
   if (!perf || !perf.has) return { color: PERF_NONE, text: 'ยังไม่มีการซื้อ' }
   const v = mode === 'today' ? perf.day : perf.pl
@@ -653,6 +653,8 @@ function ThemeCard({ theme, actualPct = 0, perf, mode = 'all', onClick, onEdit }
         border: `1px solid ${tone}66`,
         boxShadow: `0 0 0 1px ${tone}22, 0 0 24px ${tone}33, inset 0 0 40px ${tone}0d, 0 20px 40px rgba(0,0,0,0.5)`,
         backdropFilter: 'blur(4px)',
+        // ยังไม่มีการซื้อ → ทั้งการ์ด (ตัวหนังสือ ไอคอน หลอด ป้าย) เป็นสีเทา
+        ...(perf && !perf.has ? { filter: 'grayscale(1) brightness(0.75)', opacity: 0.7 } : {}),
       }}
     >
       <CornerAccent tone={tone} pos="tl" />
