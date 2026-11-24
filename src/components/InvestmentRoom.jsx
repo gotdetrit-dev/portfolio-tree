@@ -72,6 +72,7 @@ export default function InvestmentRoom() {
   const [avatar, setAvatar] = useState(() => loadAvatar())
   const [editMode, setEditMode] = useState(null) // null | 'theme' | 'avatar' | 'create'
   const [opened, setOpened] = useState(false) // false = หน้ารวมการ์ดธีม, true = เข้าไปในธีม
+  const [showEdit, setShowEdit] = useState(false) // แสดงปุ่มแก้ไขบนการ์ด
 
   useEffect(() => { localStorage.setItem(LS_THEMES, JSON.stringify(themes)) }, [themes])
   useEffect(() => { localStorage.setItem(LS_AVATAR, JSON.stringify(avatar)) }, [avatar])
@@ -141,11 +142,25 @@ export default function InvestmentRoom() {
                 key={t.id}
                 theme={t}
                 onClick={() => { setIndex(i); setOpened(true) }}
-                onEdit={() => { setIndex(i); setEditMode('theme') }}
+                onEdit={showEdit ? () => { setIndex(i); setEditMode('theme') } : null}
               />
             ))}
           </div>
         </div>
+
+        {/* ปุ่มแก้ไข (เปิด/ปิดปุ่มแก้ไขบนการ์ด) — ข้างปุ่มเพิ่ม */}
+        <button
+          onClick={() => setShowEdit((v) => !v)}
+          className="fixed right-24 bottom-6 z-20 w-14 h-14 rounded-full flex items-center justify-center text-[22px] leading-none transition-all hover:scale-110"
+          style={{
+            background: showEdit ? cur.tone : 'rgba(8,11,18,0.75)',
+            border: `1px solid ${cur.tone}88`,
+            color: showEdit ? '#0a0e18' : cur.tone,
+            boxShadow: `0 0 20px ${cur.tone}55, inset 0 0 10px ${cur.tone}22`,
+            backdropFilter: 'blur(8px)',
+          }}
+          title={showEdit ? 'ซ่อนปุ่มแก้ไข' : 'แก้ไขธีม'}
+        >✎</button>
 
         {/* ปุ่มเพิ่มธีม (มุมขวาล่าง) */}
         <button
@@ -347,12 +362,12 @@ function ThemeCard({ theme, onClick, onEdit }) {
       <CornerAccent tone={tone} pos="tr" />
       <CornerAccent tone={tone} pos="bl" />
       <CornerAccent tone={tone} pos="br" />
-      <button
+      {onEdit && <button
         onClick={(e) => { e.stopPropagation(); onEdit() }}
         className="absolute top-3 right-3 w-8 h-8 rounded-lg flex items-center justify-center text-[14px] transition-all hover:scale-110"
         style={{ color: tone, border: `1px solid ${tone}55`, background: 'rgba(8,11,18,0.6)' }}
         title="แก้ไขชื่อและคำอธิบายธีม"
-      >✏</button>
+      >✎</button>}
       <div
         className="text-[44px] leading-none mb-3 transition-transform duration-300 group-hover:scale-110"
         style={{ filter: `drop-shadow(0 0 16px ${tone}aa)` }}
