@@ -77,6 +77,7 @@ export default function InvestmentRoom({ user }) {
   const [opened, setOpened] = useState(false) // false = หน้ารวมการ์ดธีม, true = เข้าไปในธีม
   const [showEdit, setShowEdit] = useState(false) // แสดงปุ่มแก้ไขบนการ์ด
   const [allocOpen, setAllocOpen] = useState(false) // หน้าต่างปรับสัดส่วน
+  const [fabOpen, setFabOpen] = useState(false) // เมนูปุ่มมุมขวาล่าง
   // สัดส่วนเงินสด (%) — ธีมทั้งหมด + เงินสด = 100%
   const [cashAlloc, setCashAlloc] = useState(() => {
     try {
@@ -248,20 +249,6 @@ export default function InvestmentRoom({ user }) {
           </div>
         </div>
 
-        {/* ปุ่มปรับสัดส่วน — ข้างปุ่มแก้ไข */}
-        <button
-          onClick={() => setAllocOpen(true)}
-          className="fixed right-[168px] bottom-6 z-20 w-14 h-14 rounded-full flex items-center justify-center text-[22px] leading-none transition-all hover:scale-110"
-          style={{
-            background: 'rgba(8,11,18,0.75)',
-            border: `1px solid ${cur.tone}88`,
-            color: cur.tone,
-            boxShadow: `0 0 20px ${cur.tone}55, inset 0 0 10px ${cur.tone}22`,
-            backdropFilter: 'blur(8px)',
-          }}
-          title="ปรับสัดส่วน"
-        >⚖</button>
-
         {allocOpen && (
           <AllocationModal
             themes={themes}
@@ -275,33 +262,19 @@ export default function InvestmentRoom({ user }) {
           />
         )}
 
-        {/* ปุ่มแก้ไข (เปิด/ปิดปุ่มแก้ไขบนการ์ด) — ข้างปุ่มเพิ่ม */}
-        <button
-          onClick={() => setShowEdit((v) => !v)}
-          className="fixed right-24 bottom-6 z-20 w-14 h-14 rounded-full flex items-center justify-center text-[22px] leading-none transition-all hover:scale-110"
-          style={{
-            background: showEdit ? cur.tone : 'rgba(8,11,18,0.75)',
-            border: `1px solid ${cur.tone}88`,
-            color: showEdit ? '#0a0e18' : cur.tone,
-            boxShadow: `0 0 20px ${cur.tone}55, inset 0 0 10px ${cur.tone}22`,
-            backdropFilter: 'blur(8px)',
-          }}
-          title={showEdit ? 'ซ่อนปุ่มแก้ไข' : 'แก้ไขธีม'}
-        >✎</button>
-
-        {/* ปุ่มเพิ่มธีม (มุมขวาล่าง) */}
-        <button
-          onClick={() => setEditMode('create')}
-          className="fixed right-6 bottom-6 z-20 w-14 h-14 rounded-full flex items-center justify-center text-[28px] leading-none transition-all hover:scale-110"
-          style={{
-            background: 'rgba(8,11,18,0.75)',
-            border: `1px solid ${cur.tone}88`,
-            color: cur.tone,
-            boxShadow: `0 0 20px ${cur.tone}55, inset 0 0 10px ${cur.tone}22`,
-            backdropFilter: 'blur(8px)',
-          }}
-          title="เพิ่มธีม"
-        >+</button>
+        {/* ปุ่มเมนู (มุมขวาล่าง) — กดแล้วแสดง 3 ปุ่ม: ปรับสัดส่วน / แก้ไข / เพิ่มธีม */}
+        <div className="fixed right-6 bottom-6 z-20 flex flex-col items-end gap-3">
+          {fabOpen && (
+            <>
+              <FabButton tone={cur.tone} label="ปรับสัดส่วน" onClick={() => { setAllocOpen(true); setFabOpen(false) }}>⚖</FabButton>
+              <FabButton tone={cur.tone} label={showEdit ? 'ซ่อนปุ่มแก้ไข' : 'แก้ไขธีม'} active={showEdit} onClick={() => setShowEdit((v) => !v)}>✎</FabButton>
+              <FabButton tone={cur.tone} label="เพิ่มธีม" big onClick={() => { setEditMode('create'); setFabOpen(false) }}>+</FabButton>
+            </>
+          )}
+          <FabButton tone={cur.tone} big active={fabOpen} onClick={() => setFabOpen((v) => !v)} title={fabOpen ? 'ปิดเมนู' : 'เมนู'}>
+            {fabOpen ? '✕' : '☰'}
+          </FabButton>
+        </div>
 
         {editMode === 'create' && <CreateThemeModal onClose={() => setEditMode(null)} onCreate={createTheme} />}
         {editMode === 'theme' && (
@@ -508,6 +481,36 @@ function ThemeCard({ theme, onClick, onEdit }) {
       <div className="w-full max-w-[300px] mt-2">
         <AllocBar pct={Number(theme.alloc) || 0} tone={tone} />
       </div>
+    </div>
+  )
+}
+
+// ─── ปุ่มกลมลอย (เมนูมุมขวาล่าง) ────────────────────────────────────────────
+function FabButton({ tone, label, title, active, big, onClick, children }) {
+  return (
+    <div className="flex items-center gap-2">
+      {label && (
+        <span
+          className="text-[11.5px] px-2 py-1 rounded-md whitespace-nowrap"
+          style={{ background: 'rgba(8,11,18,0.85)', color: tone, border: `1px solid ${tone}44` }}
+        >
+          {label}
+        </span>
+      )}
+      <button
+        onClick={onClick}
+        className={`w-14 h-14 rounded-full flex items-center justify-center leading-none transition-all hover:scale-110 ${big ? 'text-[26px]' : 'text-[22px]'}`}
+        style={{
+          background: active ? tone : 'rgba(8,11,18,0.75)',
+          border: `1px solid ${tone}88`,
+          color: active ? '#0a0e18' : tone,
+          boxShadow: `0 0 20px ${tone}55, inset 0 0 10px ${tone}22`,
+          backdropFilter: 'blur(8px)',
+        }}
+        title={title || label}
+      >
+        {children}
+      </button>
     </div>
   )
 }
