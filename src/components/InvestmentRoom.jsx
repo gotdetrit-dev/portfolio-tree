@@ -69,7 +69,7 @@ function loadAvatar() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-export default function InvestmentRoom({ user, agg, holdings = [], watchingList = [], onAddHolding, onDeleteHolding, onAddWatching, onDeleteWatching }) {
+export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, holdings = [], watchingList = [], onAddHolding, onDeleteHolding, onAddWatching, onDeleteWatching }) {
   const [themes, setThemes] = useState(() => loadThemes())
   const [index, setIndex] = useState(0)
   const [avatar, setAvatar] = useState(() => loadAvatar())
@@ -264,7 +264,22 @@ export default function InvestmentRoom({ user, agg, holdings = [], watchingList 
                 </h1>
                 <PerfModeToggle mode={perfMode} onChange={setPerfMode} />
               </div>
-              <AllocBar label="💵 เงินสด" pct={cashAlloc} tone="#9fb3c8" />
+              {/* หลอดเงินสด + ปุ่มจัดการเงินสด (ฝาก/ถอน) */}
+              <div className="flex items-end gap-3">
+                <div className="flex-1 min-w-0">
+                  <AllocBar label={`💵 เงินสด ${fmtUsd(cash)}`} pct={cashAlloc} tone={cash < 0 ? '#ff4d6d' : '#9fb3c8'} />
+                </div>
+                {onManageCash && (
+                  <button
+                    onClick={onManageCash}
+                    className="flex-none px-3 py-1 rounded-full text-[11.5px] font-semibold transition-all hover:scale-105"
+                    style={{ color: '#9fb3c8', border: '1px solid rgba(159,179,200,0.5)', background: 'rgba(8,11,18,0.6)' }}
+                    title="ฝาก / ถอนเงินสด"
+                  >
+                    จัดการเงินสด
+                  </button>
+                )}
+              </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 items-stretch justify-center lg:justify-end">
               <PortfolioStat label="มูลค่าพอร์ต" value={fmtUsd(agg?.total || 0)} tone={cur.tone} />
@@ -531,7 +546,7 @@ export default function InvestmentRoom({ user, agg, holdings = [], watchingList 
             theme={cur}
             onClose={() => setStockAddOpen(false)}
             onSubmit={(v) => {
-              if (stockTab === 'holding') onAddHolding?.({ ...v, themeId: cur.id })
+              if (stockTab === 'holding') { if (onAddHolding?.({ ...v, themeId: cur.id }) === false) return }
               else onAddWatching?.({ ticker: v.symbol, supportPrice: v.supportPrice, note: v.note, themeId: cur.id })
               setStockAddOpen(false)
             }}

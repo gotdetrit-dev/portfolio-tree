@@ -714,12 +714,20 @@ export default function App({ user, onSignOut }) {
           agg={agg}
           holdings={holdings}
           watchingList={watchingList}
+          cash={cash}
+          onManageCash={() => setCashModal(true)}
           onAddHolding={({ symbol, qty, avg, themeId }) => {
             const s = (symbol || '').trim().toUpperCase()
             if (!s) return
             if (holdings.some((x) => x.symbol === s)) {
               alert(`มี ${s} อยู่ในพอร์ตแล้ว`)
               return
+            }
+            // ซื้อได้เฉพาะเมื่อเงินสดพอ — ต้องเติมเงินสดก่อน
+            const cost = (Number(qty) || 0) * (Number(avg) || 0)
+            if (cost > cash + 0.005) {
+              alert(`เงินสดไม่พอ: ต้องใช้ ${fmtUsd(cost)} แต่มีเงินสด ${fmtUsd(cash)}\nกดปุ่ม "จัดการเงินสด" ที่หลอดเงินสดเพื่อเติมเงินก่อน`)
+              return false
             }
             commitHolding({
               id: uid('h'), cat: 'core', symbol: s, name: s,
