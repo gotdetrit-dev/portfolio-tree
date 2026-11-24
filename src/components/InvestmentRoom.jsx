@@ -267,7 +267,8 @@ export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, hold
               {/* หลอดเงินสด + ปุ่มจัดการเงินสด (ฝาก/ถอน) */}
               <div className="flex items-end gap-3">
                 <div className="flex-1 min-w-0">
-                  <AllocBar label={`💵 เงินสด ${fmtUsd(cash)}`} pct={cashAlloc} tone={cash < 0 ? '#ff4d6d' : '#9fb3c8'} />
+                  <div className="text-[11px] text-[var(--txt-dim)] mb-0.5">💵 เงินสด <b className="font-mono" style={{ color: cash < 0 ? '#ff4d6d' : '#fff' }}>{fmtUsd(cash)}</b></div>
+                  <ActualVsTargetBar actual={(Number(agg?.total) || 0) > 0 ? (cash / agg.total) * 100 : 0} target={cashAlloc} tone={cash < 0 ? '#ff4d6d' : '#9fb3c8'} />
                 </div>
                 {onManageCash && (
                   <button
