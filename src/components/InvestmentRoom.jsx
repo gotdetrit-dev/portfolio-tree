@@ -80,6 +80,8 @@ export default function InvestmentRoom({ user, agg, holdings = [], watchingList 
   const [fabOpen, setFabOpen] = useState(false) // เมนูปุ่มมุมขวาล่าง
   const [stockTab, setStockTab] = useState('holding') // แท็บในหน้าธีม: holding | watching
   const [stockAddOpen, setStockAddOpen] = useState(false)
+  const [perfMode, setPerfMode] = useState(() => { try { return localStorage.getItem('investment_room_perf_mode') || 'all' } catch { return 'all' } }) // today | all
+  useEffect(() => { try { localStorage.setItem('investment_room_perf_mode', perfMode) } catch {} }, [perfMode])
   // สัดส่วนเงินสด (%) — ธีมทั้งหมด + เงินสด = 100%
   const [cashAlloc, setCashAlloc] = useState(() => {
     try {
@@ -175,6 +177,24 @@ export default function InvestmentRoom({ user, agg, holdings = [], watchingList 
   const cur = themes[index]
   const themeHoldings = cur ? holdings.filter((h) => h.themeId === cur.id) : []
   const themeWatching = cur ? watchingList.filter((w) => w.themeId === cur.id) : []
+  // ผลตอบแทนของธีม: ทั้งหมด (กำไร/ขาดทุนรวม) และวันนี้ (เปลี่ยนแปลงรายวันจากราคาปิดก่อนหน้า)
+  const themePerf = (themeId) => {
+    const hs = holdings.filter((h) => h.themeId === themeId && (Number(h.qty) || 0) > 0)
+    let mv = 0, cost = 0, day = 0
+    for (const h of hs) {
+      const q = Number(h.qty) || 0, p = Number(h.price) || 0, dp = Number(h.dayChangePct) || 0
+      const v = q * p
+      mv += v
+      cost += q * (Number(h.avg) || 0)
+      day += dp ? v - v / (1 + dp / 100) : 0
+    }
+    const prevMv = mv - day
+    return {
+      has: hs.length > 0,
+      pl: mv - cost, plPct: cost > 0 ? ((mv - cost) / cost) * 100 : 0,
+      day, dayPct: prevMv > 0 ? (day / prevMv) * 100 : 0,
+    }
+  }
   // สัดส่วนที่ถือจริงของธีม = มูลค่าหุ้นในธีม / มูลค่าพอร์ตทั้งหมด (รวมเงินสด)
   const themeActualPct = (themeId) => {
     const total = Number(agg?.total) || 0
@@ -235,12 +255,15 @@ export default function InvestmentRoom({ user, agg, holdings = [], watchingList 
           {/* ซ้าย: หัวข้อ + หลอดเงินสด · ขวา: มูลค่าพอร์ต / กำไรรวม (แถวเดียว) */}
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-5">
             <div className="flex flex-col gap-3 w-full lg:max-w-[420px]">
-              <h1
-                className="text-center lg:text-left text-[32px] sm:text-[40px] font-bold leading-tight text-white"
-                style={{ textShadow: `0 0 24px ${cur.tone}88` }}
-              >
-                การลงทุนของฉัน
-              </h1>
+              <div className="flex items-center gap-3 flex-wrap justify-center lg:justify-start">
+                <h1
+                  className="text-center lg:text-left text-[32px] sm:text-[40px] font-bold leading-tight text-white"
+                  style={{ textShadow: `0 0 24px ${cur.tone}88` }}
+                >
+                  การลงทุนของฉัน
+                </h1>
+                <PerfModeToggle mode={perfMode} onChange={setPerfMode} />
+              </div>
               <AllocBar label="💵 เงินสด" pct={cashAlloc} tone="#9fb3c8" />
             </div>
             <div className="flex flex-col sm:flex-row gap-3 items-stretch justify-center lg:justify-end">
@@ -270,6 +293,8 @@ export default function InvestmentRoom({ user, agg, holdings = [], watchingList 
                   key={t.id}
                   theme={t}
                   actualPct={themeActualPct(t.id)}
+                  perf={themePerf(t.id)}
+                  mode={perfMode}
                   onClick={() => { setIndex(i); setOpened(true) }}
                   onEdit={showEdit ? () => { setIndex(i); setEditMode('theme') } : null}
                 />
@@ -530,6 +555,38 @@ export default function InvestmentRoom({ user, agg, holdings = [], watchingList 
 }
 
 // ─── การ์ดธีม (หน้ารวม) ───────────────────────────────────────────────────
+// สีการ์ดตามผลตอบแทน: วันนี้ = เปลี่ยนแปลงรายวัน, ทั้งหมด = กำไร/ขาดทุนรวม
+// ยังไม่มีหุ้น → เทา
+const PERF_UP = '#34e07a', PERF_DOWN = '#ff4d6d', PERF_NONE = '#6b7785'
+function perfStatus(perf, mode) {
+  if (!perf || !perf.has) return { color: PERF_NONE, text: 'ยังไม่มีการซื้อ' }
+  const v = mode === 'today' ? perf.day : perf.pl
+  const pct = mode === 'today' ? perf.dayPct : perf.plPct
+  const color = v > 0 ? PERF_UP : v < 0 ? PERF_DOWN : PERF_NONE
+  return { color, text: `${fmtSigned(v)} (${fmtSignedPct(pct)})` }
+}
+
+function PerfModeToggle({ mode, onChange }) {
+  const opts = [{ key: 'today', label: 'วันนี้' }, { key: 'all', label: 'ทั้งหมด' }]
+  return (
+    <div className="inline-flex rounded-full p-0.5" style={{ background: 'rgba(8,11,18,0.7)', border: '1px solid rgba(255,255,255,0.15)' }}>
+      {opts.map((o) => {
+        const on = mode === o.key
+        return (
+          <button
+            key={o.key}
+            onClick={() => onChange(o.key)}
+            className="px-3.5 py-1 rounded-full text-[12.5px] font-semibold transition-all"
+            style={on ? { background: '#fff', color: '#0a0e18' } : { color: 'var(--txt-dim)' }}
+          >
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 // สถานะเทียบสัดส่วนที่ถือจริงกับเป้า (คลาดได้ ±0.5%)
 const ALLOC_TOLERANCE = 0.5
 function allocStatus(actual, target) {
@@ -579,8 +636,10 @@ function ActualVsTargetBar({ actual, target, tone }) {
   )
 }
 
-function ThemeCard({ theme, actualPct = 0, onClick, onEdit }) {
-  const tone = theme.tone || '#7bd1ff'
+function ThemeCard({ theme, actualPct = 0, perf, mode = 'all', onClick, onEdit }) {
+  const st = perfStatus(perf, mode)
+  const tone = st.color // กรอบการ์ด: เขียว / แดง / เทา ตามโหมด
+  const themeTone = theme.tone || '#7bd1ff'
   return (
     <div
       role="button"
@@ -608,18 +667,22 @@ function ThemeCard({ theme, actualPct = 0, onClick, onEdit }) {
       >✎</button>}
       <div
         className="text-[38px] leading-none mb-2 transition-transform duration-300 group-hover:scale-110"
-        style={{ filter: `drop-shadow(0 0 16px ${tone}aa)` }}
+        style={{ filter: `drop-shadow(0 0 16px ${themeTone}aa)` }}
       >
         {theme.icon}
       </div>
-      <div className="text-[20px] font-bold text-white mb-2 truncate max-w-full" style={{ textShadow: `0 0 14px ${tone}66` }}>
+      <div className="text-[20px] font-bold text-white mb-1 truncate max-w-full" style={{ textShadow: `0 0 14px ${themeTone}66` }}>
         {theme.name}
+      </div>
+      {/* ผลตอบแทนตามโหมด (วันนี้ / ทั้งหมด) */}
+      <div className="text-[13px] font-mono num-tabular mb-1" style={{ color: st.color }}>
+        {st.text}
       </div>
       {/* สถานะ: ซื้อเพิ่มได้ / เกินสัดส่วน / ตามเป้า (มุมซ้ายบน) */}
       <StatusBadge actual={actualPct} target={Number(theme.alloc) || 0} />
       {/* หลอดสัดส่วน: แถบ = ถือจริง, ขีดตั้ง = เป้า */}
-      <div className="w-full max-w-[300px] mt-2">
-        <ActualVsTargetBar actual={actualPct} target={Number(theme.alloc) || 0} tone={tone} />
+      <div className="w-full max-w-[300px] mt-1">
+        <ActualVsTargetBar actual={actualPct} target={Number(theme.alloc) || 0} tone={themeTone} />
       </div>
     </div>
   )
