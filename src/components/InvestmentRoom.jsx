@@ -175,6 +175,13 @@ export default function InvestmentRoom({ user, agg, holdings = [], watchingList 
   const cur = themes[index]
   const themeHoldings = cur ? holdings.filter((h) => h.themeId === cur.id) : []
   const themeWatching = cur ? watchingList.filter((w) => w.themeId === cur.id) : []
+  // สัดส่วนที่ถือจริงของธีม = มูลค่าหุ้นในธีม / มูลค่าพอร์ตทั้งหมด (รวมเงินสด)
+  const themeActualPct = (themeId) => {
+    const total = Number(agg?.total) || 0
+    if (total <= 0) return 0
+    const mv = holdings.filter((h) => h.themeId === themeId).reduce((s, h) => s + (Number(h.qty) || 0) * (Number(h.price) || 0), 0)
+    return (mv / total) * 100
+  }
   const prev = () => setIndex((i) => (i - 1 + themes.length) % themes.length)
   const next = () => setIndex((i) => (i + 1) % themes.length)
 
@@ -262,6 +269,7 @@ export default function InvestmentRoom({ user, agg, holdings = [], watchingList 
                 <ThemeCard
                   key={t.id}
                   theme={t}
+                  actualPct={themeActualPct(t.id)}
                   onClick={() => { setIndex(i); setOpened(true) }}
                   onEdit={showEdit ? () => { setIndex(i); setEditMode('theme') } : null}
                 />
@@ -522,7 +530,56 @@ export default function InvestmentRoom({ user, agg, holdings = [], watchingList 
 }
 
 // ─── การ์ดธีม (หน้ารวม) ───────────────────────────────────────────────────
-function ThemeCard({ theme, onClick, onEdit }) {
+// สถานะเทียบสัดส่วนที่ถือจริงกับเป้า (คลาดได้ ±0.5%)
+const ALLOC_TOLERANCE = 0.5
+function allocStatus(actual, target) {
+  if (!(actual > 0) && !(target > 0)) return null
+  const diff = actual - target
+  if (diff < -ALLOC_TOLERANCE) return { label: 'ซื้อเพิ่มได้', color: '#34e07a' }
+  if (diff > ALLOC_TOLERANCE) return { label: 'เกินสัดส่วน', color: '#ff4d6d' }
+  return { label: 'ตามเป้า', color: '#9fb3c8' }
+}
+
+function StatusBadge({ actual, target }) {
+  const s = allocStatus(actual, target)
+  if (!s) return null
+  return (
+    <span
+      className="absolute top-3 left-3 px-2 py-0.5 rounded-full text-[11px] font-semibold"
+      style={{ color: s.color, background: `${s.color}1a`, border: `1px solid ${s.color}66`, boxShadow: `0 0 10px ${s.color}33` }}
+    >
+      {s.label}
+    </span>
+  )
+}
+
+function ActualVsTargetBar({ actual, target, tone }) {
+  const a = Math.max(0, Math.min(100, Number(actual) || 0))
+  const t = Math.max(0, Math.min(100, Number(target) || 0))
+  return (
+    <div className="w-full">
+      <div className="flex items-center justify-between text-[11px] mb-1">
+        <span className="text-[var(--txt-dim)]">ถือ <b className="font-mono" style={{ color: tone }}>{fmtPct(a)}</b></span>
+        <span className="text-[var(--txt-dim)]">เป้า <b className="font-mono text-white">{fmtPct(t)}</b></span>
+      </div>
+      <div className="relative h-2.5 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${a}%`, background: `linear-gradient(90deg, ${tone}99, ${tone})`, boxShadow: `0 0 10px ${tone}88` }}
+        />
+        {t > 0 && (
+          <div
+            className="absolute -top-1 -bottom-1 w-[2px] rounded"
+            style={{ left: `calc(${t}% - 1px)`, background: '#fff', boxShadow: '0 0 6px #fff' }}
+            title={`เป้า ${fmtPct(t)}`}
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ThemeCard({ theme, actualPct = 0, onClick, onEdit }) {
   const tone = theme.tone || '#7bd1ff'
   return (
     <div
@@ -558,9 +615,11 @@ function ThemeCard({ theme, onClick, onEdit }) {
       <div className="text-[20px] font-bold text-white mb-2 truncate max-w-full" style={{ textShadow: `0 0 14px ${tone}66` }}>
         {theme.name}
       </div>
-      {/* หลอดสัดส่วนของธีม */}
+      {/* สถานะ: ซื้อเพิ่มได้ / เกินสัดส่วน / ตามเป้า (มุมซ้ายบน) */}
+      <StatusBadge actual={actualPct} target={Number(theme.alloc) || 0} />
+      {/* หลอดสัดส่วน: แถบ = ถือจริง, ขีดตั้ง = เป้า */}
       <div className="w-full max-w-[300px] mt-2">
-        <AllocBar pct={Number(theme.alloc) || 0} tone={tone} />
+        <ActualVsTargetBar actual={actualPct} target={Number(theme.alloc) || 0} tone={tone} />
       </div>
     </div>
   )
