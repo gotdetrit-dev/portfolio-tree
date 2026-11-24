@@ -71,6 +71,7 @@ export default function InvestmentRoom() {
   const [index, setIndex] = useState(0)
   const [avatar, setAvatar] = useState(() => loadAvatar())
   const [editMode, setEditMode] = useState(null) // null | 'theme' | 'avatar' | 'create'
+  const [opened, setOpened] = useState(false) // false = หน้ารวมการ์ดธีม, true = เข้าไปในธีม
 
   useEffect(() => { localStorage.setItem(LS_THEMES, JSON.stringify(themes)) }, [themes])
   useEffect(() => { localStorage.setItem(LS_AVATAR, JSON.stringify(avatar)) }, [avatar])
@@ -78,13 +79,14 @@ export default function InvestmentRoom() {
   // Keyboard nav
   useEffect(() => {
     const onKey = (e) => {
-      if (editMode) return
+      if (editMode || !opened) return
       if (e.key === 'ArrowLeft') prev()
       else if (e.key === 'ArrowRight') next()
+      else if (e.key === 'Escape') setOpened(false)
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [editMode, themes.length]) // eslint-disable-line
+  }, [editMode, opened, themes.length]) // eslint-disable-line
 
   const cur = themes[index]
   const prev = () => setIndex((i) => (i - 1 + themes.length) % themes.length)
@@ -97,6 +99,7 @@ export default function InvestmentRoom() {
     setThemes((arr) => arr.filter((_, i) => i !== index))
     setIndex((i) => Math.max(0, i - 1))
     setEditMode(null)
+    setOpened(false)
   }
   const createTheme = (name, icon, tone) => {
     const t = { id: uid(), name: name.trim() || 'ธีมใหม่', icon: icon || '✨', tone: tone || '#7bd1ff', description: '', news: '', holdings: [], watchlist: [], image: null }
@@ -117,6 +120,34 @@ export default function InvestmentRoom() {
   }
 
   if (!cur) return null
+
+  // ─── หน้ารวม: การ์ดธีม 3 ใบต่อแถว ─────────────────────────────────────
+  if (!opened) {
+    return (
+      <section className="relative" style={{ minHeight: 'calc(100vh - 60px)' }}>
+        <CosmicBackdrop tone={cur.tone} />
+        <div className="relative z-10 px-4 lg:px-10 pt-8 pb-12 max-w-[1200px] mx-auto">
+          <div
+            className="flex items-center justify-center gap-2 text-[10.5px] uppercase tracking-[0.3em] mb-8"
+            style={{ color: cur.tone, textShadow: `0 0 10px ${cur.tone}88` }}
+          >
+            <span>✦</span>
+            <span>INVESTMENT ROOM · {themes.length} ธีม</span>
+            <span>✦</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {themes.map((t, i) => (
+              <ThemeCard
+                key={t.id}
+                theme={t}
+                onClick={() => { setIndex(i); setOpened(true) }}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   // Aggregates from holdings (placeholder — user กรอกเองในธีม)
   const totalQty = (cur.holdings || []).reduce((s, h) => s + (Number(h.qty) || 0), 0)
@@ -164,6 +195,14 @@ export default function InvestmentRoom() {
 
       {/* Main stage */}
       <div className="relative z-10 px-4 lg:px-10 pt-6 max-w-[1400px] mx-auto">
+        <button
+          onClick={() => setOpened(false)}
+          className="absolute left-4 lg:left-10 top-5 text-[12px] px-3 py-1.5 rounded-full transition-all hover:scale-105"
+          style={{ color: cur.tone, border: `1px solid ${cur.tone}66`, background: 'rgba(8,11,18,0.6)' }}
+          title="กลับไปหน้ารวมธีม (Esc)"
+        >
+          ← ธีมทั้งหมด
+        </button>
         {/* Theme badge (top center) */}
         <div className="flex flex-col items-center text-center mb-3">
           <div className="flex items-center gap-2 text-[10.5px] uppercase tracking-[0.3em]" style={{ color: cur.tone, textShadow: `0 0 10px ${cur.tone}88` }}>
@@ -263,6 +302,43 @@ export default function InvestmentRoom() {
         />
       )}
     </section>
+  )
+}
+
+// ─── การ์ดธีม (หน้ารวม) ───────────────────────────────────────────────────
+function ThemeCard({ theme, onClick }) {
+  const tone = theme.tone || '#7bd1ff'
+  return (
+    <button
+      onClick={onClick}
+      className="group relative rounded-2xl p-6 text-center flex flex-col items-center justify-center transition-all duration-300 hover:-translate-y-1"
+      style={{
+        minHeight: 200,
+        background: 'linear-gradient(145deg, rgba(10,16,28,0.92) 0%, rgba(5,10,20,0.88) 100%)',
+        border: `1px solid ${tone}66`,
+        boxShadow: `0 0 0 1px ${tone}22, 0 0 24px ${tone}33, inset 0 0 40px ${tone}0d, 0 20px 40px rgba(0,0,0,0.5)`,
+        backdropFilter: 'blur(4px)',
+      }}
+    >
+      <CornerAccent tone={tone} pos="tl" />
+      <CornerAccent tone={tone} pos="tr" />
+      <CornerAccent tone={tone} pos="bl" />
+      <CornerAccent tone={tone} pos="br" />
+      <div
+        className="text-[44px] leading-none mb-3 transition-transform duration-300 group-hover:scale-110"
+        style={{ filter: `drop-shadow(0 0 16px ${tone}aa)` }}
+      >
+        {theme.icon}
+      </div>
+      <div className="text-[20px] font-bold text-white mb-2" style={{ textShadow: `0 0 14px ${tone}66` }}>
+        {theme.name}
+      </div>
+      {theme.description && (
+        <div className="text-[12px] text-[var(--txt-dim)] leading-relaxed line-clamp-2 max-w-[260px]">
+          {theme.description}
+        </div>
+      )}
+    </button>
   )
 }
 

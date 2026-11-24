@@ -34,7 +34,7 @@ export default function App({ user, onSignOut }) {
   // Views, Watching List (localStorage), and toast
   const [view, setView] = useState('dashboard')
   // Top-level section (จะเพิ่มหมวดอื่นในอนาคต — ตอนนี้พร้อมใช้แค่ ตลาดหุ้นอเมริกา)
-  const [section, setSection] = useState('us-stocks')
+  const [section, setSection] = useState('investment-room')
   const [watchingList, setWatchingList] = useState([])
   const [toast, setToast] = useState('')
 
