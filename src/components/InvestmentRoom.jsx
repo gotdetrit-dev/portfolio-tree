@@ -363,7 +363,7 @@ function ThemeCard({ theme, onClick, onEdit }) {
         {theme.name}
       </div>
       {theme.description && (
-        <div className="text-[12px] text-[var(--txt-dim)] leading-relaxed line-clamp-2 max-w-[260px]">
+        <div className="text-[12px] text-[var(--txt-dim)] leading-relaxed max-w-[300px] whitespace-pre-line break-words">
           {theme.description}
         </div>
       )}
