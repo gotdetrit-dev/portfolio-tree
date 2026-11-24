@@ -69,7 +69,7 @@ function loadAvatar() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-export default function InvestmentRoom({ user, agg }) {
+export default function InvestmentRoom({ user, agg, holdings = [], watchingList = [], onAddHolding, onDeleteHolding, onAddWatching, onDeleteWatching }) {
   const [themes, setThemes] = useState(() => loadThemes())
   const [index, setIndex] = useState(0)
   const [avatar, setAvatar] = useState(() => loadAvatar())
@@ -78,6 +78,8 @@ export default function InvestmentRoom({ user, agg }) {
   const [showEdit, setShowEdit] = useState(false) // แสดงปุ่มแก้ไขบนการ์ด
   const [allocOpen, setAllocOpen] = useState(false) // หน้าต่างปรับสัดส่วน
   const [fabOpen, setFabOpen] = useState(false) // เมนูปุ่มมุมขวาล่าง
+  const [stockTab, setStockTab] = useState('holding') // แท็บในหน้าธีม: holding | watching
+  const [stockAddOpen, setStockAddOpen] = useState(false)
   // สัดส่วนเงินสด (%) — ธีมทั้งหมด + เงินสด = 100%
   const [cashAlloc, setCashAlloc] = useState(() => {
     try {
@@ -171,6 +173,8 @@ export default function InvestmentRoom({ user, agg }) {
   }, [editMode, opened, themes.length]) // eslint-disable-line
 
   const cur = themes[index]
+  const themeHoldings = cur ? holdings.filter((h) => h.themeId === cur.id) : []
+  const themeWatching = cur ? watchingList.filter((w) => w.themeId === cur.id) : []
   const prev = () => setIndex((i) => (i - 1 + themes.length) % themes.length)
   const next = () => setIndex((i) => (i + 1) % themes.length)
 
@@ -408,8 +412,47 @@ export default function InvestmentRoom({ user, agg }) {
           </div>
         </div>
 
+        {/* แท็บ Holding / Watching (ซ้าย) + ปุ่มเพิ่ม (ขวา) */}
+        <div className="flex items-end justify-between mx-auto mt-8" style={{ width: '80%' }}>
+          <div className="flex gap-2">
+            {[
+              { key: 'holding', label: 'Holding', count: themeHoldings.length },
+              { key: 'watching', label: 'Watching', count: themeWatching.length },
+            ].map((t) => {
+              const on = stockTab === t.key
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setStockTab(t.key)}
+                  className="px-4 py-1.5 rounded-t-lg text-[13px] font-semibold transition-all"
+                  style={{
+                    background: on ? `${cur.tone}33` : 'rgba(8,11,18,0.6)',
+                    color: on ? '#fff' : cur.tone,
+                    border: `1px solid ${on ? cur.tone : cur.tone + '55'}`,
+                    borderBottom: 'none',
+                    boxShadow: on ? `0 0 14px ${cur.tone}55` : 'none',
+                  }}
+                >
+                  {t.label} <span className="text-[11px] opacity-70">({t.count})</span>
+                </button>
+              )
+            })}
+          </div>
+          <button
+            onClick={() => setStockAddOpen(true)}
+            className="w-10 h-10 mb-1 rounded-full flex items-center justify-center text-[22px] leading-none transition-all hover:scale-110"
+            style={{
+              background: 'rgba(8,11,18,0.75)',
+              border: `1px solid ${cur.tone}88`,
+              color: cur.tone,
+              boxShadow: `0 0 16px ${cur.tone}55`,
+            }}
+            title={stockTab === 'holding' ? 'เพิ่ม Holding' : 'เพิ่ม Watching'}
+          >+</button>
+        </div>
+
         {/* Stage platform (rectangular glowing bar at bottom) */}
-        <div className="relative mt-12 mb-10 pointer-events-none" style={{ perspective: '600px' }}>
+        <div className="relative mt-0 mb-4 pointer-events-none" style={{ perspective: '600px' }}>
           <div
             style={{
               height: 50,
@@ -433,6 +476,26 @@ export default function InvestmentRoom({ user, agg }) {
             }}
           />
         </div>
+
+        {/* รายการหุ้นของธีม */}
+        <div className="mx-auto mb-8" style={{ width: '80%' }}>
+          {stockTab === 'holding'
+            ? <ThemeHoldingsTable rows={themeHoldings} tone={cur.tone} onDelete={onDeleteHolding} />
+            : <ThemeWatchingTable rows={themeWatching} tone={cur.tone} onDelete={onDeleteWatching} />}
+        </div>
+
+        {stockAddOpen && (
+          <AddStockModal
+            kind={stockTab}
+            theme={cur}
+            onClose={() => setStockAddOpen(false)}
+            onSubmit={(v) => {
+              if (stockTab === 'holding') onAddHolding?.({ ...v, themeId: cur.id })
+              else onAddWatching?.({ ticker: v.symbol, supportPrice: v.supportPrice, note: v.note, themeId: cur.id })
+              setStockAddOpen(false)
+            }}
+          />
+        )}
 
         {/* Bottom action bar */}
         <div className="pb-10 flex items-center justify-center gap-2 flex-wrap">
@@ -496,6 +559,145 @@ function ThemeCard({ theme, onClick, onEdit }) {
       {/* หลอดสัดส่วนของธีม */}
       <div className="w-full max-w-[300px] mt-2">
         <AllocBar pct={Number(theme.alloc) || 0} tone={tone} />
+      </div>
+    </div>
+  )
+}
+
+// ─── ตาราง Holding / Watching ของธีม ────────────────────────────────────────
+function StockPanel({ tone, children, empty }) {
+  return (
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{ background: 'rgba(8,11,18,0.75)', border: `1px solid ${tone}44`, boxShadow: `0 0 20px ${tone}22` }}
+    >
+      {empty
+        ? <div className="text-center text-[12px] text-[var(--txt-faint)] italic py-8">{empty}</div>
+        : <div className="overflow-x-auto">{children}</div>}
+    </div>
+  )
+}
+
+function ThemeHoldingsTable({ rows, tone, onDelete }) {
+  if (!rows.length) return <StockPanel tone={tone} empty="ยังไม่มีหุ้นที่ถือในธีมนี้ · กด + เพื่อเพิ่ม" />
+  return (
+    <StockPanel tone={tone}>
+      <table className="w-full text-[12.5px]">
+        <thead>
+          <tr className="text-[10.5px] uppercase tracking-wider text-[var(--txt-faint)]" style={{ borderBottom: `1px solid ${tone}33` }}>
+            <th className="text-left px-4 py-2">หุ้น</th>
+            <th className="text-right px-3 py-2">จำนวน</th>
+            <th className="text-right px-3 py-2">ทุนเฉลี่ย</th>
+            <th className="text-right px-3 py-2">ราคา</th>
+            <th className="text-right px-3 py-2">มูลค่า</th>
+            <th className="text-right px-3 py-2">กำไร/ขาดทุน</th>
+            <th className="px-2 py-2" />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((h) => {
+            const mv = (Number(h.qty) || 0) * (Number(h.price) || 0)
+            const cost = (Number(h.qty) || 0) * (Number(h.avg) || 0)
+            const pl = mv - cost
+            const plPct = cost > 0 ? (pl / cost) * 100 : 0
+            const c = pl >= 0 ? '#34e07a' : '#ff4d6d'
+            return (
+              <tr key={h.id} className="border-t border-white/5">
+                <td className="px-4 py-2 font-mono font-semibold text-white">{h.symbol}</td>
+                <td className="px-3 py-2 text-right font-mono">{fmtNumPlain(h.qty)}</td>
+                <td className="px-3 py-2 text-right font-mono">{fmtUsd(h.avg)}</td>
+                <td className="px-3 py-2 text-right font-mono">{fmtUsd(h.price)}</td>
+                <td className="px-3 py-2 text-right font-mono text-white">{fmtUsd(mv)}</td>
+                <td className="px-3 py-2 text-right font-mono" style={{ color: c }}>
+                  {fmtSigned(pl)} <span className="text-[11px] opacity-80">{fmtSignedPct(plPct)}</span>
+                </td>
+                <td className="px-2 py-2 text-right">
+                  <button onClick={() => onDelete?.(h)} className="text-[var(--txt-faint)] hover:text-[#ff8aa0] text-[11px]" title="ลบ">✕</button>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </StockPanel>
+  )
+}
+
+function ThemeWatchingTable({ rows, tone, onDelete }) {
+  if (!rows.length) return <StockPanel tone={tone} empty="ยังไม่มีหุ้นที่เฝ้าดูในธีมนี้ · กด + เพื่อเพิ่ม" />
+  return (
+    <StockPanel tone={tone}>
+      <table className="w-full text-[12.5px]">
+        <thead>
+          <tr className="text-[10.5px] uppercase tracking-wider text-[var(--txt-faint)]" style={{ borderBottom: `1px solid ${tone}33` }}>
+            <th className="text-left px-4 py-2">หุ้น</th>
+            <th className="text-right px-3 py-2">ราคาเป้า (แนวรับ)</th>
+            <th className="text-right px-3 py-2">ราคาล่าสุด</th>
+            <th className="text-left px-3 py-2">โน้ต</th>
+            <th className="px-2 py-2" />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((w) => (
+            <tr key={w.id} className="border-t border-white/5">
+              <td className="px-4 py-2 font-mono font-semibold text-white">{w.ticker}</td>
+              <td className="px-3 py-2 text-right font-mono" style={{ color: tone }}>{w.supportPrice ? fmtUsd(w.supportPrice) : '—'}</td>
+              <td className="px-3 py-2 text-right font-mono">{w.currentPrice ? fmtUsd(w.currentPrice) : '—'}</td>
+              <td className="px-3 py-2 text-[var(--txt-dim)]">{w.note}</td>
+              <td className="px-2 py-2 text-right">
+                <button onClick={() => onDelete?.(w.id)} className="text-[var(--txt-faint)] hover:text-[#ff8aa0] text-[11px]" title="ลบ">✕</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </StockPanel>
+  )
+}
+
+// ─── หน้าต่างเพิ่มหุ้น (Holding หรือ Watching ตามแท็บที่อยู่) ────────────────
+function AddStockModal({ kind, theme, onClose, onSubmit }) {
+  const isHolding = kind === 'holding'
+  const [symbol, setSymbol] = useState('')
+  const [qty, setQty] = useState('')
+  const [avg, setAvg] = useState('')
+  const [supportPrice, setSupportPrice] = useState('')
+  const [note, setNote] = useState('')
+  const ok = symbol.trim() && (!isHolding || (Number(qty) > 0 && Number(avg) > 0))
+  const submit = () => { if (ok) onSubmit({ symbol: symbol.trim().toUpperCase(), qty, avg, supportPrice, note }) }
+  const lab = (t) => <span className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--txt-faint)' }}>{t}</span>
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="panel rounded-2xl p-5 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-[16px] font-semibold">
+            {isHolding ? 'เพิ่ม Holding' : 'เพิ่ม Watching'} · <span style={{ color: theme.tone }}>{theme.icon} {theme.name}</span>
+          </div>
+          <button onClick={onClose} className="text-[var(--txt-dim)] hover:text-white text-[20px]">✕</button>
+        </div>
+        <div className="space-y-3">
+          <label className="block">
+            {lab('สัญลักษณ์หุ้น')}
+            <input autoFocus className="field w-full" placeholder="เช่น NVDA" value={symbol}
+              onChange={(e) => setSymbol(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
+          </label>
+          {isHolding ? (
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">{lab('จำนวนหุ้น')}<input type="number" step="any" className="field w-full" value={qty} onChange={(e) => setQty(e.target.value)} /></label>
+              <label className="block">{lab('ทุนเฉลี่ย ($)')}<input type="number" step="any" className="field w-full" value={avg} onChange={(e) => setAvg(e.target.value)} /></label>
+            </div>
+          ) : (
+            <>
+              <label className="block">{lab('ราคาเป้า / แนวรับ ($)')}<input type="number" step="any" className="field w-full" value={supportPrice} onChange={(e) => setSupportPrice(e.target.value)} /></label>
+              <label className="block">{lab('โน้ต')}<input className="field w-full" value={note} onChange={(e) => setNote(e.target.value)} /></label>
+            </>
+          )}
+        </div>
+        <div className="flex gap-2 mt-5">
+          <button className="btn flex-1" onClick={onClose}>ยกเลิก</button>
+          <button className="btn btn-primary flex-1" disabled={!ok} onClick={submit}>เพิ่ม</button>
+        </div>
       </div>
     </div>
   )

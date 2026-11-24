@@ -26,6 +26,7 @@ const toHoldingRow = (h, userId) => ({
   tracked_add: h.trackedAdd ?? null, tracked_trim: h.trackedTrim ?? null,
   currency: h.currency || 'USD',
   manual_price: !!h.manualPrice,
+  ...(h.themeId !== undefined ? { theme_id: h.themeId } : {}),
 })
 
 const fromHoldingRow = (r) => ({
@@ -35,6 +36,7 @@ const fromHoldingRow = (r) => ({
   trackedAdd: r.tracked_add ?? null, trackedTrim: r.tracked_trim ?? null,
   currency: r.currency || 'USD',
   manualPrice: !!r.manual_price,
+  themeId: r.theme_id, // undefined ถ้ายังไม่ได้รัน theme_link.sql
 })
 
 const toTxnRow = (t, userId) => ({
@@ -78,6 +80,7 @@ const toWatchingRow = (it, userId) => ({
   category: it.category ?? 'Core', support_price: num(it.supportPrice), current_price: num(it.currentPrice),
   alert_status: it.alertStatus ?? null, note: it.note ?? '',
   created_at: it.createdAt, updated_at: it.updatedAt,
+  ...(it.themeId !== undefined ? { theme_id: it.themeId } : {}),
 })
 
 const fromWatchingRow = (r) => ({
@@ -85,6 +88,7 @@ const fromWatchingRow = (r) => ({
   supportPrice: num(r.support_price), currentPrice: num(r.current_price),
   alertStatus: r.alert_status ?? 'Normal', note: r.note ?? '',
   createdAt: r.created_at, updatedAt: r.updated_at,
+  themeId: r.theme_id, // undefined ถ้ายังไม่ได้รัน theme_link.sql
 })
 
 // ─── Settings ─────────────────────────────────────────────────────────────────

@@ -28,6 +28,7 @@ export function makeWatchingRecord(input, base) {
     supportPrice: Number(input.supportPrice ?? base?.supportPrice) || 0,
     currentPrice: Number(input.currentPrice ?? base?.currentPrice) || 0,
     note: (input.note ?? base?.note ?? '').trim(),
+    themeId: input.themeId !== undefined ? input.themeId : base?.themeId,
     createdAt: base?.createdAt || ts,
     updatedAt: ts,
   }

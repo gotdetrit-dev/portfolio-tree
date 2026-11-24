@@ -708,7 +708,31 @@ export default function App({ user, onSignOut }) {
       </header>
 
       {/* ห้องลงทุน — ธีมหุ้นที่ติดตาม */}
-      {section === 'investment-room' && <InvestmentRoom user={user} agg={agg} />}
+      {section === 'investment-room' && (
+        <InvestmentRoom
+          user={user}
+          agg={agg}
+          holdings={holdings}
+          watchingList={watchingList}
+          onAddHolding={({ symbol, qty, avg, themeId }) => {
+            const s = (symbol || '').trim().toUpperCase()
+            if (!s) return
+            if (holdings.some((x) => x.symbol === s)) {
+              alert(`มี ${s} อยู่ในพอร์ตแล้ว`)
+              return
+            }
+            commitHolding({
+              id: uid('h'), cat: 'core', symbol: s, name: s,
+              qty: Number(qty) || 0, avg: Number(avg) || 0, price: Number(avg) || 0,
+              addPlan: [0, 0, 0], trimPlan: [0, 0, 0], note: '',
+              currency: 'USD', manualPrice: false, themeId,
+            })
+          }}
+          onDeleteHolding={deleteHolding}
+          onAddWatching={(input) => addWatching(input)}
+          onDeleteWatching={deleteWatching}
+        />
+      )}
 
       {/* Macro-Overview — manual tracker */}
       {section === 'macro' && <MacroOverview user={user} />}
