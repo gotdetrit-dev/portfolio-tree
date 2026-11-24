@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 const LS_THEMES  = 'investment_room_themes_v2'
+const LS_CASH_ALLOC = 'investment_room_cash_alloc_v1'
 const LS_AVATAR  = 'investment_room_avatar_v1'
 
 // ─── Starter data ──────────────────────────────────────────────────────────
@@ -73,7 +74,19 @@ export default function InvestmentRoom() {
   const [editMode, setEditMode] = useState(null) // null | 'theme' | 'avatar' | 'create'
   const [opened, setOpened] = useState(false) // false = หน้ารวมการ์ดธีม, true = เข้าไปในธีม
   const [showEdit, setShowEdit] = useState(false) // แสดงปุ่มแก้ไขบนการ์ด
+  const [allocOpen, setAllocOpen] = useState(false) // หน้าต่างปรับสัดส่วน
+  // สัดส่วนเงินสด (%) — ธีมทั้งหมด + เงินสด = 100%
+  const [cashAlloc, setCashAlloc] = useState(() => {
+    try {
+      const raw = localStorage.getItem(LS_CASH_ALLOC)
+      if (raw != null) return Number(raw) || 0
+    } catch {}
+    // ครั้งแรก: เงินสด = ส่วนที่เหลือจากธีม
+    const used = loadThemes().reduce((s, t) => s + (Number(t.alloc) || 0), 0)
+    return Math.max(0, 100 - used)
+  })
 
+  useEffect(() => { localStorage.setItem(LS_CASH_ALLOC, String(cashAlloc)) }, [cashAlloc])
   useEffect(() => { localStorage.setItem(LS_THEMES, JSON.stringify(themes)) }, [themes])
   useEffect(() => { localStorage.setItem(LS_AVATAR, JSON.stringify(avatar)) }, [avatar])
 
@@ -97,6 +110,8 @@ export default function InvestmentRoom() {
   const deleteCur = () => {
     if (themes.length <= 1) { alert('ต้องมีอย่างน้อย 1 ธีม'); return }
     if (!confirm(`ลบธีม "${cur.name}" ทิ้งถาวร?`)) return
+    // สัดส่วนของธีมที่ลบ คืนไปเป็นเงินสด ให้รวมยังเป็น 100%
+    setCashAlloc((c) => round1(c + (Number(cur.alloc) || 0)))
     setThemes((arr) => arr.filter((_, i) => i !== index))
     setIndex((i) => Math.max(0, i - 1))
     setEditMode(null)
@@ -136,17 +151,51 @@ export default function InvestmentRoom() {
             <span>INVESTMENT ROOM · {themes.length} ธีม</span>
             <span>✦</span>
           </div>
+          {/* เงินสด */}
+          <div className="max-w-[420px] mx-auto mb-6">
+            <AllocBar label="💵 เงินสด" pct={cashAlloc} tone="#9fb3c8" />
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {themes.map((t, i) => (
-              <ThemeCard
-                key={t.id}
-                theme={t}
-                onClick={() => { setIndex(i); setOpened(true) }}
-                onEdit={showEdit ? () => { setIndex(i); setEditMode('theme') } : null}
-              />
-            ))}
+            {themes
+              .map((t, i) => ({ t, i }))
+              .sort((a, b) => (Number(b.t.alloc) || 0) - (Number(a.t.alloc) || 0))
+              .map(({ t, i }) => (
+                <ThemeCard
+                  key={t.id}
+                  theme={t}
+                  onClick={() => { setIndex(i); setOpened(true) }}
+                  onEdit={showEdit ? () => { setIndex(i); setEditMode('theme') } : null}
+                />
+              ))}
           </div>
         </div>
+
+        {/* ปุ่มปรับสัดส่วน — ข้างปุ่มแก้ไข */}
+        <button
+          onClick={() => setAllocOpen(true)}
+          className="fixed right-[168px] bottom-6 z-20 w-14 h-14 rounded-full flex items-center justify-center text-[22px] leading-none transition-all hover:scale-110"
+          style={{
+            background: 'rgba(8,11,18,0.75)',
+            border: `1px solid ${cur.tone}88`,
+            color: cur.tone,
+            boxShadow: `0 0 20px ${cur.tone}55, inset 0 0 10px ${cur.tone}22`,
+            backdropFilter: 'blur(8px)',
+          }}
+          title="ปรับสัดส่วน"
+        >⚖</button>
+
+        {allocOpen && (
+          <AllocationModal
+            themes={themes}
+            cash={cashAlloc}
+            onClose={() => setAllocOpen(false)}
+            onSave={(allocById, cash) => {
+              setThemes((arr) => arr.map((t) => ({ ...t, alloc: allocById[t.id] ?? 0 })))
+              setCashAlloc(cash)
+              setAllocOpen(false)
+            }}
+          />
+        )}
 
         {/* ปุ่มแก้ไข (เปิด/ปิดปุ่มแก้ไขบนการ์ด) — ข้างปุ่มเพิ่ม */}
         <button
@@ -377,13 +426,135 @@ function ThemeCard({ theme, onClick, onEdit }) {
       <div className="text-[20px] font-bold text-white mb-2 truncate max-w-full" style={{ textShadow: `0 0 14px ${tone}66` }}>
         {theme.name}
       </div>
-      {/* คำอธิบาย: จำกัด 3 แถว และจองความสูง 3 แถวเสมอ ให้การ์ดทุกใบตรงระดับกัน */}
-      <div
-        className="text-[12px] text-[var(--txt-dim)] max-w-[300px] break-words line-clamp-3"
-        style={{ lineHeight: '20px', height: 60 }}
-        title={theme.description || ''}
-      >
-        {theme.description}
+      {/* หลอดสัดส่วนของธีม */}
+      <div className="w-full max-w-[300px] mt-2">
+        <AllocBar pct={Number(theme.alloc) || 0} tone={tone} />
+      </div>
+    </div>
+  )
+}
+
+// ─── หลอดสัดส่วน ────────────────────────────────────────────────────────────
+const round1 = (n) => Math.round((Number(n) || 0) * 10) / 10
+const fmtPct = (n) => `${round1(n).toLocaleString('en-US', { maximumFractionDigits: 1 })}%`
+
+function AllocBar({ label, pct, tone }) {
+  const w = Math.max(0, Math.min(100, Number(pct) || 0))
+  return (
+    <div className="w-full">
+      <div className="flex items-center justify-between text-[11px] mb-1">
+        <span className="text-[var(--txt-dim)]">{label || 'สัดส่วน'}</span>
+        <span className="font-mono font-semibold" style={{ color: tone }}>{fmtPct(w)}</span>
+      </div>
+      <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${w}%`, background: `linear-gradient(90deg, ${tone}99, ${tone})`, boxShadow: `0 0 10px ${tone}88` }}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ─── หน้าต่างปรับสัดส่วน (รวมต้อง = 100%, เงินสดนับด้วย) ────────────────────
+function AllocationModal({ themes, cash, onClose, onSave }) {
+  const CASH = '__cash__'
+  const [draft, setDraft] = useState(() => {
+    const d = { [CASH]: round1(cash) }
+    themes.forEach((t) => { d[t.id] = round1(t.alloc) })
+    return d
+  })
+  const rows = [
+    ...themes.map((t) => ({ id: t.id, icon: t.icon, name: t.name, tone: t.tone || '#7bd1ff' })),
+    { id: CASH, icon: '💵', name: 'เงินสด', tone: '#9fb3c8' },
+  ]
+  const total = round1(Object.values(draft).reduce((s, v) => s + (Number(v) || 0), 0))
+  const remaining = round1(100 - total)
+  const ok = Math.abs(remaining) < 0.05
+
+  // ตั้งค่าแถวหนึ่ง — เพิ่มได้ไม่เกินส่วนที่เหลือ (ถ้าอยากเพิ่มมากกว่านั้น ต้องลดตัวอื่นก่อน)
+  function setRow(id, v) {
+    setDraft((d) => {
+      const others = Object.entries(d).reduce((s, [k, x]) => (k === id ? s : s + (Number(x) || 0)), 0)
+      const max = round1(100 - others)
+      const val = round1(Math.max(0, Math.min(max, Number(v) || 0)))
+      return { ...d, [id]: val }
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="panel rounded-2xl p-5 max-w-lg w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-[16px] font-semibold">ปรับสัดส่วน</div>
+          <button onClick={onClose} className="text-[var(--txt-dim)] hover:text-white text-[20px]">✕</button>
+        </div>
+        <div className="text-[11.5px] text-[var(--txt-dim)] mb-4">
+          รวมทุกธีม + เงินสด ต้องเท่ากับ 100% · ถ้าอยากเพิ่มตัวไหน ต้องลดตัวอื่นก่อน
+        </div>
+
+        <div className="space-y-3">
+          {rows.map((r) => {
+            const v = Number(draft[r.id]) || 0
+            const others = round1(total - v)
+            const max = round1(100 - others)
+            return (
+              <div key={r.id}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[16px] leading-none">{r.icon}</span>
+                  <span className="text-[13px] text-white truncate">{r.name}</span>
+                  <span className="ml-auto text-[10.5px] text-[var(--txt-faint)]">เพิ่มได้ถึง {fmtPct(max)}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={max}
+                    step={0.5}
+                    className="field w-20 text-right text-[12px] font-mono"
+                    value={v}
+                    onChange={(e) => setRow(r.id, e.target.value)}
+                  />
+                  <span className="text-[12px] text-[var(--txt-dim)]">%</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={0.5}
+                  value={v}
+                  onChange={(e) => setRow(r.id, e.target.value)}
+                  className="w-full"
+                  style={{ accentColor: r.tone }}
+                />
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="mt-4 rounded-lg p-3 flex items-center justify-between text-[13px]" style={{ background: 'rgba(255,255,255,0.04)' }}>
+          <span>รวม <b className="font-mono" style={{ color: ok ? '#34e07a' : '#f7c948' }}>{fmtPct(total)}</b></span>
+          {ok
+            ? <span className="text-[#34e07a]">✓ ครบ 100%</span>
+            : <span className="text-[#f7c948]">ยังเหลือ {fmtPct(remaining)}</span>}
+        </div>
+
+        <div className="flex gap-2 mt-4">
+          {!ok && (
+            <button className="btn text-[12px]" onClick={() => setRow(CASH, (Number(draft[CASH]) || 0) + remaining)}>
+              ใส่ส่วนที่เหลือเป็นเงินสด
+            </button>
+          )}
+          <button className="btn ml-auto" onClick={onClose}>ยกเลิก</button>
+          <button
+            className="btn btn-primary"
+            disabled={!ok}
+            onClick={() => {
+              const { [CASH]: c, ...byId } = draft
+              onSave(byId, round1(c))
+            }}
+          >
+            บันทึก
+          </button>
+        </div>
       </div>
     </div>
   )
