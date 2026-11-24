@@ -1237,10 +1237,10 @@ function ThemeSettingsModal({ theme, onClose, onUpdate }) {
             <input type="text" className="field w-full" value={theme.name} onChange={(e) => onUpdate({ name: e.target.value })} />
           </label>
           <div className="grid grid-cols-2 gap-3">
-            <label className="block">
+            <div className="block">
               <span className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--txt-faint)' }}>ไอคอน (emoji)</span>
-              <input type="text" className="field w-full" value={theme.icon} onChange={(e) => onUpdate({ icon: e.target.value })} maxLength={2} />
-            </label>
+              <EmojiPicker value={theme.icon} tone={theme.tone} onChange={(icon) => onUpdate({ icon })} />
+            </div>
             <label className="block">
               <span className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--txt-faint)' }}>สีธีม</span>
               <input type="color" className="field w-full" value={theme.tone} onChange={(e) => onUpdate({ tone: e.target.value })} style={{ height: 40 }} />
@@ -1289,6 +1289,95 @@ function ThemeSettingsModal({ theme, onClose, onUpdate }) {
   )
 }
 
+// ─── Emoji picker ──────────────────────────────────────────────────────────
+const EMOJI_GROUPS = [
+  { label: 'เทค', items: ['🤖', '💻', '🖥️', '📱', '🔌', '🔋', '💾', '🧠', '🛰️', '📡', '🌐', '☁️', '🔐', '🕹️', '🎮', '🧬', '🔬', '⚙️', '🛠️', '🧲'] },
+  { label: 'การเงิน', items: ['💰', '💵', '💴', '💶', '💷', '💳', '🏦', '📈', '📉', '📊', '💹', '🪙', '💎', '🏛️', '🧾', '⚖️', '🎯', '🏆', '🥇', '🔑'] },
+  { label: 'อุตสาหกรรม', items: ['🏭', '🏗️', '⚡', '🛢️', '⛽', '☀️', '🌬️', '💡', '🚗', '🚙', '🚚', '🚢', '✈️', '🚀', '🚆', '🏠', '🏢', '🏨', '🛒', '📦'] },
+  { label: 'สุขภาพ/อาหาร', items: ['🏥', '💊', '💉', '🩺', '🧪', '❤️', '🦷', '👓', '🍔', '🍕', '🍜', '🍣', '☕', '🍺', '🥤', '🍫', '🌾', '🥩', '🍎', '🧴'] },
+  { label: 'อื่นๆ', items: ['🛡️', '🌱', '🌳', '🌍', '♻️', '💧', '🔥', '❄️', '⭐', '✨', '🌙', '🎬', '🎵', '📺', '📰', '🧭', '🐂', '🐻', '🦄', '👑'] },
+]
+
+function firstGrapheme(str) {
+  if (!str) return ''
+  try {
+    const seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+    const it = seg.segment(str)[Symbol.iterator]().next()
+    return it.done ? '' : it.value.segment
+  } catch { return Array.from(str)[0] || '' }
+}
+
+function EmojiPicker({ value, tone = '#7bd1ff', onChange }) {
+  const [open, setOpen] = useState(false)
+  const [tab, setTab] = useState(0)
+  const wrapRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="field w-full flex items-center gap-2 text-left"
+        style={{ height: 40 }}
+      >
+        <span className="text-[22px] leading-none">{value || '✨'}</span>
+        <span className="ml-auto text-[11px] text-[var(--txt-dim)]">{open ? 'ปิด ▲' : 'เลือก ▼'}</span>
+      </button>
+
+      {open && (
+        <div
+          className="absolute left-0 top-full mt-1 z-50 rounded-xl p-3"
+          style={{ width: 300, background: '#0b111c', border: `1px solid ${tone}66`, boxShadow: `0 10px 30px rgba(0,0,0,0.6), 0 0 16px ${tone}33` }}
+        >
+          <div className="flex gap-1 flex-wrap mb-2">
+            {EMOJI_GROUPS.map((g, i) => (
+              <button
+                key={g.label}
+                type="button"
+                onClick={() => setTab(i)}
+                className="px-2 py-1 rounded-md text-[11px]"
+                style={{
+                  background: tab === i ? `${tone}33` : 'transparent',
+                  color: tab === i ? tone : 'var(--txt-dim)',
+                  border: `1px solid ${tab === i ? tone + '88' : 'transparent'}`,
+                }}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-8 gap-1 mb-2">
+            {EMOJI_GROUPS[tab].items.map((em) => (
+              <button
+                key={em}
+                type="button"
+                onClick={() => { onChange(em); setOpen(false) }}
+                className="aspect-square rounded-md flex items-center justify-center text-[20px] hover:scale-110 transition-transform"
+                style={{ background: value === em ? `${tone}33` : 'rgba(255,255,255,0.03)', border: `1px solid ${value === em ? tone : 'transparent'}` }}
+              >
+                {em}
+              </button>
+            ))}
+          </div>
+          <input
+            type="text"
+            className="field w-full text-[12px]"
+            placeholder="หรือวาง emoji เอง (Windows: กด Win + .)"
+            onChange={(e) => { const g = firstGrapheme(e.target.value.trim()); if (g) { onChange(g); setOpen(false) } }}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Create theme modal ─────────────────────────────────────────────────
 function CreateThemeModal({ onClose, onCreate }) {
   const [name, setName] = useState('')
@@ -1321,6 +1410,16 @@ function CreateThemeModal({ onClose, onCreate }) {
               </button>
             )
           })}
+        </div>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div>
+            <span className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--txt-faint)' }}>เลือก emoji อื่น</span>
+            <EmojiPicker value={icon} tone={tone} onChange={setIcon} />
+          </div>
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--txt-faint)' }}>สีธีม</span>
+            <input type="color" className="field w-full" value={tone} onChange={(e) => setTone(e.target.value)} style={{ height: 40 }} />
+          </label>
         </div>
         <div className="flex gap-2">
           <button className="btn flex-1" onClick={onClose}>ยกเลิก</button>
