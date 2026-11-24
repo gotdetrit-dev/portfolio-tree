@@ -220,19 +220,19 @@ export default function InvestmentRoom({ user, agg }) {
     return (
       <section className="relative" style={{ minHeight: 'calc(100vh - 60px)' }}>
         <CosmicBackdrop tone={cur.tone} />
-        <div className="relative z-10 px-4 lg:px-10 pt-8 pb-12 max-w-[1200px] mx-auto">
-          {/* หัวข้อ (ซ้ายบน) · เงินสด (กลาง ระดับเดียวกับช่องกำไร) · มูลค่าพอร์ต / กำไรรวม (ขวา) */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(0,420px)_1fr] items-end gap-4 mb-8">
-            <h1
-              className="self-start text-center lg:text-left text-[34px] sm:text-[44px] font-bold leading-tight text-white"
-              style={{ textShadow: `0 0 24px ${cur.tone}88` }}
-            >
-              การลงทุนของฉัน
-            </h1>
-            <div className="w-full max-w-[420px] mx-auto lg:pb-6 order-last lg:order-none">
+        <div className="relative z-10 px-4 lg:px-10 pt-4 pb-24 max-w-[1200px] mx-auto">
+          {/* ซ้าย: หัวข้อ + หลอดเงินสด · ขวา: มูลค่าพอร์ต / กำไรรวม (แถวเดียว) */}
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-5">
+            <div className="flex flex-col gap-3 w-full lg:max-w-[420px]">
+              <h1
+                className="text-center lg:text-left text-[32px] sm:text-[40px] font-bold leading-tight text-white"
+                style={{ textShadow: `0 0 24px ${cur.tone}88` }}
+              >
+                การลงทุนของฉัน
+              </h1>
               <AllocBar label="💵 เงินสด" pct={cashAlloc} tone="#9fb3c8" />
             </div>
-            <div className="flex flex-col gap-2 items-center lg:items-end">
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch justify-center lg:justify-end">
               <PortfolioStat label="มูลค่าพอร์ต" value={fmtUsd(agg?.total || 0)} tone={cur.tone} />
               <PortfolioStat
                 label="กำไรรวม (รับรู้แล้ว + ยังไม่รับรู้)"
@@ -250,7 +250,7 @@ export default function InvestmentRoom({ user, agg }) {
             </div>
           </div>
           <SyncNotice status={syncStatus} saveState={saveState} />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {themes
               .map((t, i) => ({ t, i }))
               .sort((a, b) => (Number(b.t.alloc) || 0) - (Number(a.t.alloc) || 0))
@@ -465,9 +465,9 @@ function ThemeCard({ theme, onClick, onEdit }) {
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
-      className="group relative cursor-pointer rounded-2xl p-6 text-center flex flex-col items-center justify-start transition-all duration-300 hover:-translate-y-1"
+      className="group relative cursor-pointer rounded-2xl px-6 py-4 text-center flex flex-col items-center justify-start transition-all duration-300 hover:-translate-y-1"
       style={{
-        minHeight: 200,
+        minHeight: 160,
         background: 'linear-gradient(145deg, rgba(10,16,28,0.92) 0%, rgba(5,10,20,0.88) 100%)',
         border: `1px solid ${tone}66`,
         boxShadow: `0 0 0 1px ${tone}22, 0 0 24px ${tone}33, inset 0 0 40px ${tone}0d, 0 20px 40px rgba(0,0,0,0.5)`,
@@ -485,7 +485,7 @@ function ThemeCard({ theme, onClick, onEdit }) {
         title="แก้ไขชื่อและคำอธิบายธีม"
       >✎</button>}
       <div
-        className="text-[44px] leading-none mb-3 transition-transform duration-300 group-hover:scale-110"
+        className="text-[38px] leading-none mb-2 transition-transform duration-300 group-hover:scale-110"
         style={{ filter: `drop-shadow(0 0 16px ${tone}aa)` }}
       >
         {theme.icon}
