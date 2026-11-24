@@ -221,15 +221,17 @@ export default function InvestmentRoom({ user, agg }) {
       <section className="relative" style={{ minHeight: 'calc(100vh - 60px)' }}>
         <CosmicBackdrop tone={cur.tone} />
         <div className="relative z-10 px-4 lg:px-10 pt-8 pb-12 max-w-[1200px] mx-auto">
-          {/* หัวข้อ (กลาง) + มูลค่าพอร์ต / กำไรรวม (ขวา) */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] items-center gap-4 mb-8">
-            <div className="hidden lg:block" />
+          {/* หัวข้อ (ซ้ายบน) · เงินสด (กลาง ระดับเดียวกับช่องกำไร) · มูลค่าพอร์ต / กำไรรวม (ขวา) */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(0,420px)_1fr] items-end gap-4 mb-8">
             <h1
-              className="text-center text-[34px] sm:text-[44px] font-bold leading-tight text-white"
+              className="self-start text-center lg:text-left text-[34px] sm:text-[44px] font-bold leading-tight text-white"
               style={{ textShadow: `0 0 24px ${cur.tone}88` }}
             >
               การลงทุนของฉัน
             </h1>
+            <div className="w-full max-w-[420px] mx-auto lg:pb-6 order-last lg:order-none">
+              <AllocBar label="💵 เงินสด" pct={cashAlloc} tone="#9fb3c8" />
+            </div>
             <div className="flex flex-col gap-2 items-center lg:items-end">
               <PortfolioStat label="มูลค่าพอร์ต" value={fmtUsd(agg?.total || 0)} tone={cur.tone} />
               <PortfolioStat
@@ -238,14 +240,16 @@ export default function InvestmentRoom({ user, agg }) {
                 sub={fmtSignedPct(agg?.totalReturnPct || 0)}
                 tone={cur.tone}
                 color={(agg?.totalPL || 0) >= 0 ? '#34e07a' : '#ff4d6d'}
+                footer={
+                  <>
+                    <span>รับรู้แล้ว <PlText n={agg?.realizedPL || 0} /></span>
+                    <span>ยังไม่รับรู้ <PlText n={agg?.unrealizedPL || 0} /></span>
+                  </>
+                }
               />
             </div>
           </div>
           <SyncNotice status={syncStatus} saveState={saveState} />
-          {/* เงินสด */}
-          <div className="max-w-[420px] mx-auto mb-6">
-            <AllocBar label="💵 เงินสด" pct={cashAlloc} tone="#9fb3c8" />
-          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {themes
               .map((t, i) => ({ t, i }))
@@ -529,7 +533,12 @@ function FabButton({ tone, label, title, active, big, onClick, children }) {
 
 // ─── สถานะการบันทึก Supabase ────────────────────────────────────────────────
 // ─── กล่องตัวเลขพอร์ต (มุมขวาบน) ────────────────────────────────────────────
-function PortfolioStat({ label, value, sub, tone, color }) {
+function PlText({ n }) {
+  const v = Number(n) || 0
+  return <span className="font-mono num-tabular" style={{ color: v >= 0 ? '#34e07a' : '#ff4d6d' }}>{fmtSigned(v)}</span>
+}
+
+function PortfolioStat({ label, value, sub, tone, color, footer }) {
   return (
     <div
       className="rounded-xl px-4 py-2 min-w-[220px] text-right"
@@ -540,6 +549,11 @@ function PortfolioStat({ label, value, sub, tone, color }) {
         <span className="text-[20px] font-semibold font-mono num-tabular" style={{ color: color || '#fff' }}>{value}</span>
         {sub && <span className="text-[12px] font-mono num-tabular" style={{ color: color || 'var(--txt-dim)' }}>{sub}</span>}
       </div>
+      {footer && (
+        <div className="mt-1 pt-1 border-t border-white/5 flex flex-col items-end gap-0.5 text-[11px] text-[var(--txt-dim)]">
+          {footer}
+        </div>
+      )}
     </div>
   )
 }
