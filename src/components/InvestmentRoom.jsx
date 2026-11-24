@@ -649,7 +649,10 @@ function ThemeCard({ theme, actualPct = 0, perf, mode = 'all', onClick, onEdit }
       className="group relative cursor-pointer rounded-2xl px-6 py-4 text-center flex flex-col items-center justify-start transition-all duration-300 hover:-translate-y-1"
       style={{
         minHeight: 160,
-        background: 'linear-gradient(145deg, rgba(10,16,28,0.92) 0%, rgba(5,10,20,0.88) 100%)',
+        // กำไร/ขาดทุน → ขอบการ์ดออกเขียว/แดงอ่อนๆ แล้วจางเข้าตรงกลาง
+        background: perf && perf.has && tone !== PERF_NONE
+          ? `radial-gradient(ellipse at center, transparent 35%, ${tone}26 85%, ${tone}38 100%), linear-gradient(145deg, rgba(10,16,28,0.92) 0%, rgba(5,10,20,0.88) 100%)`
+          : 'linear-gradient(145deg, rgba(10,16,28,0.92) 0%, rgba(5,10,20,0.88) 100%)',
         border: `1px solid ${tone}66`,
         boxShadow: `0 0 0 1px ${tone}22, 0 0 24px ${tone}33, inset 0 0 40px ${tone}0d, 0 20px 40px rgba(0,0,0,0.5)`,
         backdropFilter: 'blur(4px)',
