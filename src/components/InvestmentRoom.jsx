@@ -9,6 +9,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { supabase } from '../supabaseClient.js'
+import { loadInvestmentRoom, saveInvestmentRoom } from '../db.js'
 
 const LS_THEMES  = 'investment_room_themes_v2'
 const LS_CASH_ALLOC = 'investment_room_cash_alloc_v1'
@@ -67,7 +69,7 @@ function loadAvatar() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-export default function InvestmentRoom() {
+export default function InvestmentRoom({ user }) {
   const [themes, setThemes] = useState(() => loadThemes())
   const [index, setIndex] = useState(0)
   const [avatar, setAvatar] = useState(() => loadAvatar())
@@ -86,9 +88,74 @@ export default function InvestmentRoom() {
     return Math.max(0, 100 - used)
   })
 
+  // localStorage = สำรองในเครื่อง (ใช้ตอนยังต่อ Supabase ไม่ได้)
   useEffect(() => { localStorage.setItem(LS_CASH_ALLOC, String(cashAlloc)) }, [cashAlloc])
   useEffect(() => { localStorage.setItem(LS_THEMES, JSON.stringify(themes)) }, [themes])
   useEffect(() => { localStorage.setItem(LS_AVATAR, JSON.stringify(avatar)) }, [avatar])
+
+  // ─── Supabase sync ──────────────────────────────────────────────────────
+  // syncStatus: loading | synced | local (ยังไม่มี table / ไม่ได้ล็อกอิน) | error
+  const userId = user?.id
+  const [syncStatus, setSyncStatus] = useState(userId && supabase ? 'loading' : 'local')
+  const [saveState, setSaveState] = useState('idle') // idle | saving | saved | error
+  const skipSaveRef = useRef(true)
+  const saveTimer = useRef(null)
+  const latestRef = useRef({ themes, cashAlloc, avatar })
+  latestRef.current = { themes, cashAlloc, avatar }
+
+  // โหลดครั้งแรก: มี row → ใช้ข้อมูลจาก Supabase / ยังไม่มี row → อัปโหลดข้อมูลในเครื่องขึ้นไป
+  useEffect(() => {
+    if (!userId || !supabase) { setSyncStatus('local'); return }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const row = await loadInvestmentRoom(userId)
+        if (cancelled) return
+        if (row.missingTable) { setSyncStatus('local'); return }
+        if (row.exists && row.themes.length) {
+          skipSaveRef.current = true
+          setThemes(row.themes)
+          setCashAlloc(row.cashAlloc)
+          setAvatar({ ...DEFAULT_AVATAR, ...row.avatar })
+          setIndex(0)
+        } else {
+          await saveInvestmentRoom(userId, latestRef.current)
+          if (cancelled) return
+        }
+        setSyncStatus('synced')
+      } catch (e) {
+        console.error('investment room load failed', e)
+        if (!cancelled) setSyncStatus('error')
+      }
+    })()
+    return () => { cancelled = true }
+  }, [userId])
+
+  // บันทึกอัตโนมัติ (หน่วง 0.8 วิ) ทุกครั้งที่ธีม / สัดส่วน / ตัวละคร เปลี่ยน
+  useEffect(() => {
+    if (syncStatus !== 'synced') return
+    if (skipSaveRef.current) { skipSaveRef.current = false; return }
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    setSaveState('saving')
+    saveTimer.current = setTimeout(async () => {
+      saveTimer.current = null
+      try {
+        await saveInvestmentRoom(userId, latestRef.current)
+        setSaveState('saved')
+      } catch (e) {
+        console.error('investment room save failed', e)
+        setSaveState('error')
+      }
+    }, 800)
+  }, [themes, cashAlloc, avatar, syncStatus]) // eslint-disable-line
+
+  // ออกจากหน้าก่อนครบ 0.8 วิ → บันทึกทันที
+  useEffect(() => () => {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current)
+      saveInvestmentRoom(userId, latestRef.current).catch((e) => console.error('investment room save failed', e))
+    }
+  }, [userId])
 
   // Keyboard nav
   useEffect(() => {
@@ -135,6 +202,16 @@ export default function InvestmentRoom() {
     if (Math.abs(dx) > 60) { dx > 0 ? prev() : next() }
   }
 
+  if (syncStatus === 'loading') {
+    return (
+      <section className="px-4 lg:px-10 mt-6">
+        <div className="panel rounded-2xl p-8 text-center text-[13px] text-[var(--txt-dim)]">
+          กำลังโหลดห้องลงทุนจาก Supabase…
+        </div>
+      </section>
+    )
+  }
+
   if (!cur) return null
 
   // ─── หน้ารวม: การ์ดธีม 3 ใบต่อแถว ─────────────────────────────────────
@@ -151,6 +228,7 @@ export default function InvestmentRoom() {
             <span>INVESTMENT ROOM · {themes.length} ธีม</span>
             <span>✦</span>
           </div>
+          <SyncNotice status={syncStatus} saveState={saveState} />
           {/* เงินสด */}
           <div className="max-w-[420px] mx-auto mb-6">
             <AllocBar label="💵 เงินสด" pct={cashAlloc} tone="#9fb3c8" />
@@ -430,6 +508,24 @@ function ThemeCard({ theme, onClick, onEdit }) {
       <div className="w-full max-w-[300px] mt-2">
         <AllocBar pct={Number(theme.alloc) || 0} tone={tone} />
       </div>
+    </div>
+  )
+}
+
+// ─── สถานะการบันทึก Supabase ────────────────────────────────────────────────
+function SyncNotice({ status, saveState }) {
+  if (status === 'synced') {
+    const txt = saveState === 'saving' ? 'กำลังบันทึก…' : saveState === 'error' ? '⚠ บันทึกไม่สำเร็จ' : '☁ บันทึกใน Supabase แล้ว'
+    const color = saveState === 'error' ? '#ff8aa0' : 'var(--txt-faint)'
+    return <div className="text-center text-[10.5px] -mt-6 mb-6" style={{ color }}>{txt}</div>
+  }
+  const msg = status === 'error'
+    ? '⚠ โหลดจาก Supabase ไม่สำเร็จ — ตอนนี้ใช้ข้อมูลในเครื่องนี้ (ลองรีเฟรช)'
+    : '⚠ ยังไม่ได้สร้างตาราง investment_room ใน Supabase — ข้อมูลเก็บแค่ในเครื่องนี้ (รันไฟล์ supabase/investment_room.sql ใน SQL Editor)'
+  return (
+    <div className="max-w-[720px] mx-auto -mt-4 mb-6 rounded-lg px-3 py-2 text-center text-[11.5px]"
+      style={{ background: 'rgba(247,201,72,0.08)', border: '1px solid rgba(247,201,72,0.35)', color: '#f7c948' }}>
+      {msg}
     </div>
   )
 }

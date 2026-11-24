@@ -400,6 +400,45 @@ export async function saveMacroOverview(userId, patch) {
   if (error) throw error
 }
 
+// ─── ห้องลงทุน (Investment Room) ──────────────────────────────────────────────
+// 1 row/user. ยังไม่มี row → { exists:false } (จะสร้างตอน save ครั้งแรก)
+// table ยังไม่ได้ migrate → { missingTable:true }
+export async function loadInvestmentRoom(userId) {
+  const { data, error } = await supabase
+    .from('investment_room')
+    .select('themes, cash_alloc, avatar, updated_at')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) {
+    if (error.code === '42P01' || error.code === 'PGRST205' || /relation.*does not exist|could not find the table/i.test(error.message || '')) {
+      return { missingTable: true }
+    }
+    throw error
+  }
+  if (!data) return { exists: false }
+  return {
+    exists: true,
+    themes: Array.isArray(data.themes) ? data.themes : [],
+    cashAlloc: Number(data.cash_alloc) || 0,
+    avatar: data.avatar || {},
+    updatedAt: data.updated_at || null,
+  }
+}
+
+export async function saveInvestmentRoom(userId, { themes, cashAlloc, avatar }) {
+  const row = {
+    user_id: userId,
+    themes,
+    cash_alloc: cashAlloc,
+    avatar,
+    updated_at: new Date().toISOString(),
+  }
+  const { error } = await supabase
+    .from('investment_room')
+    .upsert(row, { onConflict: 'user_id' })
+  if (error) throw error
+}
+
 // ─── Sample data ──────────────────────────────────────────────────────────────
 
 // One-time helper to fill an empty account with the demo portfolio.
