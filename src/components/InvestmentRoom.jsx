@@ -334,7 +334,7 @@ function ThemeCard({ theme, onClick, onEdit }) {
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
-      className="group relative cursor-pointer rounded-2xl p-6 text-center flex flex-col items-center justify-center transition-all duration-300 hover:-translate-y-1"
+      className="group relative cursor-pointer rounded-2xl p-6 text-center flex flex-col items-center justify-start transition-all duration-300 hover:-translate-y-1"
       style={{
         minHeight: 200,
         background: 'linear-gradient(145deg, rgba(10,16,28,0.92) 0%, rgba(5,10,20,0.88) 100%)',
@@ -359,14 +359,17 @@ function ThemeCard({ theme, onClick, onEdit }) {
       >
         {theme.icon}
       </div>
-      <div className="text-[20px] font-bold text-white mb-2" style={{ textShadow: `0 0 14px ${tone}66` }}>
+      <div className="text-[20px] font-bold text-white mb-2 truncate max-w-full" style={{ textShadow: `0 0 14px ${tone}66` }}>
         {theme.name}
       </div>
-      {theme.description && (
-        <div className="text-[12px] text-[var(--txt-dim)] leading-relaxed max-w-[300px] whitespace-pre-line break-words">
-          {theme.description}
-        </div>
-      )}
+      {/* คำอธิบาย: จำกัด 3 แถว และจองความสูง 3 แถวเสมอ ให้การ์ดทุกใบตรงระดับกัน */}
+      <div
+        className="text-[12px] text-[var(--txt-dim)] max-w-[300px] break-words line-clamp-3"
+        style={{ lineHeight: '20px', height: 60 }}
+        title={theme.description || ''}
+      >
+        {theme.description}
+      </div>
     </div>
   )
 }
