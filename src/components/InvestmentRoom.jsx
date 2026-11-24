@@ -191,15 +191,8 @@ export default function InvestmentRoom() {
           </div>
         </div>
 
-        {/* 3-col: screen-left | hero+avatar | screen-right */}
-        <div
-          className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr_1.1fr] gap-4 items-start"
-          style={{ perspective: '1800px', perspectiveOrigin: '50% 40%' }}
-        >
-          {/* ── Left screen: Watchlist (tilted dramatically) ────────── */}
-          <Screen title="รายการเฝ้ารอ" tone={cur.tone} tilt="left-big" tall />
-
-          {/* ── Center: Hero text + summary + avatar ───────────────── */}
+        <div className="flex justify-center">
+          {/* ── Center: Hero text ───────────────── */}
           <div className="flex flex-col items-center text-center px-2">
             {/* Theme icon + name (big title) */}
             <div className="text-[52px] leading-none mb-3" style={{ filter: `drop-shadow(0 0 20px ${cur.tone}aa)` }}>
@@ -223,9 +216,6 @@ export default function InvestmentRoom() {
             )}
 
           </div>
-
-          {/* ── Right screen: Holdings (tilted dramatically) ──────────── */}
-          <Screen title="หุ้นที่ถืออยู่" tone={cur.tone} tilt="right-big" tall />
         </div>
 
         {/* Stage platform (rectangular glowing bar at bottom) */}
