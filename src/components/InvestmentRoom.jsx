@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../supabaseClient.js'
 import { loadInvestmentRoom, loadInvestmentRoomAdmin, saveInvestmentRoom } from '../db.js'
-import { holdingCost, holdingMV } from '../data.js'
+import { fetchUsdThb, holdingCost, holdingMV, readFxRate } from '../data.js'
 
 const LS_THEMES  = 'investment_room_themes_v2'
 const LS_CASH_ALLOC = 'investment_room_cash_alloc_v1'
@@ -84,6 +84,13 @@ export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, hold
   const [editHolding, setEditHolding] = useState(null) // holding ที่กำลังแก้ไข
   const [perfMode, setPerfMode] = useState(() => { try { return localStorage.getItem('investment_room_perf_mode') || 'all' } catch { return 'all' } }) // today | all
   useEffect(() => { try { localStorage.setItem('investment_room_perf_mode', perfMode) } catch {} }, [perfMode])
+  // สกุลที่แสดง: ฿ (ค่าเริ่มต้น) หรือ $ — สลับได้ จำไว้ในเครื่อง
+  const [ccy, setCcy] = useState(() => { try { return localStorage.getItem('investment_room_ccy') || 'THB' } catch { return 'THB' } })
+  useEffect(() => { try { localStorage.setItem('investment_room_ccy', ccy) } catch {} }, [ccy])
+  const [fxRate, setFxRate] = useState(() => readFxRate())
+  useEffect(() => { let off = false; fetchUsdThb().then((r) => { if (!off && r) setFxRate(r) }); return () => { off = true } }, [])
+  DISPLAY.ccy = ccy
+  DISPLAY.rate = fxRate
   // สัดส่วนเงินสด (%) — ธีมทั้งหมด + เงินสด = 100%
   const [cashAlloc, setCashAlloc] = useState(() => {
     try {
@@ -317,6 +324,10 @@ export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, hold
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 items-stretch justify-center lg:justify-end">
+              <div className="flex flex-col items-center justify-center gap-1">
+                <PerfModeToggle mode={ccy} onChange={setCcy} opts={[{ key: 'THB', label: '฿ บาท' }, { key: 'USD', label: '$ USD' }]} />
+                <span className="text-[10px] text-[var(--txt-faint)] font-mono">1 USD = ฿{Number(fxRate).toFixed(2)}</span>
+              </div>
               <PortfolioStat label="มูลค่าพอร์ต" value={fmtUsd(agg?.total || 0)} tone={cur.tone} />
               <PortfolioStat
                 label="กำไรรวม (รับรู้แล้ว + ยังไม่รับรู้)"
@@ -650,8 +661,7 @@ function perfStatus(perf, mode) {
   return { color, text: `${fmtSigned(v)} (${fmtSignedPct(pct)})` }
 }
 
-function PerfModeToggle({ mode, onChange }) {
-  const opts = [{ key: 'today', label: 'วันนี้' }, { key: 'all', label: 'ทั้งหมด' }]
+function PerfModeToggle({ mode, onChange, opts = [{ key: 'today', label: 'วันนี้' }, { key: 'all', label: 'ทั้งหมด' }] }) {
   return (
     <div className="inline-flex rounded-full p-0.5" style={{ background: 'rgba(8,11,18,0.7)', border: '1px solid rgba(255,255,255,0.15)' }}>
       {opts.map((o) => {
@@ -876,7 +886,7 @@ function ThemeHoldingsTable({ rows, tone, onDelete, onUpdate, onEdit, onTrade, o
                 </td>
                 <td className="px-3 py-2 text-right font-mono text-white">
                   {fmtUsd(mv)}
-                  {isThb && <div className="text-[10px] text-[var(--txt-faint)]">≈ {fmtThbMoney((Number(h.qty) || 0) * (Number(h.price) || 0))}</div>}
+                  {isThb && DISPLAY.ccy !== 'THB' && <div className="text-[10px] text-[var(--txt-faint)]">≈ {fmtThbMoney((Number(h.qty) || 0) * (Number(h.price) || 0))}</div>}
                 </td>
                 <td className="px-3 py-2 text-right font-mono" style={{ color: c }}>
                   {fmtSigned(pl)} <span className="text-[11px] opacity-80">{fmtSignedPct(plPct)}</span>
@@ -2356,9 +2366,12 @@ function darken(hex, amt) {
   const d = (v) => Math.max(0, Math.round(v * (1 - amt)))
   return `rgb(${d(r)}, ${d(g)}, ${d(b)})`
 }
+// สกุลที่ใช้แสดงผล (ตั้งจาก InvestmentRoom ทุกครั้งที่ render) — ค่าในระบบเป็น USD เสมอ
+const DISPLAY = { ccy: 'THB', rate: readFxRate() }
 const fmtUsd = (n) => {
-  const v = Number(n || 0)
-  return (v < 0 ? '-' : '') + '$' + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const thb = DISPLAY.ccy === 'THB'
+  const v = Number(n || 0) * (thb ? DISPLAY.rate : 1)
+  return (v < 0 ? '-' : '') + (thb ? '฿' : '$') + Math.abs(v).toLocaleString(thb ? 'th-TH' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 const fmtSigned = (n) => (Number(n) >= 0 ? '+' : '') + fmtUsd(n)
 const fmtSignedPct = (n) => (Number(n) >= 0 ? '+' : '') + Number(n || 0).toFixed(2) + '%'

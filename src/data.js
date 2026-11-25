@@ -95,6 +95,28 @@ export function readFxRate() {
   } catch { return FX_FALLBACK }
 }
 
+// ดึงเรท USD/THB ล่าสุด (แหล่งเดียวกับ SummaryBar) แล้วเก็บ cache → คืนค่าเรท หรือ null
+export async function fetchUsdThb() {
+  const sources = [
+    { url: '/api/fxrate', pick: (d) => d?.rate },
+    { url: 'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json', pick: (d) => d?.usd?.thb },
+    { url: 'https://latest.currency-api.pages.dev/v1/currencies/usd.json', pick: (d) => d?.usd?.thb },
+    { url: 'https://open.er-api.com/v6/latest/USD', pick: (d) => d?.rates?.THB },
+  ]
+  for (const s of sources) {
+    try {
+      const r = await fetch(s.url, { signal: AbortSignal.timeout(4000) })
+      if (!r.ok) continue
+      const rate = s.pick(await r.json())
+      if (rate > 0) {
+        try { localStorage.setItem(FX_CACHE_KEY, JSON.stringify({ rate, ts: Date.now() })) } catch {}
+        return rate
+      }
+    } catch { /* ลองแหล่งถัดไป */ }
+  }
+  return null
+}
+
 // แปลงเป็น USD ถ้าเก็บเป็น THB (กองทุนไทย NAV เป็นบาท)
 function toUsd(nativeAmount, currency) {
   if (currency === 'THB') return nativeAmount / readFxRate()
