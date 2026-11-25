@@ -761,6 +761,26 @@ export default function App({ user, onSignOut }) {
             })
           }}
           onUpdateHolding={(h) => commitHolding(h)}
+          onEditHolding={(next, prev) => {
+            // แก้รายการที่ลงผิด: ปรับเงินสดตามต้นทุนที่เปลี่ยนไป (USD)
+            const s = (next.symbol || '').trim().toUpperCase()
+            if (!s) return false
+            if (s !== prev.symbol && holdings.some((x) => x.id !== prev.id && x.symbol === s)) {
+              alert(`มี ${s} อยู่ในพอร์ตแล้ว`)
+              return false
+            }
+            const diff = holdingCost({ ...next, symbol: s }) - holdingCost(prev)
+            if (diff > cash + 0.005) {
+              alert(`เงินสดไม่พอ: ต้นทุนเพิ่มขึ้น ${fmtUsd(diff)} แต่มีเงินสด ${fmtUsd(cash)}\nกดปุ่ม "จัดการเงินสด" เพื่อเติมเงินก่อน`)
+              return false
+            }
+            commitHolding({ ...next, symbol: s })
+            if (Math.abs(diff) > 0.000001) {
+              const newCash = cash - diff
+              setCash(newCash)
+              db.updateSettings(user.id, { cash: newCash }).catch(reportError)
+            }
+          }}
           onDeleteHolding={deleteHolding}
           onAddWatching={(input) => addWatching(input)}
           onDeleteWatching={deleteWatching}
