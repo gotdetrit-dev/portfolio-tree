@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CAT_ORDER_TOP, MODES, aggregate, fmtUsd, holdingCost, holdingMV, nextPlan, readFxRate, uid } from './data.js'
 import { downloadPortfolioReport } from './pdfExport.js'
 import * as db from './db.js'
-import { getQuote, getQuoteFull, isStockApiConfigured } from './stockApi.js'
+import { getQuote, getQuoteFull, isCryptoSymbol, isStockApiConfigured } from './stockApi.js'
 import WeatherOverlay from './components/WeatherOverlay.jsx'
 import PortfolioTree from './components/PortfolioTree.jsx'
 import CategoryCard from './components/CategoryCard.jsx'
@@ -86,6 +86,27 @@ export default function App({ user, onSignOut }) {
     if (loading || autoRefreshedRef.current || !isStockApiConfigured) return
     autoRefreshedRef.current = true
     refreshPrices()
+  }, [loading])
+
+  // คริปโต (เช่น BTC-USD) ซื้อขาย 24 ชม. → อัปเดตราคาทุก 30 วิ บนหน้าจอ (ไม่บันทึกลง DB ทุกรอบ)
+  const holdingsRef = useRef(holdings)
+  holdingsRef.current = holdings
+  useEffect(() => {
+    if (loading) return
+    const tick = async () => {
+      if (document.hidden) return
+      const cryptos = holdingsRef.current.filter((h) => isCryptoSymbol(h.symbol))
+      for (const h of cryptos) {
+        try {
+          const q = await getQuoteFull(h.symbol)
+          if (q && q.price > 0) {
+            setHoldings((curr) => curr.map((x) => (x.id === h.id ? { ...x, price: q.price, dayChangePct: q.dayChangePct } : x)))
+          }
+        } catch (e) { console.warn(`[crypto] ${h.symbol}:`, e?.message || e) }
+      }
+    }
+    const t = setInterval(tick, 30000)
+    return () => clearInterval(t)
   }, [loading])
 
   // Refresh the (often long) watching list only when the user first opens its

@@ -936,7 +936,7 @@ function AddStockModal({ kind, theme, onClose, onSubmit }) {
           )}
           <label className="block">
             {lab(isFund ? 'รหัสกองทุน' : 'สัญลักษณ์หุ้น')}
-            <input autoFocus className="field w-full" placeholder={isFund ? 'เช่น K-GOLD, SCBS&P500' : 'เช่น NVDA'} value={symbol}
+            <input autoFocus className="field w-full" placeholder={isFund ? 'เช่น K-GOLD, SCBS&P500' : 'เช่น NVDA · คริปโตใส่ BTC-USD'} value={symbol}
               onChange={(e) => setSymbol(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
           </label>
           {isFund && (
@@ -1586,7 +1586,7 @@ function WatchlistBlock({ watchlist, tone, onChange }) {
     </div>
   )
 }
-const fmtNumPlain = (n) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })
+const fmtNumPlain = (n) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 8 })
 
 function MiniInput({ label, value, onChange }) {
   return (

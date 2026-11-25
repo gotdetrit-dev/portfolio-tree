@@ -49,9 +49,40 @@ async function call(path) {
 }
 
 // Full quote: price + day change. Finnhub /quote returns c/d/dp/pc out of the box.
+// คริปโต: ใส่แบบ "BTC-USD", "ETH-USD" → ดึงราคาสดจาก Binance (ไม่ต้องใช้ key, ซื้อขาย 24 ชม.)
+// (ไม่ใช้ "BTC" เฉยๆ เพราะเป็นชื่อย่อ ETF ในตลาด US)
+const CRYPTO_RE = /^([A-Z0-9]{2,10})-USDT?$/
+export function isCryptoSymbol(symbol) {
+  return CRYPTO_RE.test((symbol || '').trim().toUpperCase())
+}
+async function getCryptoQuote(sym) {
+  const base = sym.match(CRYPTO_RE)[1]
+  let res
+  try {
+    res = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${base}USDT`)
+  } catch {
+    res = null
+  }
+  if (res && res.ok) {
+    const d = await res.json()
+    const price = Number(d.lastPrice) || 0
+    return {
+      price,
+      dayChange: Number(d.priceChange) || 0,
+      dayChangePct: Number(d.priceChangePercent) || 0,
+      prevClose: price - (Number(d.priceChange) || 0),
+    }
+  }
+  // สำรอง: Finnhub (ไม่มี % รายวันสำหรับคริปโตในแพ็กฟรี)
+  const d = await call(`/quote?symbol=${encodeURIComponent(`BINANCE:${base}USDT`)}`)
+  if (!(Number(d.c) > 0)) throw new Error(`ไม่พบราคาเหรียญ "${base}"`)
+  return { price: Number(d.c) || 0, dayChange: Number(d.d) || 0, dayChangePct: Number(d.dp) || 0, prevClose: Number(d.pc) || 0 }
+}
+
 export async function getQuoteFull(symbol) {
   const sym = (symbol || '').trim().toUpperCase()
   if (!sym) return null
+  if (CRYPTO_RE.test(sym)) return getCryptoQuote(sym)
   const d = await call(`/quote?symbol=${encodeURIComponent(sym)}`)
   return {
     price: Number(d.c) || 0,
@@ -71,6 +102,7 @@ export async function getQuote(symbol) {
 export async function getProfile(symbol) {
   const sym = (symbol || '').trim().toUpperCase()
   if (!sym) return ''
+  if (CRYPTO_RE.test(sym)) return sym.replace(/-USDT?$/, '') + ' (crypto)'
   const d = await call(`/stock/profile2?symbol=${encodeURIComponent(sym)}`)
   return (d && d.name) || ''
 }
