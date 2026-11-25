@@ -751,6 +751,7 @@ function ThemeHoldingsTable({ rows, tone, onDelete }) {
             <th className="text-right px-3 py-2">จำนวน</th>
             <th className="text-right px-3 py-2">ทุนเฉลี่ย</th>
             <th className="text-right px-3 py-2">ราคา</th>
+            <th className="text-right px-3 py-2">วันนี้</th>
             <th className="text-right px-3 py-2">มูลค่า</th>
             <th className="text-right px-3 py-2">กำไร/ขาดทุน</th>
             <th className="px-2 py-2" />
@@ -763,12 +764,19 @@ function ThemeHoldingsTable({ rows, tone, onDelete }) {
             const pl = mv - cost
             const plPct = cost > 0 ? (pl / cost) * 100 : 0
             const c = pl >= 0 ? '#34e07a' : '#ff4d6d'
+            const hasDay = typeof h.dayChangePct === 'number' && isFinite(h.dayChangePct)
+            const dp = hasDay ? h.dayChangePct : 0
+            const dayAmt = hasDay && dp > -100 ? mv - mv / (1 + dp / 100) : 0
+            const dc = dp > 0 ? '#34e07a' : dp < 0 ? '#ff4d6d' : 'var(--txt-dim)'
             return (
               <tr key={h.id} className="border-t border-white/5">
                 <td className="px-4 py-2 font-mono font-semibold text-white">{h.symbol}</td>
                 <td className="px-3 py-2 text-right font-mono">{fmtNumPlain(h.qty)}</td>
                 <td className="px-3 py-2 text-right font-mono">{fmtUsd(h.avg)}</td>
                 <td className="px-3 py-2 text-right font-mono">{fmtUsd(h.price)}</td>
+                <td className="px-3 py-2 text-right font-mono" style={{ color: dc }}>
+                  {hasDay ? <>{fmtSigned(dayAmt)} <span className="text-[11px] opacity-80">{fmtSignedPct(dp)}</span></> : '—'}
+                </td>
                 <td className="px-3 py-2 text-right font-mono text-white">{fmtUsd(mv)}</td>
                 <td className="px-3 py-2 text-right font-mono" style={{ color: c }}>
                   {fmtSigned(pl)} <span className="text-[11px] opacity-80">{fmtSignedPct(plPct)}</span>
