@@ -429,6 +429,25 @@ export async function loadInvestmentRoom(userId) {
   }
 }
 
+// ธีมกลางของแอดมิน (supabase/investment_room_admin.sql)
+// ยังไม่ได้รัน SQL → { missing:true } (ทุกคนทำงานแบบเดิม: แก้ธีมของตัวเองได้)
+export async function loadInvestmentRoomAdmin() {
+  const { data, error } = await supabase.rpc('investment_room_admin')
+  if (error) {
+    if (error.code === 'PGRST202' || error.code === '42883' || /could not find the function|does not exist/i.test(error.message || '')) {
+      return { missing: true }
+    }
+    throw error
+  }
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row || !row.admin_id) return { missing: true }
+  return {
+    adminId: row.admin_id,
+    themes: Array.isArray(row.themes) ? row.themes : [],
+    cashAlloc: Number(row.cash_alloc) || 0,
+  }
+}
+
 export async function saveInvestmentRoom(userId, { themes, cashAlloc, avatar }) {
   const row = {
     user_id: userId,

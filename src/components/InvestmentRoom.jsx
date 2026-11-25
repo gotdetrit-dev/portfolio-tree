@@ -10,7 +10,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../supabaseClient.js'
-import { loadInvestmentRoom, saveInvestmentRoom } from '../db.js'
+import { loadInvestmentRoom, loadInvestmentRoomAdmin, saveInvestmentRoom } from '../db.js'
 
 const LS_THEMES  = 'investment_room_themes_v2'
 const LS_CASH_ALLOC = 'investment_room_cash_alloc_v1'
@@ -103,6 +103,9 @@ export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, hold
   const userId = user?.id
   const [syncStatus, setSyncStatus] = useState(userId && supabase ? 'loading' : 'local')
   const [saveState, setSaveState] = useState('idle') // idle | saving | saved | error
+  // แอดมิน = เพิ่ม/แก้/ลบธีมได้ · คนอื่นใช้ธีมของแอดมิน ปรับได้แค่สัดส่วน / ซื้อขาย / เงินสด
+  const [isAdmin, setIsAdmin] = useState(true)
+  const [adminAlloc, setAdminAlloc] = useState(null) // { byId, cash } สัดส่วนของแอดมิน (สำหรับปุ่มคัดลอก)
   const skipSaveRef = useRef(true)
   const saveTimer = useRef(null)
   const latestRef = useRef({ themes, cashAlloc, avatar })
@@ -114,9 +117,33 @@ export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, hold
     let cancelled = false
     ;(async () => {
       try {
-        const row = await loadInvestmentRoom(userId)
+        const [row, admin] = await Promise.all([
+          loadInvestmentRoom(userId),
+          loadInvestmentRoomAdmin().catch((e) => { console.error('investment room admin load failed', e); return { missing: true } }),
+        ])
         if (cancelled) return
         if (row.missingTable) { setSyncStatus('local'); return }
+        const admin_ = !admin.missing && admin.adminId === userId
+        setIsAdmin(admin.missing || admin_)
+        if (!admin.missing && !admin_) {
+          // ผู้ใช้ทั่วไป: ธีมมาจากแอดมิน · สัดส่วน/เงินสด เป็นของตัวเอง
+          const own = {}
+          if (row.exists) row.themes.forEach((t) => { own[t.id] = Number(t.alloc) || 0 })
+          const merged = admin.themes.map((t) => ({ ...t, alloc: own[t.id] ?? 0 }))
+          const used = merged.reduce((s, t) => s + (Number(t.alloc) || 0), 0)
+          let c = row.exists ? row.cashAlloc : 100
+          if (Math.abs(used + c - 100) > 0.05) c = Math.max(0, round1(100 - used))
+          setAdminAlloc({ byId: Object.fromEntries(admin.themes.map((t) => [t.id, Number(t.alloc) || 0])), cash: admin.cashAlloc })
+          if (merged.length) {
+            skipSaveRef.current = !row.exists ? false : true
+            setThemes(merged)
+            setCashAlloc(c)
+            if (row.exists) setAvatar({ ...DEFAULT_AVATAR, ...row.avatar })
+            setIndex(0)
+          }
+          setSyncStatus('synced')
+          return
+        }
         if (row.exists && row.themes.length) {
           skipSaveRef.current = true
           setThemes(row.themes)
@@ -317,7 +344,7 @@ export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, hold
                   perf={themePerf(t.id)}
                   mode={perfMode}
                   onClick={() => { setIndex(i); setOpened(true) }}
-                  onEdit={showEdit ? () => { setIndex(i); setEditMode('theme') } : null}
+                  onEdit={isAdmin && showEdit ? () => { setIndex(i); setEditMode('theme') } : null}
                 />
               ))}
           </div>
@@ -327,6 +354,7 @@ export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, hold
           <AllocationModal
             themes={themes}
             cash={cashAlloc}
+            adminAlloc={isAdmin ? null : adminAlloc}
             onClose={() => setAllocOpen(false)}
             onSave={(allocById, cash) => {
               setThemes((arr) => arr.map((t) => ({ ...t, alloc: allocById[t.id] ?? 0 })))
@@ -341,8 +369,12 @@ export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, hold
           {fabOpen && (
             <>
               <FabButton tone={cur.tone} label="ปรับสัดส่วน" onClick={() => { setAllocOpen(true); setFabOpen(false) }}>⚖</FabButton>
-              <FabButton tone={cur.tone} label={showEdit ? 'ซ่อนปุ่มแก้ไข' : 'แก้ไขธีม'} active={showEdit} onClick={() => setShowEdit((v) => !v)}>✎</FabButton>
-              <FabButton tone={cur.tone} label="เพิ่มธีม" big onClick={() => { setEditMode('create'); setFabOpen(false) }}>+</FabButton>
+              {isAdmin && (
+                <>
+                  <FabButton tone={cur.tone} label={showEdit ? 'ซ่อนปุ่มแก้ไข' : 'แก้ไขธีม'} active={showEdit} onClick={() => setShowEdit((v) => !v)}>✎</FabButton>
+                  <FabButton tone={cur.tone} label="เพิ่มธีม" big onClick={() => { setEditMode('create'); setFabOpen(false) }}>+</FabButton>
+                </>
+              )}
             </>
           )}
           <FabButton tone={cur.tone} big active={fabOpen} onClick={() => setFabOpen((v) => !v)} title={fabOpen ? 'ปิดเมนู' : 'เมนู'}>
@@ -350,8 +382,8 @@ export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, hold
           </FabButton>
         </div>
 
-        {editMode === 'create' && <CreateThemeModal onClose={() => setEditMode(null)} onCreate={createTheme} />}
-        {editMode === 'theme' && (
+        {isAdmin && editMode === 'create' && <CreateThemeModal onClose={() => setEditMode(null)} onCreate={createTheme} />}
+        {isAdmin && editMode === 'theme' && (
           <ThemeSettingsModal theme={cur} onClose={() => setEditMode(null)} onUpdate={updateCur} />
         )}
       </section>
@@ -412,14 +444,14 @@ export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, hold
         >
           ← ธีมทั้งหมด
         </button>
-        <button
+        {isAdmin && <button
           onClick={deleteCur}
           className="absolute right-4 lg:right-10 top-5 text-[12px] px-3 py-1.5 rounded-full transition-all hover:scale-105"
           style={{ color: '#ff8aa0', border: '1px solid rgba(255,138,160,0.45)', background: 'rgba(8,11,18,0.6)' }}
           title="ลบธีมนี้"
         >
           🗑 ลบธีมนี้
-        </button>
+        </button>}
         {/* Theme badge (top center) */}
         <div className="flex flex-col items-center text-center mb-3">
           <div className="flex items-center gap-2 text-[10.5px] uppercase tracking-[0.3em]" style={{ color: cur.tone, textShadow: `0 0 10px ${cur.tone}88` }}>
@@ -563,8 +595,8 @@ export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, hold
 
       {/* Modals */}
       {editMode === 'avatar' && <AvatarEditor avatar={avatar} onChange={setAvatar} onClose={() => setEditMode(null)} />}
-      {editMode === 'create' && <CreateThemeModal onClose={() => setEditMode(null)} onCreate={createTheme} />}
-      {editMode === 'theme' && (
+      {isAdmin && editMode === 'create' && <CreateThemeModal onClose={() => setEditMode(null)} onCreate={createTheme} />}
+      {isAdmin && editMode === 'theme' && (
         <ThemeSettingsModal
           theme={cur}
           onClose={() => setEditMode(null)}
@@ -969,7 +1001,16 @@ function AllocBar({ label, pct, tone }) {
 }
 
 // ─── หน้าต่างปรับสัดส่วน (รวมต้อง = 100%, เงินสดนับด้วย) ────────────────────
-function AllocationModal({ themes, cash, onClose, onSave }) {
+function AllocationModal({ themes, cash, adminAlloc, onClose, onSave }) {
+  // ผู้ใช้ทั่วไป: ใช้สัดส่วนเดียวกับหมอก๊อต (แอดมิน) — ยืนยันแล้วบันทึกทันที
+  const copyAdmin = () => {
+    if (!adminAlloc) return
+    if (!confirm('ใช้สัดส่วนตามหมอก๊อต?\nสัดส่วนทุกธีมและเงินสดของคุณจะถูกแทนที่')) return
+    const byId = {}
+    themes.forEach((t) => { byId[t.id] = round1(Number(adminAlloc.byId?.[t.id]) || 0) })
+    const used = Object.values(byId).reduce((s, v) => s + v, 0)
+    onSave(byId, Math.max(0, round1(100 - used)))
+  }
   const CASH = '__cash__'
   const [draft, setDraft] = useState(() => {
     const d = { [CASH]: round1(cash) }
@@ -1004,6 +1045,15 @@ function AllocationModal({ themes, cash, onClose, onSave }) {
         <div className="text-[11.5px] text-[var(--txt-dim)] mb-4">
           รวมทุกธีม + เงินสด ต้องเท่ากับ 100% · ถ้าอยากเพิ่มตัวไหน ต้องลดตัวอื่นก่อน
         </div>
+        {adminAlloc && (
+          <button
+            className="w-full mb-4 px-3 py-2 rounded-lg text-[13px] font-semibold transition-all hover:brightness-125"
+            style={{ color: '#7bd1ff', border: '1px solid rgba(123,209,255,0.5)', background: 'rgba(123,209,255,0.08)' }}
+            onClick={copyAdmin}
+          >
+            📋 คัดลอกสัดส่วนหมอก๊อต
+          </button>
+        )}
 
         <div className="space-y-3">
           {rows.map((r) => {
