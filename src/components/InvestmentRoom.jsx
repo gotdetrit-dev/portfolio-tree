@@ -70,7 +70,7 @@ function loadAvatar() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, holdings = [], watchingList = [], onAddHolding, onUpdateHolding, onEditHolding, onDeleteHolding, onAddWatching, onDeleteWatching }) {
+export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, holdings = [], watchingList = [], onAddHolding, onUpdateHolding, onEditHolding, onTrade, onHistory, onDeleteHolding, onAddWatching, onDeleteWatching }) {
   const [themes, setThemes] = useState(() => loadThemes())
   const [index, setIndex] = useState(0)
   const [avatar, setAvatar] = useState(() => loadAvatar())
@@ -336,14 +336,21 @@ export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, hold
           <SyncNotice status={syncStatus} saveState={saveState} />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {themes
-              .map((t, i) => ({ t, i }))
-              .sort((a, b) => (Number(b.t.alloc) || 0) - (Number(a.t.alloc) || 0))
-              .map(({ t, i }) => (
+              .map((t, i) => ({ t, i, actual: themeActualPct(t.id), perf: themePerf(t.id) }))
+              // ทั้งหมด = เรียงตาม % ที่ถือจริง · วันนี้ = ขึ้นมากสุด → ลงมากสุด (ธีมที่ยังไม่ซื้ออยู่ท้าย)
+              .sort((a, b) => {
+                if (perfMode === 'today') {
+                  if (a.perf.has !== b.perf.has) return a.perf.has ? -1 : 1
+                  if (b.perf.dayPct !== a.perf.dayPct) return b.perf.dayPct - a.perf.dayPct
+                } else if (b.actual !== a.actual) return b.actual - a.actual
+                return (Number(b.t.alloc) || 0) - (Number(a.t.alloc) || 0)
+              })
+              .map(({ t, i, actual, perf }) => (
                 <ThemeCard
                   key={t.id}
                   theme={t}
-                  actualPct={themeActualPct(t.id)}
-                  perf={themePerf(t.id)}
+                  actualPct={actual}
+                  perf={perf}
                   mode={perfMode}
                   onClick={() => { setIndex(i); setOpened(true) }}
                   onEdit={isAdmin && showEdit ? () => { setIndex(i); setEditMode('theme') } : null}
@@ -576,7 +583,7 @@ export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, hold
         {/* รายการหุ้นของธีม */}
         <div className="mx-auto mb-8" style={{ width: '80%' }}>
           {stockTab === 'holding'
-            ? <ThemeHoldingsTable rows={themeHoldings} tone={cur.tone} onDelete={onDeleteHolding} onUpdate={onUpdateHolding} onEdit={onEditHolding ? (h) => setEditHolding(h) : null} />
+            ? <ThemeHoldingsTable rows={themeHoldings} tone={cur.tone} onDelete={onDeleteHolding} onUpdate={onUpdateHolding} onEdit={onEditHolding ? (h) => setEditHolding(h) : null} onTrade={onTrade} onHistory={onHistory} />
             : <ThemeWatchingTable rows={themeWatching} tone={cur.tone} onDelete={onDeleteWatching} />}
         </div>
 
@@ -798,7 +805,19 @@ function StockPanel({ tone, children, empty }) {
 
 const fmtThbMoney = (n) => (n < 0 ? '-' : '') + '฿' + Math.abs(Number(n) || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
 
-function ThemeHoldingsTable({ rows, tone, onDelete, onUpdate, onEdit }) {
+function RowBtn({ color, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className="ml-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold transition-all hover:brightness-125"
+      style={{ color, border: `1px solid ${color}66`, background: `${color}14` }}
+    >
+      {children}
+    </button>
+  )
+}
+
+function ThemeHoldingsTable({ rows, tone, onDelete, onUpdate, onEdit, onTrade, onHistory }) {
   // กองทุนไทย: ไม่มีราคาอัตโนมัติ → กดที่ราคาเพื่อกรอก NAV ล่าสุดเอง
   const editNav = (h) => {
     if (!onUpdate) return
@@ -862,8 +881,11 @@ function ThemeHoldingsTable({ rows, tone, onDelete, onUpdate, onEdit }) {
                 <td className="px-3 py-2 text-right font-mono" style={{ color: c }}>
                   {fmtSigned(pl)} <span className="text-[11px] opacity-80">{fmtSignedPct(plPct)}</span>
                 </td>
-                <td className="px-2 py-2 text-right">
-                  {onEdit && <button onClick={() => onEdit(h)} className="text-[var(--txt-faint)] hover:text-white text-[11px] mr-2" title="แก้ไข">✎</button>}
+                <td className="px-2 py-2 text-right whitespace-nowrap">
+                  {onTrade && <RowBtn color="#34e07a" onClick={() => onTrade(h, 'buy')}>ซื้อ</RowBtn>}
+                  {onTrade && <RowBtn color="#ff6b85" onClick={() => onTrade(h, 'sell')}>ขาย</RowBtn>}
+                  {onHistory && <RowBtn color="#9fb3c8" onClick={() => onHistory(h)}>ประวัติ</RowBtn>}
+                  {onEdit && <button onClick={() => onEdit(h)} className="text-[var(--txt-faint)] hover:text-white text-[11px] mx-2" title="แก้ไข">✎</button>}
                   <button onClick={() => onDelete?.(h)} className="text-[var(--txt-faint)] hover:text-[#ff8aa0] text-[11px]" title="ลบ">✕</button>
                 </td>
               </tr>

@@ -176,7 +176,6 @@ export default function App({ user, onSignOut }) {
 
   // ─── Actions ───────────────────────────────────────────────────────────────
   async function commitTxn(t) {
-    setTxnModal(null)
     const isBuy = t.type === 'buy'
     const existing = holdings.find((x) => x.symbol === t.symbol)
 
@@ -186,6 +185,16 @@ export default function App({ user, onSignOut }) {
     const currency = t.currency || existing?.currency || 'USD'
     const isThb = currency === 'THB'
     const fxRate = isThb ? (t.fxRate || readFxRate()) : 1
+
+    // ซื้อได้เฉพาะเมื่อเงินสดพอ (หน้าต่างยังเปิดอยู่ให้แก้ตัวเลขได้)
+    if (isBuy) {
+      const needUsd = isThb ? (Number(t.total) || 0) / fxRate : (Number(t.total) || 0)
+      if (needUsd > cash + 0.005) {
+        alert(`เงินสดไม่พอ: ต้องใช้ ${fmtUsd(needUsd)} แต่มีเงินสด ${fmtUsd(cash)}\nกดปุ่ม "จัดการเงินสด" เพื่อเติมเงินก่อน`)
+        return
+      }
+    }
+    setTxnModal(null)
 
     let realizedPL = 0                                           // USD
     let averageCostAtSellTime = 0                                // native
@@ -761,6 +770,8 @@ export default function App({ user, onSignOut }) {
             })
           }}
           onUpdateHolding={(h) => commitHolding(h)}
+          onTrade={(h, type) => setTxnModal({ type, symbol: h.symbol, cat: h.cat, price: h.price, qty: '' })}
+          onHistory={(h) => setHistModal(h.symbol)}
           onEditHolding={(next, prev) => {
             // แก้รายการที่ลงผิด: ปรับเงินสดตามต้นทุนที่เปลี่ยนไป (USD)
             const s = (next.symbol || '').trim().toUpperCase()
@@ -1015,7 +1026,7 @@ export default function App({ user, onSignOut }) {
       )}
       {histModal && (
         <HistoryModal
-          transactions={transactions}
+          transactions={typeof histModal === 'string' ? transactions.filter((t) => t.symbol === histModal) : transactions}
           onEdit={(t) => setTxnEditModal(t)}
           onDelete={deleteTransaction}
           onClose={() => setHistModal(false)}
