@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../supabaseClient.js'
 import { loadInvestmentRoom, loadInvestmentRoomAdmin, saveInvestmentRoom } from '../db.js'
+import { holdingCost, holdingMV } from '../data.js'
 
 const LS_THEMES  = 'investment_room_themes_v2'
 const LS_CASH_ALLOC = 'investment_room_cash_alloc_v1'
@@ -69,7 +70,7 @@ function loadAvatar() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, holdings = [], watchingList = [], onAddHolding, onDeleteHolding, onAddWatching, onDeleteWatching }) {
+export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, holdings = [], watchingList = [], onAddHolding, onUpdateHolding, onDeleteHolding, onAddWatching, onDeleteWatching }) {
   const [themes, setThemes] = useState(() => loadThemes())
   const [index, setIndex] = useState(0)
   const [avatar, setAvatar] = useState(() => loadAvatar())
@@ -209,17 +210,17 @@ export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, hold
     const hs = holdings.filter((h) => h.themeId === themeId && (Number(h.qty) || 0) > 0)
     let mv = 0, cost = 0, day = 0
     for (const h of hs) {
-      const q = Number(h.qty) || 0, p = Number(h.price) || 0, dp = Number(h.dayChangePct) || 0
-      const v = q * p
+      const dp = Number(h.dayChangePct) || 0
+      const v = holdingMV(h)
       mv += v
-      cost += q * (Number(h.avg) || 0)
+      cost += holdingCost(h)
       day += dp ? v - v / (1 + dp / 100) : 0
     }
     const prevMv = mv - day
     return {
       has: hs.length > 0,
       top: hs
-        .map((h) => ({ symbol: h.symbol, mv: (Number(h.qty) || 0) * (Number(h.price) || 0) }))
+        .map((h) => ({ symbol: h.symbol, mv: holdingMV(h) }))
         .sort((a, b) => b.mv - a.mv)
         .slice(0, 3)
         .map((t) => ({ symbol: t.symbol, weight: mv > 0 ? (t.mv / mv) * 100 : 0 })),
@@ -231,7 +232,7 @@ export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, hold
   const themeActualPct = (themeId) => {
     const total = Number(agg?.total) || 0
     if (total <= 0) return 0
-    const mv = holdings.filter((h) => h.themeId === themeId).reduce((s, h) => s + (Number(h.qty) || 0) * (Number(h.price) || 0), 0)
+    const mv = holdings.filter((h) => h.themeId === themeId).reduce((s, h) => s + holdingMV(h), 0)
     return (mv / total) * 100
   }
   const prev = () => setIndex((i) => (i - 1 + themes.length) % themes.length)
@@ -574,7 +575,7 @@ export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, hold
         {/* รายการหุ้นของธีม */}
         <div className="mx-auto mb-8" style={{ width: '80%' }}>
           {stockTab === 'holding'
-            ? <ThemeHoldingsTable rows={themeHoldings} tone={cur.tone} onDelete={onDeleteHolding} />
+            ? <ThemeHoldingsTable rows={themeHoldings} tone={cur.tone} onDelete={onDeleteHolding} onUpdate={onUpdateHolding} />
             : <ThemeWatchingTable rows={themeWatching} tone={cur.tone} onDelete={onDeleteWatching} />}
         </div>
 
@@ -772,7 +773,18 @@ function StockPanel({ tone, children, empty }) {
   )
 }
 
-function ThemeHoldingsTable({ rows, tone, onDelete }) {
+const fmtThbMoney = (n) => (n < 0 ? '-' : '') + '฿' + Math.abs(Number(n) || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+
+function ThemeHoldingsTable({ rows, tone, onDelete, onUpdate }) {
+  // กองทุนไทย: ไม่มีราคาอัตโนมัติ → กดที่ราคาเพื่อกรอก NAV ล่าสุดเอง
+  const editNav = (h) => {
+    if (!onUpdate) return
+    const v = prompt(`NAV ล่าสุดของ ${h.symbol} (บาท/หน่วย)`, String(h.price ?? ''))
+    if (v == null) return
+    const p = Number(String(v).replace(/,/g, ''))
+    if (!(p > 0)) { alert('กรอกตัวเลขมากกว่า 0'); return }
+    onUpdate({ ...h, price: p })
+  }
   if (!rows.length) return <StockPanel tone={tone} empty="ยังไม่มีหุ้นที่ถือในธีมนี้ · กด + เพื่อเพิ่ม" />
   return (
     <StockPanel tone={tone}>
@@ -791,8 +803,10 @@ function ThemeHoldingsTable({ rows, tone, onDelete }) {
         </thead>
         <tbody>
           {rows.map((h) => {
-            const mv = (Number(h.qty) || 0) * (Number(h.price) || 0)
-            const cost = (Number(h.qty) || 0) * (Number(h.avg) || 0)
+            const isThb = h.currency === 'THB'
+            const money = isThb ? fmtThbMoney : fmtUsd
+            const mv = holdingMV(h)   // USD (กองทุนไทยแปลงจากบาท)
+            const cost = holdingCost(h)
             const pl = mv - cost
             const plPct = cost > 0 ? (pl / cost) * 100 : 0
             const c = pl >= 0 ? '#34e07a' : '#ff4d6d'
@@ -802,14 +816,26 @@ function ThemeHoldingsTable({ rows, tone, onDelete }) {
             const dc = dp > 0 ? '#34e07a' : dp < 0 ? '#ff4d6d' : 'var(--txt-dim)'
             return (
               <tr key={h.id} className="border-t border-white/5">
-                <td className="px-4 py-2 font-mono font-semibold text-white">{h.symbol}</td>
+                <td className="px-4 py-2">
+                  <div className="font-mono font-semibold text-white">{h.symbol}</div>
+                  {isThb && <div className="text-[10px] text-[#f7c948]">🇹🇭 กองทุนไทย{h.name && h.name !== h.symbol ? ` · ${h.name}` : ''}</div>}
+                </td>
                 <td className="px-3 py-2 text-right font-mono">{fmtNumPlain(h.qty)}</td>
-                <td className="px-3 py-2 text-right font-mono">{fmtUsd(h.avg)}</td>
-                <td className="px-3 py-2 text-right font-mono">{fmtUsd(h.price)}</td>
+                <td className="px-3 py-2 text-right font-mono">{money(h.avg)}</td>
+                <td className="px-3 py-2 text-right font-mono">
+                  {isThb ? (
+                    <button onClick={() => editNav(h)} className="font-mono hover:underline" title="กดเพื่อกรอก NAV ล่าสุด">
+                      {money(h.price)} <span className="text-[10px] text-[#f7c948]">🖊</span>
+                    </button>
+                  ) : fmtUsd(h.price)}
+                </td>
                 <td className="px-3 py-2 text-right font-mono" style={{ color: dc }}>
                   {hasDay ? <>{fmtSigned(dayAmt)} <span className="text-[11px] opacity-80">{fmtSignedPct(dp)}</span></> : '—'}
                 </td>
-                <td className="px-3 py-2 text-right font-mono text-white">{fmtUsd(mv)}</td>
+                <td className="px-3 py-2 text-right font-mono text-white">
+                  {fmtUsd(mv)}
+                  {isThb && <div className="text-[10px] text-[var(--txt-faint)]">≈ {fmtThbMoney((Number(h.qty) || 0) * (Number(h.price) || 0))}</div>}
+                </td>
                 <td className="px-3 py-2 text-right font-mono" style={{ color: c }}>
                   {fmtSigned(pl)} <span className="text-[11px] opacity-80">{fmtSignedPct(plPct)}</span>
                 </td>
@@ -865,8 +891,18 @@ function AddStockModal({ kind, theme, onClose, onSubmit }) {
   const [avg, setAvg] = useState('')
   const [supportPrice, setSupportPrice] = useState('')
   const [note, setNote] = useState('')
+  const [asset, setAsset] = useState('us') // us = หุ้น US ($) · thfund = กองทุนไทย (฿)
+  const [fundName, setFundName] = useState('')
+  const [nav, setNav] = useState('')
+  const isFund = isHolding && asset === 'thfund'
   const ok = symbol.trim() && (!isHolding || (Number(qty) > 0 && Number(avg) > 0))
-  const submit = () => { if (ok) onSubmit({ symbol: symbol.trim().toUpperCase(), qty, avg, supportPrice, note }) }
+  const submit = () => {
+    if (!ok) return
+    onSubmit({
+      symbol: symbol.trim().toUpperCase(), qty, avg, supportPrice, note,
+      ...(isFund ? { currency: 'THB', name: fundName.trim(), price: Number(nav) > 0 ? Number(nav) : Number(avg) } : {}),
+    })
+  }
   const lab = (t) => <span className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--txt-faint)' }}>{t}</span>
 
   return (
@@ -879,16 +915,46 @@ function AddStockModal({ kind, theme, onClose, onSubmit }) {
           <button onClick={onClose} className="text-[var(--txt-dim)] hover:text-white text-[20px]">✕</button>
         </div>
         <div className="space-y-3">
+          {isHolding && (
+            <div className="flex gap-2">
+              {[{ k: 'us', label: '🇺🇸 หุ้น US ($)' }, { k: 'thfund', label: '🇹🇭 กองทุนไทย (฿)' }].map((o) => {
+                const on = asset === o.k
+                return (
+                  <button
+                    key={o.k}
+                    onClick={() => setAsset(o.k)}
+                    className="flex-1 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold transition-all"
+                    style={{
+                      color: on ? '#0a0e18' : theme.tone,
+                      background: on ? theme.tone : 'rgba(8,11,18,0.6)',
+                      border: `1px solid ${theme.tone}88`,
+                    }}
+                  >{o.label}</button>
+                )
+              })}
+            </div>
+          )}
           <label className="block">
-            {lab('สัญลักษณ์หุ้น')}
-            <input autoFocus className="field w-full" placeholder="เช่น NVDA" value={symbol}
+            {lab(isFund ? 'รหัสกองทุน' : 'สัญลักษณ์หุ้น')}
+            <input autoFocus className="field w-full" placeholder={isFund ? 'เช่น K-GOLD, SCBS&P500' : 'เช่น NVDA'} value={symbol}
               onChange={(e) => setSymbol(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
           </label>
+          {isFund && (
+            <label className="block">{lab('ชื่อกองทุน (ไม่ใส่ก็ได้)')}<input className="field w-full" placeholder="เช่น กองทุนเปิดกรุงศรีทองคำ" value={fundName} onChange={(e) => setFundName(e.target.value)} /></label>
+          )}
           {isHolding ? (
-            <div className="grid grid-cols-2 gap-3">
-              <label className="block">{lab('จำนวนหุ้น')}<input type="number" step="any" className="field w-full" value={qty} onChange={(e) => setQty(e.target.value)} /></label>
-              <label className="block">{lab('ทุนเฉลี่ย ($)')}<input type="number" step="any" className="field w-full" value={avg} onChange={(e) => setAvg(e.target.value)} /></label>
-            </div>
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">{lab(isFund ? 'จำนวนหน่วย' : 'จำนวนหุ้น')}<input type="number" step="any" className="field w-full" value={qty} onChange={(e) => setQty(e.target.value)} /></label>
+                <label className="block">{lab(isFund ? 'ทุนเฉลี่ย (฿/หน่วย)' : 'ทุนเฉลี่ย ($)')}<input type="number" step="any" className="field w-full" value={avg} onChange={(e) => setAvg(e.target.value)} /></label>
+              </div>
+              {isFund && (
+                <>
+                  <label className="block">{lab('NAV ล่าสุด (฿/หน่วย) — ไม่ใส่ = ใช้ทุนเฉลี่ย')}<input type="number" step="any" className="field w-full" value={nav} onChange={(e) => setNav(e.target.value)} /></label>
+                  <div className="text-[11px] text-[var(--txt-faint)]">กองทุนไทยไม่มีราคาอัตโนมัติ · กดที่ราคาในตารางเพื่ออัปเดต NAV · มูลค่าแปลงเป็น $ ด้วยเรท USD/THB ล่าสุด</div>
+                </>
+              )}
+            </>
           ) : (
             <>
               <label className="block">{lab('ราคาเป้า / แนวรับ ($)')}<input type="number" step="any" className="field w-full" value={supportPrice} onChange={(e) => setSupportPrice(e.target.value)} /></label>

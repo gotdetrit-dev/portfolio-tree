@@ -376,7 +376,8 @@ export default function App({ user, onSignOut }) {
             realizedPL: 0, averageCostAtSellTime: 0, grossProceeds: cost, netProceeds: cost,
           }
         : null
-    const newCash = cash - cost
+    // cash เก็บเป็น USD → กองทุนไทย (บาท) ต้องแปลงก่อนหัก
+    const newCash = cash - (h.currency === 'THB' ? cost / readFxRate() : cost)
 
     setHoldings((hs) => [...hs, h])
     if (txnRow) {
@@ -716,26 +717,29 @@ export default function App({ user, onSignOut }) {
           watchingList={watchingList}
           cash={cash}
           onManageCash={() => setCashModal(true)}
-          onAddHolding={({ symbol, qty, avg, themeId }) => {
+          onAddHolding={({ symbol, qty, avg, themeId, currency, name, price }) => {
             const s = (symbol || '').trim().toUpperCase()
             if (!s) return
             if (holdings.some((x) => x.symbol === s)) {
               alert(`มี ${s} อยู่ในพอร์ตแล้ว`)
-              return
+              return false
             }
-            // ซื้อได้เฉพาะเมื่อเงินสดพอ — ต้องเติมเงินสดก่อน
-            const cost = (Number(qty) || 0) * (Number(avg) || 0)
+            const isThb = currency === 'THB' // กองทุนไทย: ราคาเป็นบาท กรอก NAV เอง
+            // ซื้อได้เฉพาะเมื่อเงินสดพอ — ต้องเติมเงินสดก่อน (cash เป็น USD)
+            const costNative = (Number(qty) || 0) * (Number(avg) || 0)
+            const cost = isThb ? costNative / readFxRate() : costNative
             if (cost > cash + 0.005) {
-              alert(`เงินสดไม่พอ: ต้องใช้ ${fmtUsd(cost)} แต่มีเงินสด ${fmtUsd(cash)}\nกดปุ่ม "จัดการเงินสด" ที่หลอดเงินสดเพื่อเติมเงินก่อน`)
+              alert(`เงินสดไม่พอ: ต้องใช้ ${fmtUsd(cost)}${isThb ? ` (฿${costNative.toLocaleString('th-TH', { maximumFractionDigits: 2 })})` : ''} แต่มีเงินสด ${fmtUsd(cash)}\nกดปุ่ม "จัดการเงินสด" ที่หลอดเงินสดเพื่อเติมเงินก่อน`)
               return false
             }
             commitHolding({
-              id: uid('h'), cat: 'core', symbol: s, name: s,
-              qty: Number(qty) || 0, avg: Number(avg) || 0, price: Number(avg) || 0,
+              id: uid('h'), cat: 'core', symbol: s, name: (isThb && name) ? name : s,
+              qty: Number(qty) || 0, avg: Number(avg) || 0, price: Number(price) > 0 ? Number(price) : Number(avg) || 0,
               addPlan: [0, 0, 0], trimPlan: [0, 0, 0], note: '',
-              currency: 'USD', manualPrice: false, themeId,
+              currency: isThb ? 'THB' : 'USD', manualPrice: isThb, themeId,
             })
           }}
+          onUpdateHolding={(h) => commitHolding(h)}
           onDeleteHolding={deleteHolding}
           onAddWatching={(input) => addWatching(input)}
           onDeleteWatching={deleteWatching}
