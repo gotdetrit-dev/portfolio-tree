@@ -683,8 +683,8 @@ const ALLOC_TOLERANCE = 0.5
 function allocStatus(actual, target) {
   if (!(actual > 0) && !(target > 0)) return null
   const diff = actual - target
-  if (diff < -ALLOC_TOLERANCE) return { label: 'ซื้อเพิ่มได้', color: '#34e07a' }
-  if (diff > ALLOC_TOLERANCE) return { label: 'เกินสัดส่วน', color: '#ff4d6d' }
+  if (diff < -ALLOC_TOLERANCE) return { label: 'ต่ำกว่าเป้า', color: '#34e07a' }
+  if (diff > ALLOC_TOLERANCE) return { label: 'ควรลด', color: '#ff4d6d' }
   return { label: 'ตามเป้า', color: '#9fb3c8' }
 }
 
@@ -786,7 +786,7 @@ function ThemeCard({ theme, actualPct = 0, perf, mode = 'all', onClick, onEdit }
       <div className="text-[13px] font-mono num-tabular mb-1" style={{ color: st.color }}>
         {st.text}
       </div>
-      {/* สถานะ: ซื้อเพิ่มได้ / เกินสัดส่วน / ตามเป้า (มุมซ้ายบน) */}
+      {/* สถานะ: ต่ำกว่าเป้า / ควรลด / ตามเป้า (มุมซ้ายบน) */}
       <StatusBadge actual={actualPct} target={Number(theme.alloc) || 0} />
       {/* หลอดสัดส่วน: แถบ = ถือจริง, ขีดตั้ง = เป้า */}
       <div className="w-full max-w-[300px] mt-1">
