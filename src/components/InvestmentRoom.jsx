@@ -295,7 +295,7 @@ export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, hold
         <div className="relative z-10 px-4 lg:px-10 pt-4 pb-24 max-w-[1200px] mx-auto">
           {/* ซ้าย: หัวข้อ + หลอดเงินสด · ขวา: มูลค่าพอร์ต / กำไรรวม (แถวเดียว) */}
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-5">
-            <div className="flex flex-col gap-3 w-full lg:max-w-[420px]">
+            <div className="flex flex-col gap-3 w-full lg:max-w-[680px]">
               <div className="flex items-center gap-3 flex-wrap justify-center lg:justify-start">
                 <h1
                   className="text-center lg:text-left text-[32px] sm:text-[40px] font-bold leading-tight text-white"
@@ -304,9 +304,10 @@ export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, hold
                   การลงทุนของฉัน
                 </h1>
                 <PerfModeToggle mode={perfMode} onChange={setPerfMode} />
+                <span title={`1 USD = ฿${Number(fxRate).toFixed(2)}`}><PerfModeToggle mode={ccy} onChange={setCcy} opts={[{ key: 'THB', label: '฿ บาท' }, { key: 'USD', label: '$ USD' }]} /></span>
               </div>
               {/* หลอดเงินสด + ปุ่มจัดการเงินสด (ฝาก/ถอน) */}
-              <div className="flex items-end gap-3">
+              <div className="flex items-end gap-3 w-full lg:max-w-[420px]">
                 <div className="flex-1 min-w-0">
                   <div className="text-[11px] text-[var(--txt-dim)] mb-0.5">💵 เงินสด <b className="font-mono" style={{ color: cash < 0 ? '#ff4d6d' : '#fff' }}>{fmtUsd(cash)}</b></div>
                   <ActualVsTargetBar actual={(Number(agg?.total) || 0) > 0 ? (cash / agg.total) * 100 : 0} target={cashAlloc} tone={cash < 0 ? '#ff4d6d' : '#9fb3c8'} />
@@ -324,10 +325,6 @@ export default function InvestmentRoom({ user, agg, cash = 0, onManageCash, hold
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 items-stretch justify-center lg:justify-end">
-              <div className="flex flex-col items-center justify-center gap-1">
-                <PerfModeToggle mode={ccy} onChange={setCcy} opts={[{ key: 'THB', label: '฿ บาท' }, { key: 'USD', label: '$ USD' }]} />
-                <span className="text-[10px] text-[var(--txt-faint)] font-mono">1 USD = ฿{Number(fxRate).toFixed(2)}</span>
-              </div>
               <PortfolioStat label="มูลค่าพอร์ต" value={fmtUsd(agg?.total || 0)} tone={cur.tone} />
               <PortfolioStat
                 label="กำไรรวม (รับรู้แล้ว + ยังไม่รับรู้)"
